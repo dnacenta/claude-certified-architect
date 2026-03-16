@@ -1,7 +1,5 @@
 # Claude Certified Architect — Foundations
 
-Source: [hooeem on X](https://x.com/hooeem/status/2033198345045336559)
-
 Anthropic's first technical certification for solution architects building production applications with Claude. 60 multiple-choice, scenario-based questions. Passing score: 720/1000. Candidates answer questions from 4 of 6 randomly selected scenarios. No penalty for guessing.
 
 Target: Solution architect with 6+ months experience with Claude APIs, Agent SDK, Claude Code, and MCP. Currently exclusive to Anthropic Partners (free for first 5,000 partner employees).
@@ -63,16 +61,16 @@ These show up as wrong answers on the exam:
 
 ---
 
-## 12-Week Study Plan
+## 4-Week Study Plan
 
-| Week | Phase | Topics |
-|------|-------|--------|
-| 1-2 | Foundations | Agentic loops, `stop_reason`, multi-agent orchestration |
-| 3-4 | Foundations | Hooks, session management, tool design, MCP config |
-| 5-6 | Applied | CLAUDE.md hierarchy, plan mode, CI/CD, Batches API |
-| 7-8 | Applied | Explicit criteria, few-shot, validation-retry, batch processing |
-| 9-10 | Reliability | Context management, escalation, error propagation, provenance |
-| 11-12 | Exam Prep | Hands-on exercises, practice exams, targeted review |
+Assumes daily study, 1.5–2 hours per day.
+
+| Week | Focus | Topics | Daily Goal |
+|------|-------|--------|------------|
+| 1 | Core Architecture | Agentic loops, `stop_reason`, multi-agent orchestration, hooks, session management, tool design, MCP config | 1 domain section + practice questions |
+| 2 | Applied Skills | CLAUDE.md hierarchy, plan mode, CI/CD, Batches API, explicit criteria, few-shot, validation-retry, structured output | 1 domain section + build a small project using each concept |
+| 3 | Reliability + Hands-On | Context management, escalation, error propagation, provenance, hands-on exercises across all domains | Review weak areas + build an end-to-end scenario |
+| 4 | Exam Prep | Practice exams, anti-pattern drills, scenario walkthroughs, timed question sets | 1 full practice exam per day + targeted review |
 
 ---
 
