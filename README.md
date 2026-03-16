@@ -23,7 +23,7 @@ This guide covers all 5 exam domains with detailed explanations, code examples, 
 
 ## Main Reference
 
-See [claude-certified-architect.md](claude-certified-architect.md) for the full overview including exam scenarios, anti-patterns, decision frameworks, a 12-week study plan, and official resources.
+See [claude-certified-architect.md](claude-certified-architect.md) for the full overview including exam scenarios, anti-patterns, decision frameworks, a 4-week study plan, and official resources.
 
 ## Resources
 
