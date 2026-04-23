@@ -191,7 +191,7 @@ Controls how Claude interacts with tools:
 ```python
 # Force Claude to call a specific tool
 response = client.messages.create(
-    model="claude-opus-4-6",
+    model="claude-opus-4-7",
     messages=[...],
     tools=[...],
     tool_choice={"type": "tool", "name": "extract_metadata"}
@@ -259,6 +259,7 @@ The Model Context Protocol is an open standard for connecting AI models to exter
 |-----------|-----------|
 | **Sampling** | Server requests an LLM completion from the client |
 | **Elicitation** | Server requests user input from the client |
+| **Roots** | Server asks the client which URIs or filesystem boundaries it may operate within |
 
 ### Project-Level Configuration (`.mcp.json`)
 
