@@ -176,11 +176,11 @@ Add `"strict": true` to the tool definition for guaranteed schema compliance:
 
 ### Solution 3: output_config (Direct JSON Output)
 
-Instead of tool_use, you can request JSON output directly:
+Instead of tool_use, you can request JSON output directly. As of late-2025 the parameter is `output_config.format` (the older `output_format` is kept for a transition period, and the previous `structured-outputs-2025-11-13` beta header is no longer required):
 
 ```python
 response = client.messages.create(
-    model="claude-opus-4-6",
+    model="claude-opus-4-7",
     messages=[{"role": "user", "content": "Extract data from this invoice: ..."}],
     output_config={
         "format": {
@@ -360,7 +360,7 @@ batch = client.messages.batches.create(
         {
             "custom_id": "invoice-001",
             "params": {
-                "model": "claude-opus-4-6",
+                "model": "claude-opus-4-7",
                 "max_tokens": 4096,
                 "messages": [
                     {"role": "user", "content": f"Extract data from: {invoice_001_text}"}

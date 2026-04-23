@@ -31,10 +31,12 @@ See [claude-certified-architect.md](claude-certified-architect.md) for the full 
 - [Anthropic Skilljar — Building with Claude API](https://anthropic.skilljar.com/claude-with-the-anthropic-api)
 - [12-Week Training Program (GitHub)](https://github.com/SGridworks/claude-certified-architect-training)
 - [Building Effective Agents (Anthropic Research)](https://www.anthropic.com/research/building-effective-agents)
-- [Claude Tool Use Docs](https://docs.anthropic.com/en/docs/build-with-claude/tool-use)
-- [Claude Code Docs](https://docs.anthropic.com/en/docs/claude-code)
+- [Claude Tool Use Docs](https://platform.claude.com/docs/en/docs/build-with-claude/tool-use)
+- [Claude Code Docs](https://code.claude.com/docs/en/overview)
 - [MCP Introduction](https://modelcontextprotocol.io/introduction)
-- [Agent SDK Overview](https://docs.anthropic.com/en/docs/agent-sdk/overview)
+- [Claude Agent SDK Overview](https://code.claude.com/docs/en/agent-sdk/overview)
+
+> **Note (2026-04):** Anthropic split its documentation. API docs are now at `platform.claude.com/docs/en/*` and Claude Code docs at `code.claude.com/docs/en/*`. The old `docs.anthropic.com/en/docs/*` URLs still redirect. The SDK has also been renamed from "Claude Code SDK" to the **Claude Agent SDK**.
 
 ## Credits
 

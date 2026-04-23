@@ -16,8 +16,9 @@ Claude Code loads CLAUDE.md files in a hierarchy. More specific files override b
 
 ```
 1. Managed Policy (org-wide, admin-controlled)
-   └── /etc/claude-code/CLAUDE.md (Linux)
-   └── /Library/Application Support/ClaudeCode/CLAUDE.md (macOS)
+   └── /etc/claude-code/CLAUDE.md                           (Linux, WSL)
+   └── /Library/Application Support/ClaudeCode/CLAUDE.md    (macOS)
+   └── C:\Program Files\ClaudeCode\CLAUDE.md                (Windows)
 
 2. User-Level (personal, NOT version-controlled)
    └── ~/.claude/CLAUDE.md
@@ -25,12 +26,27 @@ Claude Code loads CLAUDE.md files in a hierarchy. More specific files override b
 3. Project-Level (shared via version control)
    └── ./CLAUDE.md  or  ./.claude/CLAUDE.md
 
-4. Directory-Level (loaded on demand)
+4. Local project (personal, gitignored)
+   └── ./CLAUDE.local.md
+
+5. Directory-Level (loaded on demand)
    └── ./src/api/CLAUDE.md (loaded when Claude reads files in src/api/)
    └── ./tests/CLAUDE.md (loaded when Claude reads files in tests/)
 ```
 
-**Key distinction:** Project-level CLAUDE.md is committed to git and shared with the team. User-level is personal and local. Directory-level loads dynamically when Claude works in that directory.
+**Key distinction:** Project-level CLAUDE.md is committed to git and shared with the team. User-level is personal and local. `CLAUDE.local.md` is personal per project (gitignore it). Directory-level loads dynamically when Claude works in that directory.
+
+### AGENTS.md Interop
+
+Claude Code reads `CLAUDE.md`, **not** `AGENTS.md`. If your repo already uses `AGENTS.md` for other coding agents, keep one source of truth by importing it:
+
+```markdown
+# CLAUDE.md
+@AGENTS.md
+
+## Claude-specific overrides
+Use plan mode for changes under `src/billing/`.
+```
 
 ### @import Syntax
 
@@ -75,97 +91,136 @@ Claude Code maintains automatic memory at:
 ~/.claude/projects/<project>/memory/MEMORY.md
 ```
 
-- First 200 lines loaded at session start
+- **First 200 lines OR 25 KB** (whichever comes first) loaded at session start
 - Machine-local (not version controlled)
 - All worktrees in the same git repo share one memory directory
 - Claude writes notes here automatically about project patterns, decisions, preferences
+- Requires Claude Code v2.1.59 or later
+- `autoMemoryEnabled: false` disables it; `autoMemoryDirectory` relocates it
+- Topic files (e.g., `debugging.md`, `api-conventions.md`) alongside `MEMORY.md` are loaded on demand — the 200-line cap applies only to `MEMORY.md` itself
+- Subagents can maintain their own auto memory
+
+### Monorepo and Multi-Directory Controls
+
+| Setting / flag | Purpose |
+|----------------|---------|
+| `claudeMdExcludes` (in settings) | Glob-list of CLAUDE.md files to skip — useful when another team's nested CLAUDE.md would otherwise load |
+| `--add-dir <path>` | Grant Claude access to additional working directories |
+| `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` | Also load CLAUDE.md / rules from `--add-dir` paths |
+| `CLAUDE_CODE_NEW_INIT=1` | Interactive multi-phase `/init` that scaffolds CLAUDE.md, skills, and hooks |
 
 ---
 
-## 3.2 Custom Slash Commands and Skills
+## 3.2 Skills (and Legacy Slash Commands)
 
-### Commands
+> **Major change (2026):** Custom slash commands have been **merged into skills**. A file at `.claude/commands/deploy.md` and a skill at `.claude/skills/deploy/SKILL.md` both create `/deploy` and behave the same way. The old `/project:name` and `/user:name` namespacing is gone — commands are just `/name`, and higher-priority locations win when names collide.
 
-Simple reusable prompts stored as markdown files.
+### Skill Locations (Priority: Enterprise > Personal > Project > Plugin)
 
-**Project commands (shared):**
-```
-.claude/commands/
-  review.md      → /project:review
-  deploy.md      → /project:deploy
-  test.md        → /project:test
-```
+| Location | Path | Applies to |
+|----------|------|------------|
+| Enterprise | Managed settings path | All users in the org |
+| Personal | `~/.claude/skills/<name>/SKILL.md` | All your projects |
+| Project | `.claude/skills/<name>/SKILL.md` | This project only |
+| Plugin | `<plugin>/skills/<name>/SKILL.md` | Where the plugin is enabled (namespaced `plugin-name:skill-name`) |
 
-**Personal commands (local):**
-```
-~/.claude/commands/
-  my-lint.md     → /user:my-lint
-  quick-fix.md   → /user:quick-fix
-```
+Legacy `.claude/commands/*.md` still works and supports the same frontmatter — but skills add a directory for supporting files, dynamic context injection, and subagent execution. When a skill and a command share a name, the skill wins. Claude Code skills follow the open [Agent Skills](https://agentskills.io) standard.
 
-### Skills
+### Example SKILL.md
 
-More powerful than commands. Skills are structured with YAML frontmatter and support isolation, tool restrictions, and argument handling.
-
-**Location:** `.claude/skills/<skill-name>/SKILL.md`
-
-**Example:**
 ```yaml
 ---
 name: deploy
 description: Deploy the application to a specified environment
 context: fork
-allowed-tools: Bash, Read
+agent: Explore
+allowed-tools: Bash(git *) Bash(npm run deploy *)
 argument-hint: [environment]
 disable-model-invocation: true
-user-invocable: true
 ---
 
 # Deploy Skill
 
-Deploy the application to the specified environment: $ARGUMENTS
+Deploy the application to $ARGUMENTS.
 
-1. Read the deployment config for the target environment
-2. Run pre-deployment checks
-3. Execute the deployment script
+1. Run the test suite
+2. Build the application
+3. Push to the deployment target
 4. Verify the deployment succeeded
 ```
 
-### Frontmatter Options
+### Frontmatter Reference (Current)
 
-| Option | Values | Purpose |
-|--------|--------|---------|
-| `context` | `fork` / (default: main) | `fork` runs in isolated subagent context, preventing pollution of main conversation |
-| `allowed-tools` | Tool names | Restrict which tools the skill can use |
-| `argument-hint` | String | Prompt text showing what arguments are expected |
-| `disable-model-invocation` | `true`/`false` | If true, only manual `/skill-name` invocation works. Claude won't auto-trigger it. |
-| `user-invocable` | `true`/`false` | If false, only Claude can invoke (background knowledge, not a user command) |
+| Field | Purpose |
+|-------|---------|
+| `name` | `/slash-command` name (defaults to directory name; lowercase, digits, hyphens, max 64 chars) |
+| `description` | When to use the skill — Claude uses this to decide whether to auto-load. Capped at 1,536 chars combined with `when_to_use` |
+| `when_to_use` | Additional trigger phrases / example requests, appended to `description` |
+| `argument-hint` | Hint shown in autocomplete, e.g. `[issue-number]` |
+| `arguments` | Named positional arguments for `$name` substitution |
+| `disable-model-invocation` | `true` → only the user can invoke via `/name`; Claude can't auto-trigger |
+| `user-invocable` | `false` → hidden from `/` menu; Claude can still invoke (background knowledge) |
+| `allowed-tools` | Tools pre-approved while this skill is active |
+| `model` | Model override for this skill's turn |
+| `effort` | `low` / `medium` / `high` / `xhigh` / `max` — effort-level override |
+| `context` | `fork` runs the skill in an isolated subagent |
+| `agent` | Which subagent type executes when `context: fork` (e.g. `Explore`, `Plan`, `general-purpose`) |
+| `hooks` | Hooks scoped to this skill's lifecycle |
+| `paths` | Glob patterns — auto-load only when working with matching files |
+| `shell` | `bash` (default) or `powershell` for inline command injection |
 
 ### Substitution Variables
 
 | Variable | Resolves To |
 |----------|-------------|
 | `$ARGUMENTS` | Full argument string passed by the user |
-| `$ARGUMENTS[0]`, `$ARGUMENTS[1]` | Individual arguments |
-| `$0` | Alias for full arguments |
+| `$ARGUMENTS[N]` / `$N` | 0-indexed positional argument (`$0`, `$1`, …) |
+| `$name` | Named argument declared in `arguments:` frontmatter |
 | `${CLAUDE_SESSION_ID}` | Current session identifier |
 | `${CLAUDE_SKILL_DIR}` | Directory containing the SKILL.md file |
 
+### Dynamic Context Injection
+
+Skills can preprocess shell output and file contents before Claude sees them:
+
+```yaml
+---
+name: pr-summary
+description: Summarize changes in a pull request
+context: fork
+agent: Explore
+allowed-tools: Bash(gh *)
+---
+
+## PR context
+- Diff: !`gh pr diff`
+- Comments: !`gh pr view --comments`
+- Changed files: !`gh pr diff --name-only`
+
+## Your task
+Summarize this pull request...
+```
+
+`` !`cmd` `` runs the command *before* the skill body is sent. Multi-line blocks use ```` ```! ````. File inclusion with `@path` also works. Disable globally with `"disableSkillShellExecution": true`.
+
 ### Context Isolation (`context: fork`)
 
-When a skill runs with `context: fork`:
-- It spawns as a subagent with its own context
-- It can't see or pollute the main conversation
-- Results are returned to the main conversation when the skill completes
-- Useful for noisy operations (deployments, large searches) that would clutter the main context
+- Spawns the skill as a subagent with its own context
+- The `agent:` field picks the execution environment (built-in `Explore`, `Plan`, `general-purpose`, or a custom `.claude/agents/*` subagent)
+- CLAUDE.md still loads; main conversation history does not
+- Useful for noisy operations (deep research, deployments) that would pollute the main context
+
+### Skill Lifecycle and Compaction
+
+When invoked, a skill's rendered body enters the conversation as a single message and stays there. Claude Code does **not** re-read the file on later turns — write standing instructions, not one-time steps. Auto-compaction re-attaches the most recently invoked skills (first 5 000 tokens of each, 25 000-token combined budget), dropping older ones if you used many.
 
 ### Bundled Skills
 
-Claude Code ships with built-in skills:
+Claude Code ships with:
 - `/batch` — Process multiple items
-- `/claude-api` — Work with the Claude API
+- `/claude-api` — Build and migrate Claude API / Anthropic SDK apps
 - `/debug` — Debug issues
-- `/loop` — Iterative refinement
+- `/loop` — Run a prompt or slash command on a recurring interval
 - `/simplify` — Simplify code
 
 ---
@@ -241,6 +296,19 @@ The rules approach is superior because:
 ---
 
 ## 3.4 Plan Mode vs Direct Execution
+
+### Permission Modes (Current)
+
+Plan mode is now one entry in a broader permission-mode system. Start in a specific mode with `--permission-mode <mode>`, or cycle modes with **Shift+Tab** in an interactive session.
+
+| Mode | Behavior |
+|------|----------|
+| `default` | Standard permission prompts |
+| `acceptEdits` | Auto-accept file edits; still prompt for other tools |
+| `plan` | Exploration-only: Claude designs an approach and presents it before touching files |
+| `auto` | Classifier decides per-tool whether to prompt — see `claude auto-mode defaults` |
+| `dontAsk` | Never prompt for the pre-approved list |
+| `bypassPermissions` | Skip all prompts (dangerous; use only for short, contained tasks) |
 
 ### When to Use Plan Mode
 
@@ -363,8 +431,20 @@ Fix both together."
 | Flag | Purpose | Critical? |
 |------|---------|-----------|
 | `-p` / `--print` | Non-interactive mode | **MUST use in CI** or the process hangs waiting for input |
-| `--output-format json` | Machine-parseable output | Needed for downstream processing |
-| `--json-schema` | Enforce specific output structure | Ensures consistent CI output |
+| `--output-format` | `text`, `json`, or `stream-json` for machine-parseable output | Needed for downstream processing |
+| `--input-format stream-json` | Stream input events back into the agent | For pipeline composition |
+| `--json-schema '{...}'` | Validate final output against a JSON Schema (print mode only) | Enforces CI output shape |
+| `--max-turns N` | Hard cap on agentic turns; exits with error if hit | Guardrail |
+| `--max-budget-usd X` | Stop once API spend hits $X (print mode only) | Cost guardrail |
+| `--bare` | Skip auto-discovery (hooks, skills, plugins, MCP, auto memory, CLAUDE.md) — fast scripted starts | Low-overhead scripted calls |
+| `--no-session-persistence` | Don't save the session to disk | Ephemeral CI runs |
+| `--fallback-model sonnet` | Auto-fall back when the primary model is overloaded | Reliability |
+| `--include-hook-events` | Emit all hook lifecycle events into the stream | Observability |
+| `--include-partial-messages` | Emit partial streaming events | Debugging |
+| `--permission-mode <mode>` | Start in `default` / `acceptEdits` / `plan` / `auto` / `dontAsk` / `bypassPermissions` | See §3.4 |
+| `--permission-prompt-tool <mcp>` | Delegate permission prompts to an MCP tool in headless mode | Non-interactive approvals |
+| `--session-id`, `--resume`, `--continue`, `--fork-session` | Session lifecycle control | Multi-step pipelines |
+| `--setting-sources user,project,local` | Restrict which settings layers are loaded | Reproducible runs |
 
 ### Example CI Usage
 
@@ -451,4 +531,4 @@ Review session: Claude reviews the code fresh
 - C) `--force`
 - D) `--no-cache`
 
-**Answer: B** — The `-p`/`--print` flag enables non-interactive mode, which is mandatory in CI. Without it, Claude Code hangs waiting for user input.
+**Answer: B** — The `-p`/`--print` flag enables non-interactive mode, which is mandatory in CI. Without it, Claude Code hangs waiting for user input. Pair it with `--output-format json` (or `stream-json`) and `--max-turns` / `--max-budget-usd` for production-grade guardrails.

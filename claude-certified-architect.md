@@ -80,8 +80,10 @@ Assumes daily study, 1.5–2 hours per day.
 - [Anthropic Skilljar — Building with Claude API](https://anthropic.skilljar.com/claude-with-the-anthropic-api)
 - [12-Week Training Program (GitHub)](https://github.com/SGridworks/claude-certified-architect-training)
 - [Building Effective Agents (Anthropic Research)](https://www.anthropic.com/research/building-effective-agents)
-- [Claude Tool Use Docs](https://docs.anthropic.com/en/docs/build-with-claude/tool-use)
-- [Claude Code Docs](https://docs.anthropic.com/en/docs/claude-code)
+- [Claude Tool Use Docs](https://platform.claude.com/docs/en/docs/build-with-claude/tool-use)
+- [Claude Code Docs](https://code.claude.com/docs/en/overview)
 - [MCP Introduction](https://modelcontextprotocol.io/introduction)
-- [Agent SDK Overview](https://docs.anthropic.com/en/docs/agent-sdk/overview)
+- [Claude Agent SDK Overview](https://code.claude.com/docs/en/agent-sdk/overview)
 - [Claude Partner Network](https://www.anthropic.com/news/claude-partner-network)
+
+> **Note (2026-04):** Anthropic's docs were split into `platform.claude.com` (API) and `code.claude.com` (Claude Code). The SDK was renamed from "Claude Code SDK" to **Claude Agent SDK** (`pip install claude-agent-sdk`, `npm install @anthropic-ai/claude-agent-sdk`). Current frontier models: `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`.

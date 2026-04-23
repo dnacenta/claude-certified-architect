@@ -17,24 +17,27 @@ User sends prompt with tool definitions
          ↓
   Check stop_reason
          ↓
-┌─────────────────────────────────────┐
-│ "tool_use"  → Execute tool          │
-│              → Return tool_result   │
-│              → Send next request    │
-│              → Loop continues       │
-│                                     │
-│ "end_turn"  → Claude is done        │
-│              → Present final text   │
-│              → Loop ends            │
-│                                     │
-│ "pause_turn"→ Server-side sampling  │
-│               hit 10-iteration cap  │
-│              → Send response back   │
-│              → Loop continues       │
-│                                     │
-│ "max_tokens"→ Hit token limit       │
-│              → May need continuation│
-└─────────────────────────────────────┘
+┌──────────────────────────────────────┐
+│ "tool_use"     → Execute tool        │
+│                 → Return tool_result │
+│                 → Send next request  │
+│                 → Loop continues     │
+│                                      │
+│ "end_turn"     → Claude is done      │
+│                 → Present final text │
+│                 → Loop ends          │
+│                                      │
+│ "stop_sequence"→ Custom stop matched │
+│                 → Loop ends          │
+│                                      │
+│ "pause_turn"   → Server-side tool    │
+│                  loop hit its cap    │
+│                 → Send response back │
+│                 → Loop continues     │
+│                                      │
+│ "max_tokens"   → Hit token limit     │
+│                 → May need continue  │
+└──────────────────────────────────────┘
 ```
 
 ### The `stop_reason` Values
@@ -43,8 +46,9 @@ User sends prompt with tool definitions
 |-------|---------|--------|
 | `"tool_use"` | Claude wants to call a tool | Execute it, return result, continue loop |
 | `"end_turn"` | Claude has finished reasoning | Present the final text response |
-| `"pause_turn"` | Server-side tool loop hit 10-iteration limit | Send response back to continue |
-| `"max_tokens"` | Response hit the max_tokens limit | May need to request continuation |
+| `"stop_sequence"` | Output matched a configured `stop_sequences` string | Loop ends; inspect which sequence was hit |
+| `"pause_turn"` | Server-side tool loop (e.g., web_search) hit its internal iteration limit | Send the response back to continue |
+| `"max_tokens"` | Response hit the `max_tokens` limit | May need to request continuation |
 
 ### API Response Structure
 
@@ -53,7 +57,7 @@ When Claude wants to use a tool, the response contains both text and a tool_use 
 ```json
 {
   "id": "msg_01Aq9w938a90dw8q",
-  "model": "claude-opus-4-6",
+  "model": "claude-opus-4-7",
   "stop_reason": "tool_use",
   "role": "assistant",
   "content": [
@@ -195,9 +199,11 @@ Coordinator → Subagents (round 2, targeted)
 
 ## 1.3 Subagent Spawning and Context Passing
 
-### The Task/Agent Tool
+### The Task / Agent Tool
 
-Subagents are spawned using the Task tool (or Agent tool in the SDK). The coordinator must have `"Task"` in its `allowedTools` to spawn subagents.
+Subagents are spawned using the **Task** tool in Claude Code and the **Agent** tool in the Claude Agent SDK — same mechanism, different canonical name. The coordinator must include the appropriate tool name (`"Task"` in Claude Code, `"Agent"` in the SDK) in its `allowedTools` to spawn subagents.
+
+> **Naming note (2026):** The SDK was renamed from "Claude Code SDK" to the **Claude Agent SDK**. Python: `pip install claude-agent-sdk`. TypeScript: `npm install @anthropic-ai/claude-agent-sdk`. Top-level entry point: `query()` + `ClaudeAgentOptions`.
 
 ### Context Must Be Explicit
 
@@ -237,24 +243,33 @@ To run subagents in parallel, emit multiple Task/Agent tool calls in a **single 
 }
 ```
 
-### AgentDefinition in the SDK
+### AgentDefinition in the Claude Agent SDK
 
 ```python
-from claude_agent_sdk import AgentDefinition
+from claude_agent_sdk import query, ClaudeAgentOptions, AgentDefinition
 
-agents = {
-    "code-reviewer": AgentDefinition(
-        description="Expert code reviewer for Python and TypeScript",
-        prompt="Analyze code quality, identify bugs, suggest improvements.",
-        tools=["Read", "Glob", "Grep"],
+async for message in query(
+    prompt="Use the code-reviewer agent to review this codebase",
+    options=ClaudeAgentOptions(
+        allowed_tools=["Read", "Glob", "Grep", "Agent"],
+        agents={
+            "code-reviewer": AgentDefinition(
+                description="Expert code reviewer for Python and TypeScript",
+                prompt="Analyze code quality, identify bugs, suggest improvements.",
+                tools=["Read", "Glob", "Grep"],
+            ),
+            "test-writer": AgentDefinition(
+                description="Test generation specialist",
+                prompt="Write comprehensive unit tests for the provided code.",
+                tools=["Read", "Write", "Bash"],
+            ),
+        },
     ),
-    "test-writer": AgentDefinition(
-        description="Test generation specialist",
-        prompt="Write comprehensive unit tests for the provided code.",
-        tools=["Read", "Write", "Bash"],
-    )
-}
+):
+    print(message)
 ```
+
+Messages emitted from inside a subagent's context carry a `parent_tool_use_id` field — use it to attribute messages to the right subagent execution.
 
 ### fork_session
 
@@ -322,56 +337,84 @@ Refund amount: $149.99
 
 ---
 
-## 1.5 Agent SDK Hooks
+## 1.5 Claude Code / Agent SDK Hooks
 
-### Hook Lifecycle
+### Hook Events (Current Catalog)
 
-The complete lifecycle of events in a Claude Code session:
+The hook system expanded substantially in early 2026 — there are now **28 events** across six groups. Exam-relevant ones are marked ★.
+
+| Group | Events |
+|-------|--------|
+| **Session & turn** | `SessionStart` ★, `SessionEnd` ★, `UserPromptSubmit` ★, `UserPromptExpansion`, `Stop` ★, `StopFailure` |
+| **Tool / agentic loop** | `PreToolUse` ★, `PostToolUse` ★, `PostToolUseFailure`, `PostToolBatch`, `PermissionRequest` ★, `PermissionDenied` |
+| **Agent & task** | `SubagentStart`, `SubagentStop` ★, `TaskCreated`, `TaskCompleted`, `TeammateIdle` |
+| **File & config** | `FileChanged`, `CwdChanged`, `ConfigChange`, `InstructionsLoaded` |
+| **Compaction** | `PreCompact` ★, `PostCompact` |
+| **Context & worktree** | `Notification`, `Elicitation`, `ElicitationResult`, `WorktreeCreate`, `WorktreeRemove` |
+
+The rough lifecycle you should carry into the exam:
 
 ```
 SessionStart
   → UserPromptSubmit
     → [Agentic Loop]:
         PreToolUse
-          → PermissionRequest
-            → PostToolUse / PostToolUseFailure
+          → PermissionRequest  (may fire PermissionDenied)
+            → PostToolUse  /  PostToolUseFailure
               → SubagentStart / SubagentStop
-                → TaskCompleted
-    → Stop
-  → PostCompact
+                → TaskCreated / TaskCompleted
+    → Stop  /  StopFailure
+  → PreCompact → PostCompact
 → SessionEnd
 ```
 
 ### Hook Types
 
+Five types are supported. `mcp_tool` is new in 2026.
+
 | Type | How It Works | Use Case |
-|------|-------------|----------|
+|------|--------------|----------|
 | `command` | Runs a shell command. Exit 0 = pass, exit 2 = block | File validation, linting gates |
 | `http` | POST to a URL endpoint | External audit logging, webhooks |
-| `prompt` | Single LLM call for yes/no decision | Context-dependent approval |
+| `mcp_tool` | Calls a tool on a configured MCP server | Structured validation via a reusable service |
+| `prompt` | Single LLM call that returns a yes/no decision | Context-dependent approval |
 | `agent` | Multi-turn subagent with tool access | Complex compliance checks |
 
-### PreToolUse Hooks
+### PreToolUse Hooks (Current JSON Shape)
 
-Intercept outgoing tool calls before execution. Can allow, deny, or modify.
+Each matcher holds an **array** of `hooks` (the old singular `hook` field is gone). Hooks can be `async`, gated on `if` permission rules, and carry a `statusMessage` shown in the UI.
 
 ```json
 {
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": { "tool_name": "process_refund" },
-        "hook": {
-          "type": "command",
-          "command": "check-refund-authorization.sh"
-        }
+        "matcher": "process_refund",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git *)",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-refund-authorization.sh",
+            "timeout": 600,
+            "statusMessage": "Verifying refund authorization...",
+            "shell": "bash"
+          },
+          {
+            "type": "mcp_tool",
+            "server": "compliance",
+            "tool": "check_refund_policy",
+            "input": { "amount": "${tool_input.amount}" },
+            "timeout": 60
+          }
+        ]
       }
     ]
-  }
+  },
+  "disableAllHooks": false
 }
 ```
 
-**Decision control output:**
+**Decision control output (unchanged):**
 ```json
 {
   "hookSpecificOutput": {
@@ -383,10 +426,7 @@ Intercept outgoing tool calls before execution. Can allow, deny, or modify.
 }
 ```
 
-The `permissionDecision` values:
-- `"allow"` — Proceed with the tool call
-- `"deny"` — Block the tool call, provide reason
-- `"ask"` — Prompt the user for permission
+`permissionDecision` values: `"allow"`, `"deny"`, `"ask"`.
 
 ### PostToolUse Hooks
 
@@ -394,6 +434,12 @@ Intercept tool results before Claude processes them. Useful for:
 - Normalizing timestamps, date formats, status codes
 - Scrubbing sensitive data from results
 - Adding metadata to results
+
+If the tool itself errored, `PostToolUseFailure` fires instead — handle retries and diagnostics there.
+
+### Hooks in Skills and Subagents
+
+Hooks can now be scoped to a **skill's lifecycle** via the `hooks:` frontmatter field in `SKILL.md`, and subagents can carry their own hook definitions. This lets you enforce rules locally (e.g., a `commit` skill enforces `cargo fmt` before `git commit`) without polluting project-wide settings.
 
 ### Hook Configuration Locations
 
