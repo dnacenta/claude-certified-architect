@@ -37,6 +37,14 @@ User sends prompt with tool definitions
 │                                      │
 │ "max_tokens"   → Hit token limit     │
 │                 → May need continue  │
+│                                      │
+│ "refusal"      → Declined on safety  │
+│                 → Inspect stop_details│
+│                 → Loop ends           │
+│                                      │
+│ "model_context_window_exceeded"      │
+│                → Hit context window  │
+│                → Valid but truncated │
 └──────────────────────────────────────┘
 ```
 
@@ -49,6 +57,10 @@ User sends prompt with tool definitions
 | `"stop_sequence"` | Output matched a configured `stop_sequences` string | Loop ends; inspect which sequence was hit |
 | `"pause_turn"` | Server-side tool loop (e.g., web_search) hit its internal iteration limit | Send the response back to continue |
 | `"max_tokens"` | Response hit the `max_tokens` limit | May need to request continuation |
+| `"refusal"` | Claude declined to respond on safety grounds | Loop ends; inspect `stop_details` (see below), rephrase or route the request |
+| `"model_context_window_exceeded"` | Generation hit the model's context window before `max_tokens` | Response is valid but truncated; trim input or continue. Default in Sonnet 4.5+ |
+
+> **`stop_details` on refusals (Opus 4.7+):** A `refusal` response also carries a `stop_details` object (no beta header needed). `stop_details.type` is always `"refusal"`; `stop_details.category` is the policy category (`"cyber"`, `"bio"`, or `null`); `stop_details.explanation` is a human-readable string (don't parse it). `stop_details` is `null` for every other stop reason. Use the category to route or log specific refusals differently.
 
 ### API Response Structure
 
@@ -57,7 +69,7 @@ When Claude wants to use a tool, the response contains both text and a tool_use 
 ```json
 {
   "id": "msg_01Aq9w938a90dw8q",
-  "model": "claude-opus-4-7",
+  "model": "claude-opus-4-8",
   "stop_reason": "tool_use",
   "role": "assistant",
   "content": [

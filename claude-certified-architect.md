@@ -86,4 +86,4 @@ Assumes daily study, 1.5–2 hours per day.
 - [Claude Agent SDK Overview](https://code.claude.com/docs/en/agent-sdk/overview)
 - [Claude Partner Network](https://www.anthropic.com/news/claude-partner-network)
 
-> **Note (2026-04):** Anthropic's docs were split into `platform.claude.com` (API) and `code.claude.com` (Claude Code). The SDK was renamed from "Claude Code SDK" to **Claude Agent SDK** (`pip install claude-agent-sdk`, `npm install @anthropic-ai/claude-agent-sdk`). Current frontier models: `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`.
+> **Note (2026-06):** Anthropic's docs were split into `platform.claude.com` (API) and `code.claude.com` (Claude Code). The SDK was renamed from "Claude Code SDK" to **Claude Agent SDK** (`pip install claude-agent-sdk`, `npm install @anthropic-ai/claude-agent-sdk`). Current frontier models: **`claude-opus-4-8`** (most capable, released May 2026; 1M context, 128k max output, adaptive-thinking-only, `effort` defaults to `high`), `claude-sonnet-4-6`, `claude-haiku-4-5` (`claude-haiku-4-5-20251001`). `claude-opus-4-7` is now a legacy model.
