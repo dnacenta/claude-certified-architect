@@ -1,0 +1,327 @@
+/* ============================================================
+   Claude Certified Architect — Foundations · landing page
+   Theme: Nord  ·  Font: 0xProto Nerd Font (fallback JetBrains Mono)
+   Vibe: terminal / CLI retro
+   ============================================================ */
+
+:root {
+  /* Nord — Polar Night */
+  --nord0: #2e3440;
+  --nord1: #3b4252;
+  --nord2: #434c5e;
+  --nord3: #4c566a;
+  /* Nord — Snow Storm */
+  --nord4: #d8dee9;
+  --nord5: #e5e9f0;
+  --nord6: #eceff4;
+  /* Nord — Frost */
+  --nord7: #8fbcbb;
+  --nord8: #88c0d0;
+  --nord9: #81a1c1;
+  --nord10: #5e81ac;
+  /* Nord — Aurora */
+  --nord11: #bf616a; /* red */
+  --nord12: #d08770; /* orange */
+  --nord13: #ebcb8b; /* yellow */
+  --nord14: #a3be8c; /* green */
+  --nord15: #b48ead; /* purple */
+
+  --bg: #242933;          /* a touch darker than nord0 so the window pops */
+  --fg: var(--nord4);
+  --fg-bright: var(--nord6);
+  --muted: #7b8694;
+  --accent: var(--nord8); /* frost cyan */
+  --accent-2: var(--nord14); /* green — prompts */
+  --border: var(--nord3);
+
+  --font-mono: "0xProto Nerd Font", "0xProto", "JetBrains Mono", "Fira Code",
+    "SFMono-Regular", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  line-height: 1.65;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(900px 500px at 50% -10%, rgba(94, 129, 172, 0.18), transparent 70%);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  padding: 2.5rem 1.25rem 4rem;
+  min-height: 100vh;
+}
+
+/* ---- subtle CRT scanlines ---------------------------------- */
+.scanlines {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.05) 3px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  mix-blend-mode: overlay;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+code {
+  font-family: var(--font-mono);
+  color: var(--nord13);
+  background: rgba(136, 192, 208, 0.08);
+  border: 1px solid rgba(136, 192, 208, 0.15);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  font-size: 0.9em;
+}
+
+.comment { color: var(--muted); }
+.accent { color: var(--accent); }
+
+/* ============================================================
+   Terminal window
+   ============================================================ */
+.term {
+  max-width: 980px;
+  margin: 0 auto;
+  background: var(--nord0);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.2),
+    0 24px 60px -20px rgba(0, 0, 0, 0.6),
+    0 0 80px -40px rgba(136, 192, 208, 0.4);
+}
+
+.term__chrome {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  background: var(--nord1);
+  border-bottom: 1px solid var(--border);
+}
+
+.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.dot--red { background: var(--nord11); }
+.dot--yellow { background: var(--nord13); }
+.dot--green { background: var(--nord14); }
+
+.term__title {
+  flex: 1;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  /* nudge left so it's optically centered despite the dots */
+  margin-right: 52px;
+}
+
+.term__body { padding: 2.5rem clamp(1.25rem, 4vw, 3rem) 2.5rem; }
+
+/* ---- prompt lines ------------------------------------------ */
+.prompt {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+}
+.prompt__path { color: var(--accent-2); }
+.prompt__sym { color: var(--accent); font-weight: 700; }
+
+/* ============================================================
+   Hero
+   ============================================================ */
+.hero { padding-bottom: 1rem; }
+
+.hero__eyebrow {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.hero__title {
+  font-size: clamp(1.9rem, 5.2vw, 3.1rem);
+  line-height: 1.12;
+  font-weight: 700;
+  color: var(--fg-bright);
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 22px rgba(136, 192, 208, 0.18);
+  margin-bottom: 1.1rem;
+}
+
+.cursor {
+  display: inline-block;
+  margin-left: 0.15em;
+  color: var(--accent);
+  animation: blink 1.05s steps(1) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+.hero__lede {
+  max-width: 60ch;
+  color: var(--fg);
+  font-size: 1.02rem;
+  margin-bottom: 1.75rem;
+}
+
+/* ---- buttons ----------------------------------------------- */
+.hero__cta { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+
+.btn {
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn:hover { text-decoration: none; transform: translateY(-1px); }
+
+.btn--primary {
+  color: var(--nord0);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.btn--primary:hover { background: var(--nord7); border-color: var(--nord7); box-shadow: 0 0 18px -2px rgba(136, 192, 208, 0.5); }
+
+.btn--ghost { color: var(--accent); }
+.btn--ghost:hover { background: rgba(136, 192, 208, 0.1); border-color: var(--accent); }
+
+/* ============================================================
+   Sections
+   ============================================================ */
+.section { padding: 2.75rem 0; border-top: 1px dashed var(--nord2); }
+
+.section__title {
+  font-size: 1.2rem;
+  color: var(--fg-bright);
+  margin-bottom: 1.5rem;
+  font-weight: 700;
+}
+.section__title .prompt__sym { color: var(--accent); margin-right: 0.4rem; }
+
+.section__note {
+  color: var(--fg);
+  font-size: 0.95rem;
+  max-width: 70ch;
+  margin-top: 1.5rem;
+}
+
+/* ---- facts -------------------------------------------------- */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+.fact {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  background: rgba(59, 66, 82, 0.4);
+}
+.fact__num {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-shadow: 0 0 18px rgba(136, 192, 208, 0.25);
+}
+.fact__sub { font-size: 1rem; color: var(--muted); }
+.fact__label { display: block; color: var(--muted); font-size: 0.82rem; margin-top: 0.35rem; }
+
+/* ---- domains ------------------------------------------------ */
+.domains { list-style: none; display: flex; flex-direction: column; gap: 0.85rem; }
+.domain {
+  display: flex;
+  gap: 1.1rem;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 1.1rem 1.25rem;
+  background: rgba(59, 66, 82, 0.35);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.domain:hover { background: rgba(59, 66, 82, 0.7); border-left-color: var(--nord13); }
+.domain__weight {
+  flex: 0 0 auto;
+  color: var(--nord13);
+  font-weight: 700;
+  font-size: 1.05rem;
+  min-width: 3.2rem;
+}
+.domain__body h3 { color: var(--fg-bright); font-size: 1.02rem; margin-bottom: 0.3rem; }
+.domain__body p { color: var(--fg); font-size: 0.92rem; margin-bottom: 0.5rem; }
+
+/* ---- cards -------------------------------------------------- */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+.card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  background: rgba(59, 66, 82, 0.35);
+}
+.card h3 { color: var(--accent-2); font-size: 0.98rem; margin-bottom: 0.4rem; }
+.card p { color: var(--fg); font-size: 0.92rem; }
+
+/* ============================================================
+   CTA band
+   ============================================================ */
+.band {
+  margin-top: 2.75rem;
+  padding: 2.5rem clamp(1.25rem, 4vw, 2.5rem);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(136, 192, 208, 0.08), rgba(94, 129, 172, 0.05));
+  text-align: left;
+}
+.band h2 { color: var(--fg-bright); font-size: 1.6rem; margin: 0.25rem 0 0.4rem; }
+.band__sub { color: var(--fg); margin-bottom: 1.5rem; }
+
+/* ============================================================
+   Footer
+   ============================================================ */
+.footer {
+  margin-top: 2.5rem;
+  padding-top: 1.75rem;
+  border-top: 1px dashed var(--nord2);
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.footer p { margin-bottom: 0.5rem; }
+.footer__links a { color: var(--accent); }
+.footer .sep { color: var(--nord3); margin: 0 0.4rem; }
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 720px) {
+  .facts { grid-template-columns: repeat(2, 1fr); }
+  .cards { grid-template-columns: 1fr; }
+  .term__title { display: none; }
+  .term__body { padding: 1.75rem 1.25rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor { animation: none; }
+  html { scroll-behavior: auto; }
+}

@@ -1,0 +1,71 @@
+/* Print stylesheet for the generated study-guide PDF.
+   Light, readable, ink-friendly — Nord accents on headings, code, and rules. */
+
+:root {
+  --ink: #2e3440;
+  --muted: #4c566a;
+  --accent: #5e81ac;
+  --accent-soft: #81a1c1;
+  --rule: #d8dee9;
+  --code-bg: #eceff4;
+  --code-border: #d8dee9;
+}
+
+body {
+  font-family: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  color: var(--ink);
+  max-width: 100%;
+}
+
+h1, h2, h3, h4 { color: var(--accent); line-height: 1.25; }
+h1 { font-size: 20pt; margin: 0 0 0.4em; border-bottom: 2px solid var(--accent); padding-bottom: 0.2em; }
+h2 { font-size: 15pt; margin: 1.4em 0 0.5em; color: var(--ink); border-bottom: 1px solid var(--rule); padding-bottom: 0.15em; }
+h3 { font-size: 12pt; margin: 1.1em 0 0.4em; color: var(--accent); }
+h4 { font-size: 11pt; margin: 1em 0 0.3em; color: var(--muted); }
+
+p, li { color: var(--ink); }
+a { color: var(--accent); text-decoration: none; }
+
+code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 3px;
+  padding: 0.05em 0.3em;
+  font-size: 0.9em;
+  color: #bf616a;
+}
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 6px;
+  padding: 0.9em 1em;
+  overflow-x: auto;
+  font-size: 8.6pt;
+  line-height: 1.45;
+  page-break-inside: avoid;
+}
+pre code { background: none; border: none; padding: 0; color: var(--ink); }
+
+table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 9pt; page-break-inside: avoid; }
+th, td { border: 1px solid var(--rule); padding: 0.4em 0.6em; text-align: left; vertical-align: top; }
+th { background: var(--code-bg); color: var(--ink); }
+
+blockquote {
+  border-left: 3px solid var(--accent-soft);
+  margin: 1em 0;
+  padding: 0.3em 0 0.3em 1em;
+  color: var(--muted);
+  background: #f6f8fb;
+}
+
+hr { border: none; border-top: 1px solid var(--rule); margin: 1.5em 0; }
+
+/* page break inserted between concatenated files */
+.page-break { page-break-after: always; }
+
+/* keep headings with their following content */
+h1, h2, h3 { page-break-after: avoid; }

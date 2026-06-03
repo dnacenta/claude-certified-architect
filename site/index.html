@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claude Certified Architect — Foundations · Study Guide</title>
+  <meta name="description" content="Free, open-source study guide for Anthropic's Claude Certified Architect — Foundations certification. Covers all 5 exam domains with code examples, anti-patterns, decision frameworks, and practice questions." />
+  <meta name="theme-color" content="#2e3440" />
+
+  <!-- Open Graph / social preview -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Claude Certified Architect — Foundations · Study Guide" />
+  <meta property="og:description" content="Free, open-source study guide for the Claude Certified Architect — Foundations certification. All 5 domains, code examples, anti-patterns, and practice questions." />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <!-- Reliable monospace fallback; 0xProto Nerd Font is preferred if installed locally -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <!-- Terminal window -->
+  <div class="term">
+    <div class="term__chrome">
+      <span class="dot dot--red"></span>
+      <span class="dot dot--yellow"></span>
+      <span class="dot dot--green"></span>
+      <span class="term__title">cca-foundations — ~/study-guide — zsh</span>
+    </div>
+
+    <div class="term__body">
+      <header class="hero">
+        <p class="prompt"><span class="prompt__path">~/cca</span> <span class="prompt__sym">❯</span> cat README</p>
+        <p class="hero__eyebrow"># unofficial community study guide</p>
+        <h1 class="hero__title">Claude Certified Architect<br /><span class="accent">— Foundations</span><span class="cursor" aria-hidden="true">▋</span></h1>
+        <p class="hero__lede">
+          A free, open-source guide to Anthropic's first technical certification for
+          solution architects. All five exam domains, with code examples, anti-patterns,
+          decision frameworks, and practice questions.
+        </p>
+
+        <p class="prompt"><span class="prompt__path">~/cca</span> <span class="prompt__sym">❯</span> ./start --help</p>
+        <div class="hero__cta">
+          <a class="btn btn--primary" href="https://github.com/dnacenta/claude-certified-architect/blob/main/claude-certified-architect.md">[ read the guide ]</a>
+          <a class="btn btn--ghost" href="./guide_en.pdf">[ download pdf ]</a>
+          <a class="btn btn--ghost" href="https://github.com/dnacenta/claude-certified-architect">[ view on github ]</a>
+        </div>
+      </header>
+
+      <main>
+        <!-- Exam at a glance -->
+        <section class="section" id="overview">
+          <h2 class="section__title"><span class="prompt__sym">❯</span> exam --stats</h2>
+          <div class="facts">
+            <div class="fact"><span class="fact__num">60</span><span class="fact__label">scenario-based questions</span></div>
+            <div class="fact"><span class="fact__num">720<span class="fact__sub">/1000</span></span><span class="fact__label">to pass</span></div>
+            <div class="fact"><span class="fact__num">4/6</span><span class="fact__label">scenarios per exam</span></div>
+            <div class="fact"><span class="fact__num">5</span><span class="fact__label">knowledge domains</span></div>
+          </div>
+          <p class="section__note">
+            <span class="comment"># </span>Aimed at solution architects with 6+ months building on Claude APIs, the Agent
+            SDK, Claude Code, and MCP. Currently exclusive to the Anthropic Partner Network
+            (free for the first 5,000 partner employees; $99 at general availability).
+          </p>
+        </section>
+
+        <!-- Domains -->
+        <section class="section" id="domains">
+          <h2 class="section__title"><span class="prompt__sym">❯</span> ls domains/</h2>
+          <ul class="domains">
+            <li class="domain">
+              <div class="domain__weight">27%</div>
+              <div class="domain__body">
+                <h3>d1 · Agentic Architecture &amp; Orchestration</h3>
+                <p>Agentic loops, <code>stop_reason</code>, hub-and-spoke multi-agent systems, hooks, task decomposition, session management.</p>
+                <a href="https://github.com/dnacenta/claude-certified-architect/blob/main/domains/d1-agentic-architecture.md">open →</a>
+              </div>
+            </li>
+            <li class="domain">
+              <div class="domain__weight">18%</div>
+              <div class="domain__body">
+                <h3>d2 · Tool Design &amp; MCP Integration</h3>
+                <p>Tool interface design, structured errors, the 4–5 tool maximum, <code>tool_choice</code>, MCP servers and transports.</p>
+                <a href="https://github.com/dnacenta/claude-certified-architect/blob/main/domains/d2-tool-design-mcp.md">open →</a>
+              </div>
+            </li>
+            <li class="domain">
+              <div class="domain__weight">20%</div>
+              <div class="domain__body">
+                <h3>d3 · Claude Code Configuration &amp; Workflows</h3>
+                <p>CLAUDE.md hierarchy, skills &amp; slash commands, path-specific rules, plan mode, CI/CD integration.</p>
+                <a href="https://github.com/dnacenta/claude-certified-architect/blob/main/domains/d3-claude-code-config.md">open →</a>
+              </div>
+            </li>
+            <li class="domain">
+              <div class="domain__weight">20%</div>
+              <div class="domain__body">
+                <h3>d4 · Prompt Engineering &amp; Structured Output</h3>
+                <p>Explicit criteria, few-shot prompting, <code>tool_use</code> &amp; JSON schemas, validation-retry loops, multi-pass review.</p>
+                <a href="https://github.com/dnacenta/claude-certified-architect/blob/main/domains/d4-prompt-engineering.md">open →</a>
+              </div>
+            </li>
+            <li class="domain">
+              <div class="domain__weight">15%</div>
+              <div class="domain__body">
+                <h3>d5 · Context Management &amp; Reliability</h3>
+                <p>Context windows, escalation patterns, error propagation, large-codebase strategies, human review, provenance.</p>
+                <a href="https://github.com/dnacenta/claude-certified-architect/blob/main/domains/d5-context-reliability.md">open →</a>
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <!-- What's inside -->
+        <section class="section" id="inside">
+          <h2 class="section__title"><span class="prompt__sym">❯</span> tree --inside</h2>
+          <div class="cards">
+            <div class="card"><h3>├─ 10 critical anti-patterns</h3><p>The wrong answers that show up on the exam — and why they're wrong.</p></div>
+            <div class="card"><h3>├─ decision frameworks</h3><p>Programmatic vs. prompt-based enforcement, plan vs. direct, batch vs. sync, and more.</p></div>
+            <div class="card"><h3>├─ practice questions</h3><p>Scenario-based questions with explained answers across every domain.</p></div>
+            <div class="card"><h3>└─ 4-week study plan</h3><p>A daily schedule from core architecture through exam-prep drills.</p></div>
+          </div>
+        </section>
+
+        <!-- CTA band -->
+        <section class="band">
+          <p class="prompt"><span class="prompt__path">~/cca</span> <span class="prompt__sym">❯</span> ./start</p>
+          <h2>Start studying.</h2>
+          <p class="band__sub">Read it online, grab the PDF, or clone the repo and study offline.</p>
+          <div class="hero__cta">
+            <a class="btn btn--primary" href="https://github.com/dnacenta/claude-certified-architect/blob/main/claude-certified-architect.md">[ read the guide ]</a>
+            <a class="btn btn--ghost" href="./guide_en.pdf">[ download pdf ]</a>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <p>
+          <span class="comment"># </span>Unofficial community study guide. Claude Certified Architect is a
+          certification program by <a href="https://www.anthropic.com">Anthropic</a>.
+        </p>
+        <p class="footer__links">
+          <a href="https://github.com/dnacenta/claude-certified-architect">source</a>
+          <span class="sep">·</span>
+          <a href="https://claude.com/partners">partner network</a>
+          <span class="sep">·</span>
+          <a href="https://anthropic.skilljar.com/claude-with-the-anthropic-api">anthropic academy</a>
+        </p>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

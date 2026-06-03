@@ -1,0 +1,7 @@
+# Build artifacts (generated in CI)
+combined.md
+combined.pdf
+site/guide_en.pdf
+
+# Node
+node_modules/

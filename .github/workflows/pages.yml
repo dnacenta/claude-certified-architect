@@ -1,0 +1,73 @@
+name: Deploy site & build PDF
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Allow the workflow to publish to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One concurrent Pages deploy; cancel superseded runs
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Assemble combined markdown
+        run: |
+          mkdir -p site
+          {
+            echo "# Claude Certified Architect — Foundations"
+            echo
+            echo "_Unofficial community study guide — https://github.com/dnacenta/claude-certified-architect_"
+            echo
+            echo '<div class="page-break"></div>'
+            echo
+            cat claude-certified-architect.md
+            for f in $(ls domains/d*.md | sort); do
+              echo
+              echo '<div class="page-break"></div>'
+              echo
+              cat "$f"
+            done
+          } > combined.md
+
+      - name: Build PDF
+        run: |
+          npx --yes md-to-pdf combined.md \
+            --stylesheet pdf/print.css \
+            --document-title "Claude Certified Architect — Foundations" \
+            --launch-options '{"args":["--no-sandbox","--disable-setuid-sandbox"]}' \
+            --pdf-options '{"format":"A4","margin":{"top":"18mm","bottom":"18mm","left":"16mm","right":"16mm"},"printBackground":true}'
+          mv combined.pdf site/guide_en.pdf
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

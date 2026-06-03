@@ -4,6 +4,13 @@ Unofficial study guide for the **Claude Certified Architect — Foundations** ce
 
 This guide covers all 5 exam domains with detailed explanations, code examples, anti-patterns, decision frameworks, and practice questions.
 
+## Read it online
+
+- **Website:** https://dnacenta.github.io/claude-certified-architect/
+- **PDF (English):** https://dnacenta.github.io/claude-certified-architect/guide_en.pdf
+
+The landing page and PDF are built and deployed automatically from this repo's markdown on every push to `main` (see [`.github/workflows/pages.yml`](.github/workflows/pages.yml)). The PDF is generated from the source `.md` files, so it never drifts from the guide.
+
 ## Exam Overview
 
 - **Format**: 60 multiple-choice, scenario-based questions
