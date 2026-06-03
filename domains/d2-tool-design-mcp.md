@@ -191,7 +191,7 @@ Controls how Claude interacts with tools:
 ```python
 # Force Claude to call a specific tool
 response = client.messages.create(
-    model="claude-opus-4-7",
+    model="claude-opus-4-8",
     messages=[...],
     tools=[...],
     tool_choice={"type": "tool", "name": "extract_metadata"}

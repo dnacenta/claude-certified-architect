@@ -36,7 +36,7 @@ See [claude-certified-architect.md](claude-certified-architect.md) for the full 
 - [MCP Introduction](https://modelcontextprotocol.io/introduction)
 - [Claude Agent SDK Overview](https://code.claude.com/docs/en/agent-sdk/overview)
 
-> **Note (2026-04):** Anthropic split its documentation. API docs are now at `platform.claude.com/docs/en/*` and Claude Code docs at `code.claude.com/docs/en/*`. The old `docs.anthropic.com/en/docs/*` URLs still redirect. The SDK has also been renamed from "Claude Code SDK" to the **Claude Agent SDK**.
+> **Note (2026-06):** Anthropic split its documentation. API docs are now at `platform.claude.com/docs/en/*` and Claude Code docs at `code.claude.com/docs/en/*`. The old `docs.anthropic.com/en/docs/*` URLs still redirect. The SDK has also been renamed from "Claude Code SDK" to the **Claude Agent SDK**. The current frontier model is **`claude-opus-4-8`** (released May 2026); `claude-opus-4-7` is now legacy.
 
 ## Credits
 
