@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --nord0:#2e3440; --nord1:#3b4252; --nord3:#4c566a;
+      --nord4:#d8dee9; --nord6:#eceff4;
+      --nord8:#88c0d0; --nord11:#bf616a; --nord13:#ebcb8b; --nord14:#a3be8c;
+      --bg:#242933; --muted:#7b8694;
+      --font:"0xProto Nerd Font","JetBrains Mono",ui-monospace,Menlo,monospace;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html,body { width:1200px; height:630px; }
+    body {
+      font-family:var(--font);
+      background-color:var(--bg);
+      background-image:radial-gradient(900px 480px at 50% -8%, rgba(94,129,172,.28), transparent 70%);
+      color:var(--nord4);
+      display:flex; align-items:center; justify-content:center;
+      -webkit-font-smoothing:antialiased;
+    }
+    .term {
+      width:1080px; height:500px;
+      background:var(--nord0);
+      border:1px solid var(--nord3);
+      border-radius:14px;
+      overflow:hidden;
+      box-shadow:0 30px 80px -20px rgba(0,0,0,.6), 0 0 120px -50px rgba(136,192,208,.5);
+      display:flex; flex-direction:column;
+    }
+    .chrome {
+      display:flex; align-items:center; gap:9px;
+      padding:14px 18px; background:var(--nord1);
+      border-bottom:1px solid var(--nord3);
+    }
+    .dot { width:14px; height:14px; border-radius:50%; }
+    .red{background:var(--nord11)} .yellow{background:var(--nord13)} .green{background:var(--nord14)}
+    .chrome span { flex:1; text-align:center; color:var(--muted); font-size:15px; margin-right:60px; }
+    .body { padding:42px 52px; flex:1; display:flex; flex-direction:column; }
+    .prompt { font-size:18px; color:var(--muted); margin-bottom:16px; }
+    .path{color:var(--nord14)} .sym{color:var(--nord8); font-weight:700}
+    .eyebrow { color:var(--muted); font-size:19px; margin-bottom:10px; }
+    h1 {
+      font-size:54px; line-height:1.1; font-weight:700; color:var(--nord6);
+      letter-spacing:-.5px; text-shadow:0 0 26px rgba(136,192,208,.25); margin-bottom:18px;
+    }
+    h1 .accent { color:var(--nord8); }
+    .lede { font-size:21px; color:var(--nord4); max-width:62ch; margin-bottom:auto; }
+    .stats { display:flex; gap:14px; margin:26px 0 0; }
+    .chip {
+      border:1px solid var(--nord3); border-radius:8px;
+      padding:10px 16px; background:rgba(59,66,82,.5); font-size:18px;
+    }
+    .chip b { color:var(--nord8); font-weight:700; }
+    .url { margin-top:22px; color:var(--nord8); font-size:20px; }
+    .url .sym { margin-right:8px; }
+  </style>
+</head>
+<body>
+  <div class="term">
+    <div class="chrome">
+      <div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div>
+      <span>cca-foundations — ~/study-guide — zsh</span>
+    </div>
+    <div class="body">
+      <div class="prompt"><span class="path">~/cca</span> <span class="sym">❯</span> cat README</div>
+      <div class="eyebrow"># unofficial community study guide</div>
+      <h1>Claude Certified Architect<br /><span class="accent">— Foundations</span></h1>
+      <div class="lede">A free, open-source guide to Anthropic's first technical certification for solution architects.</div>
+      <div class="stats">
+        <div class="chip"><b>60</b> questions</div>
+        <div class="chip"><b>720/1000</b> to pass</div>
+        <div class="chip"><b>5</b> domains</div>
+        <div class="chip"><b>PDF</b> + web</div>
+      </div>
+      <div class="url"><span class="sym">❯</span>dnacenta.github.io/claude-certified-architect</div>
+    </div>
+  </div>
+</body>
+</html>
