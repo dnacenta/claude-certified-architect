@@ -60,7 +60,7 @@ User sends prompt with tool definitions
 | `"refusal"` | Claude declined to respond on safety grounds | Loop ends; inspect `stop_details` (see below), rephrase or route the request |
 | `"model_context_window_exceeded"` | Generation hit the model's context window before `max_tokens` | Response is valid but truncated; trim input or continue. Default in Sonnet 4.5+ |
 
-> **`stop_details` on refusals (Opus 4.7+):** A `refusal` response also carries a `stop_details` object (no beta header needed). `stop_details.type` is always `"refusal"`; `stop_details.category` is the policy category (`"cyber"`, `"bio"`, or `null`); `stop_details.explanation` is a human-readable string (don't parse it). `stop_details` is `null` for every other stop reason. Use the category to route or log specific refusals differently.
+> **`stop_details` on refusals (Opus 4.7+):** A `refusal` response also carries a `stop_details` object (no beta header needed). `stop_details.type` is always `"refusal"`; `stop_details.category` is the policy category (e.g. `"cyber"`, `"bio"`, `"reasoning_extraction"`, `"frontier_llm"`, or `null` — the set has grown over time); `stop_details.explanation` is a human-readable string (don't parse it). `stop_details` is `null` for every other stop reason. Use the category to route or log specific refusals differently.
 
 ### API Response Structure
 

@@ -4,6 +4,8 @@ Unofficial study guide for the **Claude Certified Architect — Foundations** ce
 
 This guide covers all 5 exam domains with detailed explanations, code examples, anti-patterns, decision frameworks, and practice questions.
 
+It is actively maintained and updated regularly to track changes to Anthropic's models, APIs, and Claude Code. See the dated note under [Resources](#resources) for the latest refresh.
+
 ## Read it online
 
 - **Website:** https://dnacenta.github.io/claude-certified-architect/
@@ -43,7 +45,7 @@ See [claude-certified-architect.md](claude-certified-architect.md) for the full 
 - [MCP Introduction](https://modelcontextprotocol.io/introduction)
 - [Claude Agent SDK Overview](https://code.claude.com/docs/en/agent-sdk/overview)
 
-> **Note (2026-06):** Anthropic split its documentation. API docs are now at `platform.claude.com/docs/en/*` and Claude Code docs at `code.claude.com/docs/en/*`. The old `docs.anthropic.com/en/docs/*` URLs still redirect. The SDK has also been renamed from "Claude Code SDK" to the **Claude Agent SDK**. The current frontier model is **`claude-opus-4-8`** (released May 2026); `claude-opus-4-7` is now legacy.
+> **Note (2026-07):** Anthropic split its documentation. API docs are now at `platform.claude.com/docs/en/*` and Claude Code docs at `code.claude.com/docs/en/*`. The old `docs.anthropic.com/en/docs/*` URLs still redirect. The SDK has also been renamed from "Claude Code SDK" to the **Claude Agent SDK**. Current models: **`claude-fable-5`** (Anthropic's most capable widely released model), **`claude-opus-4-8`** (most capable Opus-tier), `claude-sonnet-5`, and `claude-haiku-4-5`. `claude-opus-4-7` and `claude-sonnet-4-6` are now legacy. The code samples in this guide use `claude-opus-4-8`, still the recommended default.
 
 ## Credits
 
