@@ -353,16 +353,17 @@ Refund amount: $149.99
 
 ### Hook Events (Current Catalog)
 
-The hook system expanded substantially in early 2026 — there are now **28 events** across six groups. Exam-relevant ones are marked ★.
+The hook system expanded substantially in 2026 — there are now **30 events** across seven groups. Exam-relevant ones are marked ★.
 
 | Group | Events |
 |-------|--------|
+| **Setup** | `Setup` (runs once per session) |
 | **Session & turn** | `SessionStart` ★, `SessionEnd` ★, `UserPromptSubmit` ★, `UserPromptExpansion`, `Stop` ★, `StopFailure` |
 | **Tool / agentic loop** | `PreToolUse` ★, `PostToolUse` ★, `PostToolUseFailure`, `PostToolBatch`, `PermissionRequest` ★, `PermissionDenied` |
 | **Agent & task** | `SubagentStart`, `SubagentStop` ★, `TaskCreated`, `TaskCompleted`, `TeammateIdle` |
 | **File & config** | `FileChanged`, `CwdChanged`, `ConfigChange`, `InstructionsLoaded` |
 | **Compaction** | `PreCompact` ★, `PostCompact` |
-| **Context & worktree** | `Notification`, `Elicitation`, `ElicitationResult`, `WorktreeCreate`, `WorktreeRemove` |
+| **Context & worktree** | `Notification`, `MessageDisplay`, `Elicitation`, `ElicitationResult`, `WorktreeCreate`, `WorktreeRemove` |
 
 The rough lifecycle you should carry into the exam:
 

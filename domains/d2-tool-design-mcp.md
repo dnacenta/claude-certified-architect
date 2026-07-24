@@ -179,6 +179,9 @@ Controls how Claude interacts with tools:
 | `"auto"` (default) | Claude may call a tool OR respond with text | General conversation with optional tool use |
 | `"any"` | Claude MUST call a tool, but can choose which | Guarantee structured output |
 | `{"type": "tool", "name": "specific_tool"}` | Claude MUST call this exact tool | Force a specific operation first |
+| `"none"` | Claude cannot call any tool; text only | Force a text answer while keeping tool definitions in context |
+
+Any `tool_choice` value can also carry `"disable_parallel_tool_use": true` to cap Claude at a single tool call per response (by default it may emit several `tool_use` blocks at once).
 
 ### When to Use Each
 
@@ -187,6 +190,8 @@ Controls how Claude interacts with tools:
 **`"any"`** — When you need guaranteed structured output. Example: You have multiple extraction schemas (invoice, receipt, contract) and you want Claude to pick the right one and always return structured data.
 
 **Forced specification** — When a specific tool must run first. Example: Always call `extract_metadata` before any enrichment step.
+
+**`"none"`** — When a turn must produce prose (e.g., a final summarization pass) without stripping the tool definitions from the request.
 
 ```python
 # Force Claude to call a specific tool

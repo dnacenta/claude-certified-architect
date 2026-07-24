@@ -38,7 +38,7 @@ Claude Code loads CLAUDE.md files in a hierarchy. More specific files override b
 
 ### AGENTS.md Interop
 
-Claude Code reads `CLAUDE.md`, **not** `AGENTS.md`. If your repo already uses `AGENTS.md` for other coding agents, keep one source of truth by importing it:
+During normal sessions Claude Code reads `CLAUDE.md`, **not** `AGENTS.md` — though `/init` does read an existing `AGENTS.md` when scaffolding. If your repo already uses `AGENTS.md` for other coding agents, keep one source of truth by importing it:
 
 ```markdown
 # CLAUDE.md
@@ -216,12 +216,18 @@ When invoked, a skill's rendered body enters the conversation as a single messag
 
 ### Bundled Skills
 
-Claude Code ships with:
+Claude Code ships with a set of bundled skills that varies by release. Recent versions include:
 - `/batch` — Process multiple items
 - `/claude-api` — Build and migrate Claude API / Anthropic SDK apps
+- `/code-review` — Multi-agent review of pending changes or a PR
+- `/dataviz` — Charts and dashboards with consistent design
 - `/debug` — Debug issues
+- `/doctor` — Diagnose Claude Code setup problems
+- `/fewer-permission-prompts` — Build a permission allowlist from your usage
 - `/loop` — Run a prompt or slash command on a recurring interval
-- `/simplify` — Simplify code
+- `/verify` — Launch the app to confirm a change works
+
+Check `/help` in your installed version (or the commands page in the docs) for the current list.
 
 ---
 

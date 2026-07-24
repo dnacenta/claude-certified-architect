@@ -1,6 +1,6 @@
 # Claude Certified Architect — Foundations Study Guide
 
-Unofficial study guide for the **Claude Certified Architect — Foundations** certification exam by Anthropic.
+Unofficial study guide for the **Claude Certified Architect — Foundations** (CCAR-F) certification exam by Anthropic.
 
 This guide covers all 5 exam domains with detailed explanations, code examples, anti-patterns, decision frameworks, and practice questions.
 
@@ -15,10 +15,12 @@ The landing page and PDF are built and deployed automatically from this repo's m
 
 ## Exam Overview
 
-- **Format**: 60 multiple-choice, scenario-based questions
+- **Format**: 60 multiple-choice, scenario-based questions in 120 minutes (proctored, closed-book)
 - **Passing score**: 720/1000
 - **Scenarios**: 4 of 6 randomly selected per exam
-- **Target audience**: Solution architects with 6+ months experience building with Claude APIs, Agent SDK, Claude Code, and MCP
+- **Delivery**: Pearson VUE (OnVUE online or test center), registered via the Anthropic Partner Academy
+- **Price / validity**: $125 per attempt; certification valid 12 months (Exam Guide v1.0, effective July 2026)
+- **Target audience**: Solution architects with 6+ months experience building with Claude APIs, Agent SDK, Claude Code, and MCP; access is gated to the Claude Partner Network
 
 ## Domains
 
@@ -36,7 +38,8 @@ See [claude-certified-architect.md](claude-certified-architect.md) for the full 
 
 ## Resources
 
-- [Official Exam Guide (PDF)](https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F8lsy243ftffjjy1cx9lm3o2bw%2Fpublic%2F1773274827%2FClaude+Certified+Architect+%E2%80%93+Foundations+Certification+Exam+Guide.pdf)
+- [Official Exam Guide (PDF, March 2026 — superseded by Exam Guide v1.0, available via the Anthropic Partner Academy)](https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F8lsy243ftffjjy1cx9lm3o2bw%2Fpublic%2F1773274827%2FClaude+Certified+Architect+%E2%80%93+Foundations+Certification+Exam+Guide.pdf)
+- [Pearson VUE — Anthropic certification program](https://www.pearsonvue.com/us/en/anthropic.html)
 - [Anthropic Skilljar — Building with Claude API](https://anthropic.skilljar.com/claude-with-the-anthropic-api)
 - [12-Week Training Program (GitHub)](https://github.com/SGridworks/claude-certified-architect-training)
 - [Building Effective Agents (Anthropic Research)](https://www.anthropic.com/research/building-effective-agents)
@@ -45,7 +48,9 @@ See [claude-certified-architect.md](claude-certified-architect.md) for the full 
 - [MCP Introduction](https://modelcontextprotocol.io/introduction)
 - [Claude Agent SDK Overview](https://code.claude.com/docs/en/agent-sdk/overview)
 
-> **Note (2026-07):** Anthropic split its documentation. API docs are now at `platform.claude.com/docs/en/*` and Claude Code docs at `code.claude.com/docs/en/*`. The old `docs.anthropic.com/en/docs/*` URLs still redirect. The SDK has also been renamed from "Claude Code SDK" to the **Claude Agent SDK**. Current models: **`claude-fable-5`** (Anthropic's most capable widely released model), **`claude-opus-4-8`** (most capable Opus-tier), `claude-sonnet-5`, and `claude-haiku-4-5`. `claude-opus-4-7` and `claude-sonnet-4-6` are now legacy. The code samples in this guide use `claude-opus-4-8`, still the recommended default.
+> **Note (2026-07):** Anthropic split its documentation. API docs are now at `platform.claude.com/docs/en/*` and Claude Code docs at `code.claude.com/docs/en/*`. The old `docs.anthropic.com/en/docs/*` URLs still redirect. The SDK has also been renamed from "Claude Code SDK" to the **Claude Agent SDK**. Current models: **`claude-fable-5`** (Anthropic's most capable widely released model), **`claude-opus-4-8`** (most capable Opus-tier), `claude-sonnet-5`, and `claude-haiku-4-5`. `claude-opus-4-7` and `claude-sonnet-4-6` are now previous-generation (still active). The code samples in this guide use `claude-opus-4-8`, still the recommended default.
+>
+> **Program update (2026-07):** the certification family now spans four credentials (CCAO-F, CCAR-F, CCAR-P, CCDV-F), delivered proctored via Pearson VUE and registered through the Anthropic Partner Academy. Exam Guide v1.0 (effective July 2026) sets a $125 exam fee and 12-month certification validity, superseding the launch-period "$99 / first 5,000 partner employees free" terms.
 
 ## Credits
 
