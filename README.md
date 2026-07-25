@@ -4,7 +4,7 @@ Unofficial study guide for the **Claude Certified Architect — Foundations** (C
 
 This guide covers all 5 exam domains with detailed explanations, code examples, anti-patterns, decision frameworks, and practice questions.
 
-It is actively maintained and updated regularly to track changes to Anthropic's models, APIs, and Claude Code. See the dated note under [Resources](#resources) for the latest refresh.
+It is actively maintained and updated regularly to track changes to Anthropic's models, APIs, and Claude Code. **Last refresh: July 2026** — see the dated notes under [Resources](#resources) for what changed.
 
 ## Read it online
 
