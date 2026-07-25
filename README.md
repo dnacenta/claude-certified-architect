@@ -6,6 +6,19 @@ This guide covers all 5 exam domains with detailed explanations, code examples, 
 
 It is actively maintained and updated regularly to track changes to Anthropic's models, APIs, and Claude Code. **Last refresh: July 2026** — see the dated notes under [Resources](#resources) for what changed.
 
+## The Claude Certification Family
+
+Anthropic now runs **four** certifications. This repo's deep-dive guide covers CCAR-F; overview guides for the other three (sourced from the official v1.0 exam guides) live in [`certs/`](certs/):
+
+| Code | Credential | Audience | Fee | Guide |
+|---|---|---|---|---|
+| CCAO-F | Associate — Foundations | Business / productivity users (non-developer) | $99 | [Overview](certs/ccao-f-associate.md) |
+| **CCAR-F** | **Architect — Foundations** | **Solution architects** | **$125** | **[Full study guide](claude-certified-architect.md) — this repo's main guide** |
+| CCAR-P | Architect — Professional | Senior architects owning the full solution lifecycle | $175 | [Overview](certs/ccar-p-architect-professional.md) |
+| CCDV-F | Developer — Foundations | Engineers shipping Claude apps, agents, and workflows | $125 | [Overview](certs/ccdv-f-developer.md) |
+
+All four are 120-minute proctored exams delivered via Pearson VUE, passing score 720/1,000, credentials valid 12 months (Exam Guides v1.0, effective July 2026).
+
 ## Read it online
 
 - **Website:** https://dnacenta.github.io/claude-certified-architect/
