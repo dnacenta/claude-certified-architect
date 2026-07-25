@@ -1,8 +1,10 @@
 # Claude Certified Architect — Foundations
 
-Anthropic's first technical certification for solution architects building production applications with Claude. 60 multiple-choice, scenario-based questions. Passing score: 720/1000. Candidates answer questions from 4 of 6 randomly selected scenarios. No penalty for guessing.
+Anthropic's technical certification for solution architects building production applications with Claude (exam code **CCAR-F**). 60 multiple-choice, scenario-based questions in 120 minutes, proctored and closed-book. Passing score: 720/1000. Candidates answer questions from 4 of 6 randomly selected scenarios. No penalty for guessing.
 
-Target: Solution architect with 6+ months experience with Claude APIs, Agent SDK, Claude Code, and MCP. Currently exclusive to Anthropic Partners (free for first 5,000 partner employees).
+Part of a four-credential family: Claude Certified Associate — Foundations (CCAO-F), **Architect — Foundations (CCAR-F)** — this guide, Architect — Professional (CCAR-P), and Developer — Foundations (CCDV-F). Delivered via Pearson VUE (OnVUE online or test center), registered through the Anthropic Partner Academy. Per Exam Guide v1.0 (effective July 2026): $125 per attempt, certification valid 12 months, up to 4 attempts per rolling 12 months (14/30/90-day waits after attempts 1–3). Access remains gated to the Claude Partner Network; the earlier "$99, first 5,000 partner employees free" beta terms are superseded.
+
+Target: Solution architect with 6+ months experience with Claude APIs, Agent SDK, Claude Code, and MCP.
 
 ---
 
@@ -76,7 +78,8 @@ Assumes daily study, 1.5–2 hours per day.
 
 ## Resources
 
-- [Official Exam Guide (PDF)](https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F8lsy243ftffjjy1cx9lm3o2bw%2Fpublic%2F1773274827%2FClaude+Certified+Architect+%E2%80%93+Foundations+Certification+Exam+Guide.pdf)
+- [Official Exam Guide (PDF, March 2026 — superseded by Exam Guide v1.0, available via the Anthropic Partner Academy)](https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F8lsy243ftffjjy1cx9lm3o2bw%2Fpublic%2F1773274827%2FClaude+Certified+Architect+%E2%80%93+Foundations+Certification+Exam+Guide.pdf)
+- [Pearson VUE — Anthropic certification program](https://www.pearsonvue.com/us/en/anthropic.html)
 - [Anthropic Skilljar — Building with Claude API](https://anthropic.skilljar.com/claude-with-the-anthropic-api)
 - [12-Week Training Program (GitHub)](https://github.com/SGridworks/claude-certified-architect-training)
 - [Building Effective Agents (Anthropic Research)](https://www.anthropic.com/research/building-effective-agents)
@@ -86,4 +89,6 @@ Assumes daily study, 1.5–2 hours per day.
 - [Claude Agent SDK Overview](https://code.claude.com/docs/en/agent-sdk/overview)
 - [Claude Partner Network](https://www.anthropic.com/news/claude-partner-network)
 
-> **Note (2026-07):** Anthropic's docs were split into `platform.claude.com` (API) and `code.claude.com` (Claude Code). The SDK was renamed from "Claude Code SDK" to **Claude Agent SDK** (`pip install claude-agent-sdk`, `npm install @anthropic-ai/claude-agent-sdk`). Current models: **`claude-fable-5`** (Anthropic's most capable widely released model; 1M context), **`claude-opus-4-8`** (most capable Opus-tier; 1M context, 128k max output, adaptive-thinking-only, `effort` defaults to `high`), `claude-sonnet-5`, and `claude-haiku-4-5` (`claude-haiku-4-5-20251001`). `claude-opus-4-7` and `claude-sonnet-4-6` are now legacy. This guide's code samples use `claude-opus-4-8` as a sensible default.
+> **Note (2026-07):** Anthropic's docs were split into `platform.claude.com` (API) and `code.claude.com` (Claude Code). The SDK was renamed from "Claude Code SDK" to **Claude Agent SDK** (`pip install claude-agent-sdk`, `npm install @anthropic-ai/claude-agent-sdk`). Current models: **`claude-fable-5`** (Anthropic's most capable widely released model; 1M context), **`claude-opus-4-8`** (most capable Opus-tier; 1M context, 128k max output, adaptive-thinking-only, `effort` defaults to `high`), `claude-sonnet-5`, and `claude-haiku-4-5` (`claude-haiku-4-5-20251001`). `claude-opus-4-7` and `claude-sonnet-4-6` are now previous-generation (still active). This guide's code samples use `claude-opus-4-8` as a sensible default.
+>
+> **Program update (2026-07):** the certification family now spans four credentials (CCAO-F, CCAR-F, CCAR-P, CCDV-F), delivered proctored via Pearson VUE and registered through the Anthropic Partner Academy. Exam Guide v1.0 (effective July 2026) sets a $125 exam fee and 12-month certification validity, superseding the launch-period "$99 / first 5,000 partner employees free" terms.

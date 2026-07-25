@@ -199,6 +199,8 @@ response = client.messages.create(
 )
 ```
 
+> **SDK helper:** `client.messages.parse()` (Python/TypeScript) wraps this pattern — pass a Pydantic model or Zod schema and it sends `output_config.format`, validates the response against your schema, and returns the parsed object via `response.parsed_output`. Prefer it over hand-parsing JSON when using structured outputs.
+
 ### Schema Compliance vs Semantic Correctness
 
 **Important exam concept:** Structured output guarantees **schema compliance** (correct types, required fields present, valid enums) but does NOT guarantee **semantic correctness**.
@@ -254,14 +256,17 @@ Strict mode supports a subset of JSON Schema:
 
 | Supported | NOT Supported |
 |-----------|--------------|
-| `type` | `minimum`, `maximum` |
+| `type` (object, array, string, integer, number, boolean, null) | `minimum`, `maximum`, `multipleOf` |
 | `properties`, `required` | `minLength`, `maxLength` |
-| `enum` | `pattern` (regex) |
-| `items` (for arrays) | `allOf`, `anyOf`, `oneOf` |
-| `additionalProperties: false` | `patternProperties` |
-| `format` (date, time, email, uri) | `if`/`then`/`else` |
+| `enum`, `const` | `pattern` (regex), `patternProperties` |
+| `items` (for arrays) | `oneOf`, `if`/`then`/`else` |
+| `anyOf`, `allOf`, `$ref`/`$defs` | Recursive schemas |
+| `additionalProperties: false` (required on every object) | `additionalProperties` set to anything other than `false` |
+| `format` (`date-time`, `time`, `date`, `duration`, `email`, `hostname`, `uri`, `ipv4`, `ipv6`, `uuid`) | Complex array constraints |
 
-**Implication:** Numeric range validation, string length validation, and complex conditional schemas must be handled in your validation code, not in the schema.
+> Earlier versions of structured outputs did not support `anyOf`/`allOf` — they do now. The Python and TypeScript SDKs strip unsupported constraints from the schema they send and validate them client-side instead.
+
+**Implication:** Numeric range validation, string length validation, regex patterns, and complex conditional schemas must be handled in your validation code, not in the schema.
 
 ---
 
