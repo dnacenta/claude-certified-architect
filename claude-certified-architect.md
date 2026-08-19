@@ -8,6 +8,29 @@ Target: Solution architect with 6+ months experience with Claude APIs, Agent SDK
 
 ---
 
+## Current Model Lineup (August 2026)
+
+The exam is model-agnostic, but scenario questions and code samples assume a current lineup. This guide's samples use **`claude-opus-5`**.
+
+| Model | ID | Context | Max output | Price (in / out per MTok) | Notes |
+|-------|-----|---------|-----------|---------------------------|-------|
+| Claude Fable 5 | `claude-fable-5` | 1M | 128k | $10 / $50 | Most capable widely released model; thinking always on |
+| **Claude Opus 5** | `claude-opus-5` | 1M | 128k | $5 / $25 | **Default for complex agentic coding and enterprise work** |
+| Claude Sonnet 5 | `claude-sonnet-5` | 1M | 128k | $2 / $10 | Best speed/intelligence balance |
+| Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | 200k | 64k | $1 / $5 | Fastest; only current model still using `budget_tokens` thinking |
+
+Claude Mythos 5 (`claude-mythos-5`) shares Fable 5's specs and is invitation-only under Project Glasswing, for defensive cybersecurity work. **Legacy but still available:** Opus 4.8, Opus 4.7, Opus 4.6, Sonnet 4.6, Sonnet 4.5, Opus 4.5.
+
+Model IDs from the 4.6 generation onward are **dateless but still pinned snapshots**, not evergreen pointers. Query `client.models.list()` / `.retrieve(id)` for live `max_input_tokens`, `max_tokens`, and `capabilities` rather than hardcoding a table like this one.
+
+> **Docs (since 2026-07):** Anthropic split its documentation. API docs live at `platform.claude.com/docs/en/*`, Claude Code docs at `code.claude.com/docs/en/*`; the old `docs.anthropic.com` URLs still redirect. The SDK was renamed from "Claude Code SDK" to the **Claude Agent SDK** (`pip install claude-agent-sdk`, `npm install @anthropic-ai/claude-agent-sdk`).
+>
+> **Program (Exam Guide v1.0, effective July 2026):** four credentials (CCAO-F, CCAR-F, CCAR-P, CCDV-F), proctored via Pearson VUE, registered through the Anthropic Partner Academy. $125 for CCAR-F, 12-month validity — superseding the launch-period "$99 / first 5,000 partner employees free" terms.
+>
+> Refresh history: [CHANGELOG.md](CHANGELOG.md).
+
+---
+
 ## Exam Domains
 
 | Domain | Weight | Deep Dive |
@@ -42,7 +65,7 @@ These show up as wrong answers on the exam:
 5. Sentiment-based escalation (sentiment ≠ complexity)
 6. Generic error messages hiding diagnostic context
 7. Silently suppressing errors (returning empty results as success)
-8. Too many tools per agent (18 vs 4-5 recommended)
+8. Too many tools per agent (18 vs 4-5 recommended) — see Domain 2 §2.3 for how tool search changes this in the current API
 9. Same-session self-review (retains reasoning context bias)
 10. Aggregate accuracy metrics masking per-document-type failures
 
@@ -60,6 +83,12 @@ These show up as wrong answers on the exam:
 | Escalation | **Immediate** — explicit customer request | **Resolve first** — within capability |
 | Code review | **Multi-pass** — large PRs | **Single-pass** — small, focused |
 | Context passing | **Always explicit** in subagent prompts | Never rely on auto-inheritance |
+| Thinking | **Adaptive** (`{"type": "adaptive"}`) on every current model | `budget_tokens` is removed — 400 on Fable 5 / Opus 5 / Sonnet 5 / 4.7 / 4.8 |
+| Effort | **`xhigh`** — coding and agentic work | **`low`** — subagents, mechanical tasks |
+| Tool exposure | **Load upfront** — under ~10 tools | **Tool search + `defer_loading`** — 10+ tools or multi-server MCP |
+| Context reduction | **Clear** (context editing) — verbose tool results | **Compact** — long conversations that need their narrative |
+| State that must persist | **Memory tool / files** | Never rely on the conversation surviving compaction |
+| Agent harness | **Tool Runner / Agent SDK** — you host | **Managed Agents** — Anthropic hosts loop + sandbox |
 
 ---
 
@@ -83,12 +112,32 @@ Assumes daily study, 1.5–2 hours per day.
 - [Anthropic Skilljar — Building with Claude API](https://anthropic.skilljar.com/claude-with-the-anthropic-api)
 - [12-Week Training Program (GitHub)](https://github.com/SGridworks/claude-certified-architect-training)
 - [Building Effective Agents (Anthropic Research)](https://www.anthropic.com/research/building-effective-agents)
-- [Claude Tool Use Docs](https://platform.claude.com/docs/en/docs/build-with-claude/tool-use)
-- [Claude Code Docs](https://code.claude.com/docs/en/overview)
-- [MCP Introduction](https://modelcontextprotocol.io/introduction)
-- [Claude Agent SDK Overview](https://code.claude.com/docs/en/agent-sdk/overview)
 - [Claude Partner Network](https://www.anthropic.com/news/claude-partner-network)
 
-> **Note (2026-07):** Anthropic's docs were split into `platform.claude.com` (API) and `code.claude.com` (Claude Code). The SDK was renamed from "Claude Code SDK" to **Claude Agent SDK** (`pip install claude-agent-sdk`, `npm install @anthropic-ai/claude-agent-sdk`). Current models: **`claude-fable-5`** (Anthropic's most capable widely released model; 1M context), **`claude-opus-4-8`** (most capable Opus-tier; 1M context, 128k max output, adaptive-thinking-only, `effort` defaults to `high`), `claude-sonnet-5`, and `claude-haiku-4-5` (`claude-haiku-4-5-20251001`). `claude-opus-4-7` and `claude-sonnet-4-6` are now previous-generation (still active). This guide's code samples use `claude-opus-4-8` as a sensible default.
->
-> **Program update (2026-07):** the certification family now spans four credentials (CCAO-F, CCAR-F, CCAR-P, CCDV-F), delivered proctored via Pearson VUE and registered through the Anthropic Partner Academy. Exam Guide v1.0 (effective July 2026) sets a $125 exam fee and 12-month certification validity, superseding the launch-period "$99 / first 5,000 partner employees free" terms.
+**API (platform.claude.com)**
+
+- [Tool use overview](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
+- [Tool search tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool)
+- [Programmatic tool calling](https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling)
+- [Memory tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool)
+- [MCP connector](https://platform.claude.com/docs/en/agents-and-tools/mcp-connector)
+- [Thinking](https://platform.claude.com/docs/en/build-with-claude/thinking) · [Effort](https://platform.claude.com/docs/en/build-with-claude/effort) · [Task budgets](https://platform.claude.com/docs/en/build-with-claude/task-budgets)
+- [Context editing](https://platform.claude.com/docs/en/build-with-claude/context-editing) · [Compaction](https://platform.claude.com/docs/en/build-with-claude/compaction)
+- [Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)
+- [Structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
+- [Stop reasons and fallback](https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons) · [Refusals and fallback](https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback)
+- [Managed Agents overview](https://platform.claude.com/docs/en/managed-agents/overview)
+- [Models overview](https://platform.claude.com/docs/en/about-claude/models/overview)
+
+**Claude Code (code.claude.com)**
+
+- [Overview](https://code.claude.com/docs/en/overview) · [CLI reference](https://code.claude.com/docs/en/cli-reference)
+- [Subagents](https://code.claude.com/docs/en/sub-agents) · [Skills](https://code.claude.com/docs/en/skills) · [Plugins](https://code.claude.com/docs/en/plugins) · [Hooks](https://code.claude.com/docs/en/hooks)
+- [MCP](https://code.claude.com/docs/en/mcp) · [Memory and CLAUDE.md](https://code.claude.com/docs/en/memory) · [Routines](https://code.claude.com/docs/en/routines)
+- [Claude Agent SDK overview](https://code.claude.com/docs/en/agent-sdk/overview)
+
+**Background reading**
+
+- [MCP Introduction](https://modelcontextprotocol.io/introduction)
+- [Advanced tool use (Anthropic Engineering)](https://www.anthropic.com/engineering/advanced-tool-use)
+- [Effective context engineering for AI agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)

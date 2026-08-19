@@ -4,7 +4,7 @@ Unofficial study guide for the **Claude Certified Architect — Foundations** (C
 
 This guide covers all 5 exam domains with detailed explanations, code examples, anti-patterns, decision frameworks, and practice questions.
 
-It is actively maintained and updated regularly to track changes to Anthropic's models, APIs, and Claude Code. **Last refresh: July 2026** — see the dated notes under [Resources](#resources) for what changed.
+It is actively maintained and updated regularly to track changes to Anthropic's models, APIs, and Claude Code. **Last refresh: August 2026** — see [CHANGELOG.md](CHANGELOG.md) for what changed and when.
 
 ## The Claude Certification Family
 
@@ -49,6 +49,19 @@ The landing page and PDF are built and deployed automatically from this repo's m
 
 See [claude-certified-architect.md](claude-certified-architect.md) for the full overview including exam scenarios, anti-patterns, decision frameworks, a 4-week study plan, and official resources.
 
+## Model Lineup Used in This Guide
+
+Code samples use **`claude-opus-5`** — Anthropic's current default for complex agentic coding and enterprise work.
+
+| Model | ID | Context | Max output | Price (in / out per MTok) |
+|-------|-----|---------|-----------|---------------------------|
+| Claude Fable 5 | `claude-fable-5` | 1M | 128k | $10 / $50 |
+| **Claude Opus 5** | `claude-opus-5` | 1M | 128k | $5 / $25 |
+| Claude Sonnet 5 | `claude-sonnet-5` | 1M | 128k | $2 / $10 |
+| Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | 200k | 64k | $1 / $5 |
+
+Opus 4.8, 4.7, 4.6, Sonnet 4.6, Sonnet 4.5, and Opus 4.5 are legacy but still available. Full notes in the [main guide](claude-certified-architect.md#current-model-lineup-august-2026).
+
 ## Resources
 
 - [Official Exam Guide (PDF, March 2026 — superseded by Exam Guide v1.0, available via the Anthropic Partner Academy)](https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F8lsy243ftffjjy1cx9lm3o2bw%2Fpublic%2F1773274827%2FClaude+Certified+Architect+%E2%80%93+Foundations+Certification+Exam+Guide.pdf)
@@ -56,14 +69,11 @@ See [claude-certified-architect.md](claude-certified-architect.md) for the full 
 - [Anthropic Skilljar — Building with Claude API](https://anthropic.skilljar.com/claude-with-the-anthropic-api)
 - [12-Week Training Program (GitHub)](https://github.com/SGridworks/claude-certified-architect-training)
 - [Building Effective Agents (Anthropic Research)](https://www.anthropic.com/research/building-effective-agents)
-- [Claude Tool Use Docs](https://platform.claude.com/docs/en/docs/build-with-claude/tool-use)
-- [Claude Code Docs](https://code.claude.com/docs/en/overview)
-- [MCP Introduction](https://modelcontextprotocol.io/introduction)
-- [Claude Agent SDK Overview](https://code.claude.com/docs/en/agent-sdk/overview)
+- [Claude API docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview) · [Claude Code docs](https://code.claude.com/docs/en/overview) · [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) · [MCP](https://modelcontextprotocol.io/introduction)
 
-> **Note (2026-07):** Anthropic split its documentation. API docs are now at `platform.claude.com/docs/en/*` and Claude Code docs at `code.claude.com/docs/en/*`. The old `docs.anthropic.com/en/docs/*` URLs still redirect. The SDK has also been renamed from "Claude Code SDK" to the **Claude Agent SDK**. Current models: **`claude-fable-5`** (Anthropic's most capable widely released model), **`claude-opus-4-8`** (most capable Opus-tier), `claude-sonnet-5`, and `claude-haiku-4-5`. `claude-opus-4-7` and `claude-sonnet-4-6` are now previous-generation (still active). The code samples in this guide use `claude-opus-4-8`, still the recommended default.
->
-> **Program update (2026-07):** the certification family now spans four credentials (CCAO-F, CCAR-F, CCAR-P, CCDV-F), delivered proctored via Pearson VUE and registered through the Anthropic Partner Academy. Exam Guide v1.0 (effective July 2026) sets a $125 exam fee and 12-month certification validity, superseding the launch-period "$99 / first 5,000 partner employees free" terms.
+The [main guide's Resources section](claude-certified-architect.md#resources) has the full, categorised link list.
+
+> **Docs note:** Anthropic split its documentation in July 2026. API docs live at `platform.claude.com/docs/en/*`, Claude Code docs at `code.claude.com/docs/en/*`; the old `docs.anthropic.com/en/docs/*` URLs still redirect. The SDK was renamed from "Claude Code SDK" to the **Claude Agent SDK**.
 
 ## Credits
 

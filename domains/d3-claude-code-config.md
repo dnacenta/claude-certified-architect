@@ -4,6 +4,42 @@ Covers CLAUDE.md hierarchy and loading, custom commands and skills, path-specifi
 
 ---
 
+## 3.0 Surfaces: Where Claude Code Runs
+
+Claude Code is no longer just a CLI. Every surface connects to the **same engine**, so CLAUDE.md files, settings, skills, and MCP servers work identically across all of them — which is the architecturally relevant point: configuration is portable, and so is a session.
+
+| Surface | What it is | Install / entry point |
+|---------|-----------|----------------------|
+| **Terminal** | Full-featured CLI | `curl -fsSL https://claude.ai/install.sh \| bash`, then `claude` |
+| **VS Code / Cursor** | Extension with inline diffs, @-mentions, plan review | Extensions marketplace |
+| **JetBrains** | Plugin for IntelliJ, PyCharm, WebStorm (requires the CLI) | JetBrains Marketplace |
+| **Desktop app** | Standalone app: visual diffs, parallel sessions, scheduled tasks, cloud sessions | macOS / Windows download |
+| **Web** | Browser sessions with no local setup; long-running tasks on repos you don't have locally | [claude.ai/code](https://claude.ai/code) |
+| **Mobile** | iOS / Android app for the same cloud sessions | Claude app |
+
+### Session Portability
+
+| Goal | Mechanism |
+|------|-----------|
+| Start locally, finish in the cloud | `claude --cloud "<task>"` |
+| Pull a web/cloud session into the terminal | `claude --teleport` |
+| Hand the current terminal session to the desktop app | `/desktop` |
+| Drive a running local session from a phone or another browser | Remote Control |
+| Push external events (Telegram, Discord, iMessage, webhooks) into a session | Channels |
+| Route work from team chat | `@Claude` in Slack |
+
+### Scheduling
+
+Three distinct mechanisms — the exam-relevant distinction is *where they run*:
+
+| Mechanism | Runs | Use for |
+|-----------|------|---------|
+| **Routines** (`/schedule`, web, or desktop) | In the cloud — keeps running with your machine off; can also trigger on API calls or GitHub events | Morning PR reviews, overnight CI failure analysis, weekly dependency audits |
+| **Desktop scheduled tasks** | On your machine, with local file and tool access | Anything that needs the local filesystem or private network |
+| **`/loop`** | Inside the current CLI session | Quick polling within one sitting |
+
+---
+
 ## 3.1 CLAUDE.md Hierarchy
 
 ### What is CLAUDE.md?
@@ -217,17 +253,27 @@ When invoked, a skill's rendered body enters the conversation as a single messag
 ### Bundled Skills
 
 Claude Code ships with a set of bundled skills that varies by release. Recent versions include:
-- `/batch` — Process multiple items
 - `/claude-api` — Build and migrate Claude API / Anthropic SDK apps
-- `/code-review` — Multi-agent review of pending changes or a PR
+- `/code-review` — Multi-agent review of pending changes or a PR (`ultra` runs it in the cloud)
+- `/security-review` — Security review of the pending changes on the branch
+- `/simplify` — Reuse / simplification / efficiency cleanups on changed code
 - `/dataviz` — Charts and dashboards with consistent design
-- `/debug` — Debug issues
-- `/doctor` — Diagnose Claude Code setup problems
-- `/fewer-permission-prompts` — Build a permission allowlist from your usage
+- `/design` — Multi-artboard visual design canvas
+- `/init` — Scaffold a CLAUDE.md for the codebase
+- `/run` — Launch the project's app to confirm a change works
 - `/loop` — Run a prompt or slash command on a recurring interval
-- `/verify` — Launch the app to confirm a change works
+- `/schedule` — Create and manage cloud routines
+- `/update-config` — Configure settings.json, hooks, and permissions
+- `/fewer-permission-prompts` — Build a permission allowlist from your usage
+- `/doctor` — Diagnose Claude Code setup problems
 
-Check `/help` in your installed version (or the commands page in the docs) for the current list.
+Check `/help` in your installed version (or the commands page in the docs) for the current list — the set changes release to release.
+
+### Plugins
+
+A **plugin** is a distributable bundle of skills, subagents, hooks, and MCP servers, installed from a marketplace and enabled per project. Plugin-provided items are namespaced (`plugin-name:skill-name` for skills, `plugin:<plugin>:<server>` for MCP servers) so they can't collide with your own. Plugins sit at the lowest priority in the skill resolution order (Enterprise > Personal > Project > Plugin).
+
+Plugins are also the unit that `claude plugin eval` tests: you write an eval suite against the plugin's skills and run it in a sandbox or in CI, and it emits a JSON report. That is the packaging answer to "how does a team ship and regression-test its Claude Code conventions?"
 
 ---
 
@@ -342,9 +388,18 @@ In plan mode, Claude:
 | Clear instructions | "Add a `createdAt` field to the User model" |
 | Small, contained | Fixing a typo, updating a constant |
 
-### Explore Subagent
+### Built-in Subagents
 
-For codebase exploration that generates verbose output:
+Four subagents ship with Claude Code and are registered by default in interactive sessions:
+
+| Agent | Purpose | Tools |
+|-------|---------|-------|
+| **Explore** | Fast file discovery and codebase search | Read-only; skips CLAUDE.md and git status |
+| **Plan** | Research for plan mode before proposing changes | Read-only; skips CLAUDE.md and git status |
+| **general-purpose** | Multi-step tasks needing exploration *and* action | All subagent tools |
+| **claude** | Catch-all fallback | All subagent tools |
+
+The Explore agent is the canonical context-preservation move:
 
 ```
 Main conversation context is preserved
@@ -356,7 +411,45 @@ Returns concise summary to main conversation
 Main context stays clean
 ```
 
-Without the explore subagent, a deep codebase exploration would fill the main context window with raw file contents and search results.
+Without it, a deep codebase exploration would fill the main context window with raw file contents and search results.
+
+### Custom Subagents (`.claude/agents/`)
+
+Custom subagents are markdown files with YAML frontmatter, resolved in the order: managed settings > `--agents` CLI JSON > project (`.claude/agents/`) > user (`~/.claude/agents/`) > plugin.
+
+```yaml
+---
+name: db-reader
+description: Execute read-only database queries        # how Claude decides to delegate
+tools: Read, Grep, Bash                                # allowlist
+disallowedTools: Write, Edit                           # denylist, applied after `tools`
+model: sonnet                                          # inherit | sonnet | opus | haiku | full ID
+effort: low                                            # low | medium | high | xhigh | max
+permissionMode: plan                                   # default | acceptEdits | auto | dontAsk | bypassPermissions | plan
+maxTurns: 10
+skills: [api-conventions]                              # preloaded skill content
+mcpServers: [github]
+memory: project                                        # user | project | local — persistent across sessions
+isolation: worktree                                    # run in its own git worktree
+background: false
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: ./scripts/validate-readonly-query.sh
+---
+
+Execute SELECT queries only. Never issue writes.
+```
+
+**Three ways to invoke:** name it in natural language ("use the db-reader to…"), `@`-mention it to guarantee that specific agent runs, or start a whole session as it with `claude --agent db-reader`.
+
+**What a fresh subagent loads:** its own system prompt, the delegation prompt, the CLAUDE.md hierarchy, a git status snapshot, preloaded skills, and environment details. **What stays out:** your conversation history, the main session's auto memory, and other subagents' results — which is exactly the "context does not inherit" rule from Domain 1 §1.3.
+
+**Constraints worth remembering:** permission modes flow *down* — if the parent runs `bypassPermissions`, `acceptEdits`, or `auto`, the subagent inherits it and cannot override. Subagents nest 3 deep by default and 20 can run concurrently. Completed subagents can be resumed by ID or name via `SendMessage`, retaining their prior context; one-shot agents (Explore, Plan) cannot be resumed.
+
+**Prompt-injection note:** Claude Code scans subagent reports for instruction-shaped patterns before the parent reads them, escaping text that imitates harness output. It's a mitigation, not a permission boundary — every tool call still goes through the session's permission checks.
 
 ### Combining Modes
 
@@ -451,6 +544,17 @@ Fix both together."
 | `--permission-prompt-tool <mcp>` | Delegate permission prompts to an MCP tool in headless mode | Non-interactive approvals |
 | `--session-id`, `--resume`, `--continue`, `--fork-session` | Session lifecycle control | Multi-step pipelines |
 | `--setting-sources user,project,local` | Restrict which settings layers are loaded | Reproducible runs |
+| `--effort <level>` | `low` / `medium` / `high` / `xhigh` / `max` / `ultracode` | Tune cost vs quality per run |
+| `--agent <name>` / `--agents '<json>'` | Run the session as a named subagent, or define subagents inline | Specialized CI jobs |
+| `--append-subagent-system-prompt` | Append text to every subagent's prompt (non-interactive only) | Consistent citation/format rules |
+| `--forward-subagent-text` | Emit subagent messages into the stream | Observability across delegated work |
+| `--system-prompt` / `--system-prompt-file` / `--append-system-prompt` | Replace or extend the system prompt | Purpose-built CI personas |
+| `--exclude-dynamic-system-prompt-sections` | Move per-machine sections out of the system prompt | Prompt-cache reuse across runners |
+| `--strict-mcp-config` | Use only the servers from `--mcp-config` | Hermetic MCP surface |
+| `--init` / `--init-only` | Run Setup / SessionStart hooks (and exit) | Warm a CI workspace before the real run |
+| `--bg` / `--background` + `--exec` | Start as a background agent; run a shell command as a background job | Long tasks that shouldn't block |
+| `--environment ccpool_*` / `--ref` | Target a self-hosted environment; check out a named ref | Fleet / remote execution |
+| `--betas` | Send beta headers with API requests | Opt into preview features |
 
 ### Example CI Usage
 
@@ -463,6 +567,19 @@ Fix both together."
       --json-schema '{"type":"object","properties":{"issues":{"type":"array"}}}'
 ```
 
+### Managed CI Integrations
+
+You don't always wire the CLI up by hand:
+
+| Integration | What it does |
+|-------------|--------------|
+| **GitHub Actions** | Run Claude Code in a workflow — PR review, issue triage, `@claude` mentions |
+| **GitLab CI/CD** | Same model on GitLab pipelines |
+| **GitHub Code Review** | Automatic review on every PR, no workflow file to maintain |
+| **Routines** | Cloud-scheduled runs that can also fire on GitHub events or API calls |
+
+The `-p` + `--output-format json` pattern below is still the right primitive when you need full control; these integrations are the managed path.
+
 ### Message Batches API
 
 For non-blocking, cost-optimized batch operations:
@@ -471,8 +588,9 @@ For non-blocking, cost-optimized batch operations:
 |---------|--------|
 | Cost savings | 50% compared to synchronous API |
 | Processing window | Up to 24 hours, no latency SLA |
-| Correlation | `custom_id` per request for matching responses |
+| Correlation | `custom_id` per request for matching responses — results arrive in **any order**, so key by `custom_id`, never by position |
 | Multi-turn | NOT supported within a single batch request |
+| Extended output | Up to 300k output tokens on Opus 5 / 4.8 / 4.7 / 4.6 and Sonnet 5 / 4.6 with beta header `output-300k-2026-03-24` (vs 128k synchronous) |
 
 **Good for:**
 - Overnight code analysis reports
