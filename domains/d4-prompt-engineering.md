@@ -176,11 +176,11 @@ Add `"strict": true` to the tool definition for guaranteed schema compliance:
 
 ### Solution 3: output_config (Direct JSON Output)
 
-Instead of tool_use, you can request JSON output directly. As of late-2025 the parameter is `output_config.format` (the older `output_format` is kept for a transition period, and the previous `structured-outputs-2025-11-13` beta header is no longer required):
+Instead of tool_use, you can request JSON output directly. The parameter is `output_config.format`. The older top-level `output_format` is **deprecated** — don't use it in new code — and the previous `structured-outputs-2025-11-13` beta header is no longer required:
 
 ```python
 response = client.messages.create(
-    model="claude-opus-4-8",
+    model="claude-opus-5",
     messages=[{"role": "user", "content": "Extract data from this invoice: ..."}],
     output_config={
         "format": {
@@ -354,8 +354,10 @@ This allows analysis of dismissal patterns — if developers consistently dismis
 |---------|--------|
 | **Cost** | 50% savings vs synchronous |
 | **Latency** | Up to 24 hours, no SLA |
-| **Correlation** | `custom_id` per request |
+| **Correlation** | `custom_id` per request — results come back in **any order**, so key by `custom_id`, never by position |
 | **Multi-turn** | NOT supported in a single batch request |
+| **Max output** | 128k normally; up to **300k** with beta header `output-300k-2026-03-24` on Opus 5 / 4.8 / 4.7 / 4.6 and Sonnet 5 / 4.6 |
+| **Result states** | `succeeded`, `errored`, `canceled`, `expired` — poll `batches.retrieve(id).processing_status` until `"ended"`, then stream `batches.results(id)` |
 
 ### Creating a Batch
 
@@ -365,7 +367,7 @@ batch = client.messages.batches.create(
         {
             "custom_id": "invoice-001",
             "params": {
-                "model": "claude-opus-4-8",
+                "model": "claude-opus-5",
                 "max_tokens": 4096,
                 "messages": [
                     {"role": "user", "content": f"Extract data from: {invoice_001_text}"}
@@ -449,6 +451,77 @@ For large PRs (10+ files), single-pass review suffers from:
 
 ---
 
+## 4.7 Thinking, Effort, and the Current Request Surface
+
+The request shape for prompting Claude changed substantially across the 4.6 → 5 generations. Several parameters that older material treats as standard now return **400** on current models.
+
+### Adaptive Thinking Replaced Thinking Budgets
+
+```python
+response = client.messages.create(
+    model="claude-opus-5",
+    max_tokens=16000,
+    thinking={"type": "adaptive", "display": "summarized"},
+    output_config={"effort": "high"},
+    messages=[...],
+)
+```
+
+| Model | Thinking config | Omitting `thinking` | `budget_tokens` | `temperature` / `top_p` / `top_k` |
+|-------|-----------------|---------------------|-----------------|-----------------------------------|
+| Claude Fable 5 | `{"type": "adaptive"}` or omit | Runs adaptive (always on) | **400** | **400** |
+| Claude Opus 5 | `{"type": "adaptive"}` or omit | Runs **adaptive** by default | **400** | **400** |
+| Claude Opus 4.8 / 4.7 | `{"type": "adaptive"}` | Runs **without** thinking | **400** | **400** |
+| Claude Sonnet 5 | `{"type": "adaptive"}` | Runs adaptive | **400** | **400** |
+| Claude Haiku 4.5 | `{"type": "enabled", "budget_tokens": N}` | No thinking | Required for thinking | Allowed |
+
+The subtlety worth flagging: on **Opus 4.8/4.7 you must set `adaptive` explicitly** or you get no thinking at all, while on **Opus 5 thinking is on by default**. Code carried forward from 4.8 that disables thinking will behave differently on Opus 5.
+
+### Effort
+
+`effort` is GA (no beta header) and lives **inside `output_config`**, not at the top level:
+
+```python
+output_config={"effort": "xhigh"}   # low | medium | high | xhigh | max
+```
+
+It defaults to `high` on Claude Opus 5 and Sonnet 5 (Claude API and Claude Code). `xhigh` is the sweet spot for most coding and agentic work on the current frontier models. Use `low` for subagents and mechanical tasks — lower effort means fewer, more-consolidated tool calls and terser output; use `max` when correctness matters more than cost. Effort matters more on these models than on any prior generation, so **re-tune it when you migrate**, don't carry the old value across.
+
+### Thinking Display
+
+`display: "omitted"` is now the **default** on Fable 5, Opus 5, Opus 4.8/4.7, and Sonnet 5 — a silent change from Opus 4.6 and Sonnet 4.6, where it was `"summarized"`. Thinking still happens and is still billed identically; only visibility changes. If you stream reasoning to users, the default looks like a long pause before any output, so set `display: "summarized"` explicitly. The raw chain of thought is never exposed on any model.
+
+### Assistant Prefill Is Gone
+
+Prefilling the last assistant turn to force a response format returns **400** on Fable 5, Opus 5, Sonnet 5, and the whole 4.6/4.7/4.8 family. Use structured outputs (`output_config.format`) or system-prompt instructions instead. This retires a prompt-engineering technique that a lot of older material still recommends.
+
+### Mid-Conversation System Messages
+
+On Claude Opus 5, Opus 4.8, and Fable 5 (not Sonnet 5, no beta header) you can append `{"role": "system", "content": "..."}` to the **`messages` array** rather than editing the top-level `system` field. This is the prompt-injection-safe operator channel, and — because it doesn't touch the cached prefix — the cheap one. Constraints: it must follow a `user` message (or an assistant message ending in server-tool use), can't be `messages[0]`, and must either be last or be followed by an assistant turn.
+
+---
+
+## 4.8 Prompt Caching
+
+Caching is a prompt-*structure* problem, which is why it belongs here rather than in an ops runbook.
+
+**Prefix match:** the cache keys on an exact prefix. Any byte change anywhere in the prefix invalidates everything after it. Render order is **`tools` → `system` → `messages`**, so a tool list that reorders between requests invalidates the system prompt and the whole conversation behind it.
+
+**Design rule:** stable content first (frozen system prompt, deterministically ordered tool list), volatile content (timestamps, per-request IDs, the actual question) after the last `cache_control` breakpoint.
+
+| Mechanic | Detail |
+|----------|--------|
+| Breakpoints | Max 4 per request (`cache_control: {"type": "ephemeral"}`) |
+| Minimum prefix | ~1024 tokens — shorter prefixes silently don't cache |
+| Verification | `usage.cache_read_input_tokens`. Zero across repeated requests means something is invalidating the prefix |
+| Pre-warming | `max_tokens: 0` warms a cache entry without generating |
+
+**Silent invalidators to audit for:** `datetime.now()` in the system prompt, JSON serialized with non-deterministic key order, a tool set that varies per request, a session ID or user name interpolated into the prefix, and switching `speed` (fast mode) mid-conversation.
+
+**Interaction with tool search:** deferred tools are excluded from the system-prompt prefix and discovered tools are appended inline, so `defer_loading` *preserves* the cache. A tool with `defer_loading: true` cannot also carry `cache_control` — put the breakpoint on a non-deferred tool.
+
+---
+
 ## Domain 4 Practice Questions
 
 **Q1:** A code review system flags "use your best judgment" as a criterion for reporting issues. What should be changed?
@@ -474,3 +547,12 @@ For large PRs (10+ files), single-pass review suffers from:
 - D) Increase the batch timeout
 
 **Answer: B** — Use `custom_id` to correlate requests with responses and resubmit only the failures. Resubmitting the entire batch wastes credits and reprocesses already-successful documents.
+
+**Q4:** An extraction service written for an older model sets `thinking={"type": "enabled", "budget_tokens": 8000}` and `temperature=0`. It is being moved to Claude Opus 5. What happens?
+
+- A) It works unchanged; both parameters are still supported
+- B) Both parameters return a 400 — use `thinking={"type": "adaptive"}` and control depth with `output_config.effort`
+- C) `budget_tokens` is ignored silently and `temperature` still applies
+- D) It works, but thinking is disabled
+
+**Answer: B** — `budget_tokens` and the sampling parameters (`temperature` / `top_p` / `top_k`) are removed on Fable 5, Opus 5, Sonnet 5, and the 4.7/4.8 family, and return a 400. Adaptive thinking plus `effort` replaces the fixed-thinking-budget concept. Assistant prefills also 400 on these models.

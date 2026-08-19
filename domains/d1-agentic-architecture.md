@@ -62,6 +62,24 @@ User sends prompt with tool definitions
 
 > **`stop_details` on refusals (Opus 4.7+):** A `refusal` response also carries a `stop_details` object (no beta header needed). `stop_details.type` is always `"refusal"`; `stop_details.category` is the policy category (e.g. `"cyber"`, `"bio"`, `"reasoning_extraction"`, `"frontier_llm"`, or `null` — the set has grown over time); `stop_details.explanation` is a human-readable string (don't parse it). `stop_details` is `null` for every other stop reason. Use the category to route or log specific refusals differently.
 
+### Server-Side Refusal Fallbacks
+
+A `refusal` arrives as **HTTP 200**, not an exception — code that reads `content` without checking `stop_reason` first will silently process an empty or partial response. For production agents on Claude Opus 5 and Claude Fable 5, don't just log the refusal: opt into server-side fallback so the request is re-routed automatically by refusal category.
+
+```python
+response = client.messages.create(
+    model="claude-opus-5",
+    max_tokens=16000,
+    betas=["server-side-fallback-2026-07-01"],
+    fallbacks="default",          # server routes by refusal category
+    messages=[...],
+)
+```
+
+`fallbacks="default"` means you never maintain a model list. The older array form (`betas=["server-side-fallback-2026-06-01"]` + `fallbacks=[{"model": "claude-opus-4-8"}]`) still works. Server-side fallback is **Claude API only** — on Bedrock, Vertex, and Foundry use the SDKs' client-side `BetaRefusalFallbackMiddleware` instead.
+
+**Loop rule:** always branch on `stop_reason` *before* reading `content`. `refusal` is a terminal stop reason for that request, not a retryable tool error.
+
 ### API Response Structure
 
 When Claude wants to use a tool, the response contains both text and a tool_use block:
@@ -69,7 +87,7 @@ When Claude wants to use a tool, the response contains both text and a tool_use 
 ```json
 {
   "id": "msg_01Aq9w938a90dw8q",
-  "model": "claude-opus-4-8",
+  "model": "claude-opus-5",
   "stop_reason": "tool_use",
   "role": "assistant",
   "content": [
@@ -134,6 +152,38 @@ This is fundamentally different from traditional workflow automation where steps
 1. **Parsing natural language** for loop termination — "If Claude says 'I'm done', exit the loop." Wrong. Always check `stop_reason`.
 2. **Arbitrary iteration caps** as primary stopping — "Run max 5 loops then stop." Wrong as a primary mechanism. You may use safety caps, but `stop_reason` drives the loop.
 3. **Checking for text content** as completion — "If the response has text, it's done." Wrong. Responses can contain both text and tool_use blocks.
+
+> **Beyond the exam guide — task budgets (beta):** the modern answer to "how do I bound an agentic loop without a hard iteration cap" is a **task budget**. `output_config.task_budget` gives Claude a token ceiling it can *see*, so it paces itself and finishes gracefully instead of being cut off mid-work. This is different from `max_tokens`, which is an enforced per-response ceiling the model is unaware of.
+>
+> ```python
+> with client.beta.messages.stream(
+>     model="claude-opus-5", max_tokens=128000,
+>     betas=["task-budgets-2026-03-13"],
+>     output_config={"effort": "high",
+>                    "task_budget": {"type": "tokens", "total": 64000}},
+>     messages=[...], tools=[...],
+> ) as stream:
+>     response = stream.get_final_message()
+> ```
+>
+> Minimum `total` is 20,000. Available on Claude Opus 5, Fable 5, Sonnet 5, and Opus 4.8/4.7. Stream it — a large `max_tokens` on a non-streaming request hits HTTP timeouts. The exam's anti-pattern still holds: a budget paces the loop, `stop_reason` still terminates it.
+
+### Who Runs the Loop: Four Ways to Build an Agent
+
+Two independent questions separate the options: **who supplies the harness** (the loop plus context management) and **who supplies the deployment** (the infrastructure it runs on). Tool Runner and the Claude Agent SDK are easy to conflate because both supply a harness only — you still host them.
+
+| Approach | You write | Harness & deployment | Tools available |
+|----------|-----------|----------------------|-----------------|
+| **Manual loop** (`client.messages.create`) | The `while stop_reason == "tool_use"` loop | You build the harness; you host | Only tools you define |
+| **Tool Runner** (`client.beta.messages.tool_runner`) | Just the tool functions | SDK supplies the loop; you host | Only tools you define |
+| **Managed Agents** (beta, `/v1/agents` + `/v1/sessions`) | Agent config + your tool results | Anthropic supplies the loop **and** hosts a per-session sandbox | Hosted bash / files / code execution, plus Skills, MCP, and your tools |
+| **Claude Agent SDK** (`claude-agent-sdk`) | A prompt + options | Claude Code harness + built-in tools; you host | Read/Write/Edit/Bash/Glob/Grep/WebSearch/WebFetch + MCP + subagents |
+
+**Tool Runner ≠ Claude Agent SDK.** Tool Runner ships inside the regular Anthropic SDK (`anthropic` / `@anthropic-ai/sdk`) and only loops over tools *you* define — no built-in tools, no filesystem, no sandbox. It exposes per-turn hooks for approval gates, error interception, result modification (e.g. attaching `cache_control`), and retries. The Claude Agent SDK is Claude Code packaged as a library.
+
+**Managed Agents (beta)** is the newest surface and the only one that adds managed *deployment*. The mandatory flow is Agent (created once, versioned, persisted) → Session (one per run). `model`, `system`, and `tools` live on the **agent**, never the session. Each session provisions a container that acts as the agent's workspace and streams events back; you send messages and tool results in. It also adds scheduled deployments (cron-fired sessions), vault-stored credentials substituted at egress, dollar-denominated session budgets, and multiagent rosters. Beta header: `managed-agents-2026-04-01`. Not available on Bedrock / Vertex / Foundry — use Claude API + tool use there.
+
+**Choosing:** stay at the simplest tier that works. A single call or a code-controlled workflow handles most tasks; reach for an agent only when the task is genuinely open-ended and model-driven, the value justifies the latency and cost, and errors are catchable (tests, review, rollback).
 
 ---
 
@@ -211,11 +261,13 @@ Coordinator → Subagents (round 2, targeted)
 
 ## 1.3 Subagent Spawning and Context Passing
 
-### The Task / Agent Tool
+### The Agent Tool
 
-Subagents are spawned using the **Task** tool in Claude Code and the **Agent** tool in the Claude Agent SDK — same mechanism, different canonical name. The coordinator must include the appropriate tool name (`"Task"` in Claude Code, `"Agent"` in the SDK) in its `allowedTools` to spawn subagents.
+Subagents are spawned with the **`Agent`** tool — the canonical name in both Claude Code and the Claude Agent SDK. The coordinator must have `Agent` in its allowed tools to spawn subagents, and access can be narrowed to specific subagent types with `Agent(worker, researcher)`.
 
-> **Naming note (2026):** The SDK was renamed from "Claude Code SDK" to the **Claude Agent SDK**. Python: `pip install claude-agent-sdk`. TypeScript: `npm install @anthropic-ai/claude-agent-sdk`. Top-level entry point: `query()` + `ClaudeAgentOptions`.
+> **Naming note:** older material (including the exam guide's wording) calls this the **Task** tool. `Task` was Claude Code's original name for the same mechanism; current Claude Code and SDK docs use `Agent`. If an exam item says "Task tool", it means this.
+>
+> **SDK naming:** the SDK was renamed from "Claude Code SDK" to the **Claude Agent SDK**. Python: `pip install claude-agent-sdk`. TypeScript: `npm install @anthropic-ai/claude-agent-sdk`. Top-level entry point: `query()` + `ClaudeAgentOptions`.
 
 ### Context Must Be Explicit
 
@@ -236,24 +288,26 @@ Analyze the order history and return policy applicability."
 
 ### Parallel Subagent Execution
 
-To run subagents in parallel, emit multiple Task/Agent tool calls in a **single coordinator response**. Not across separate turns — that would be sequential.
+To run subagents in parallel, emit multiple `Agent` tool calls in a **single coordinator response**. Not across separate turns — that would be sequential.
 
 ```json
 {
   "content": [
     {
       "type": "tool_use",
-      "name": "Task",
+      "name": "Agent",
       "input": { "prompt": "Search for recent papers on...", "subagent_type": "search" }
     },
     {
       "type": "tool_use",
-      "name": "Task",
+      "name": "Agent",
       "input": { "prompt": "Analyze the document at...", "subagent_type": "analysis" }
     }
   ]
 }
 ```
+
+Claude Code caps concurrent subagents at 20 (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`) and spawn depth at 3 (`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`); at the depth limit the `Agent` tool is withheld from the subagent.
 
 ### AgentDefinition in the Claude Agent SDK
 
@@ -283,9 +337,18 @@ async for message in query(
 
 Messages emitted from inside a subagent's context carry a `parent_tool_use_id` field — use it to attribute messages to the right subagent execution.
 
-### fork_session
+### Forks vs Fresh Subagents
 
-Creates independent branches from a shared analysis baseline. Useful when you want to explore divergent approaches from the same starting point without the branches influencing each other.
+A **fork** is the opposite trade-off from an isolated subagent: it inherits the *entire* conversation — history, system prompt, tools, model — and shares the prompt cache, so it is cheaper than a fresh subagent. Only its final result returns to the main conversation; its tool calls stay isolated. Forks can't spawn sub-forks.
+
+| | Fresh subagent | Fork |
+|---|---|---|
+| Conversation history | Not inherited — pass everything explicitly | Fully inherited |
+| System prompt / tools | The subagent's own | Same as the parent session |
+| Prompt cache | Cold | Shared with the parent (cheaper) |
+| Use for | Bounded, well-specified tasks; noisy exploration | Divergent branches off a shared baseline |
+
+In Claude Code, `/subtask <prompt>` starts a fork, and the SDK/CLI exposes `--fork-session` for resuming a session under a new ID. `fork_session` is the older API-level name for the same "branch from a shared baseline" idea.
 
 ### Structured Context Passing
 
@@ -353,7 +416,7 @@ Refund amount: $149.99
 
 ### Hook Events (Current Catalog)
 
-The hook system expanded substantially in 2026 — there are now **30 events** across seven groups. Exam-relevant ones are marked ★.
+The hook system expanded substantially in 2026 — the current catalog is **31 events** across seven groups. Exam-relevant ones are marked ★.
 
 | Group | Events |
 |-------|--------|
@@ -361,7 +424,7 @@ The hook system expanded substantially in 2026 — there are now **30 events** a
 | **Session & turn** | `SessionStart` ★, `SessionEnd` ★, `UserPromptSubmit` ★, `UserPromptExpansion`, `Stop` ★, `StopFailure` |
 | **Tool / agentic loop** | `PreToolUse` ★, `PostToolUse` ★, `PostToolUseFailure`, `PostToolBatch`, `PermissionRequest` ★, `PermissionDenied` |
 | **Agent & task** | `SubagentStart`, `SubagentStop` ★, `TaskCreated`, `TaskCompleted`, `TeammateIdle` |
-| **File & config** | `FileChanged`, `CwdChanged`, `ConfigChange`, `InstructionsLoaded` |
+| **File & config** | `FileChanged`, `CwdChanged`, `DirectoryAdded`, `ConfigChange`, `InstructionsLoaded` |
 | **Compaction** | `PreCompact` ★, `PostCompact` |
 | **Context & worktree** | `Notification`, `MessageDisplay`, `Elicitation`, `ElicitationResult`, `WorktreeCreate`, `WorktreeRemove` |
 
@@ -530,11 +593,15 @@ For code review of large PRs:
 - Context has drifted too far from current task
 - In these cases, pass a structured summary of prior findings rather than resuming
 
-### fork_session
+### Forking a Session
 
-Creates independent branches from a shared analysis baseline. Each branch can explore a different approach without contaminating the others.
+`--fork-session` resumes an existing session under a **new** session ID, so the original stays untouched and each branch explores a different approach without contaminating the others. In an interactive session, `/subtask <prompt>` spawns a fork that inherits the full conversation and returns only its result (see §1.3).
 
 **Use case:** Testing two different refactoring strategies from the same starting point.
+
+### Moving a Session Between Surfaces
+
+Sessions are no longer tied to one machine. `claude --cloud "<task>"` starts the work in a cloud session; `claude --teleport` pulls a web session back into the terminal; `/desktop` hands the current terminal session to the desktop app for visual diff review. Remote Control drives a running local session from a phone or another browser. This matters architecturally: a "session" is a portable unit of state, so anything the agent must not lose belongs in files or memory, not in scrollback.
 
 ### Informing Resumed Sessions
 

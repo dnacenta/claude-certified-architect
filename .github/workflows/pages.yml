@@ -45,6 +45,12 @@ jobs:
               echo
               cat "$f"
             done
+            for f in $(ls certs/*.md | sort); do
+              echo
+              echo '<div class="page-break"></div>'
+              echo
+              cat "$f"
+            done
           } > combined.md
 
       - name: Build PDF

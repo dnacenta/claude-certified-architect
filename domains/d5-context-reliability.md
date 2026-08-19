@@ -10,6 +10,19 @@ Covers conversation context management, escalation patterns, error propagation, 
 
 Claude has a limited context window. Every message, tool result, and system prompt consumes tokens. Long conversations degrade as earlier information gets compressed or lost.
 
+Current sizes, because "1M tokens" changes the shape of the problem without eliminating it:
+
+| Model | Context window | Max output |
+|-------|----------------|-----------|
+| Claude Fable 5 / Opus 5 / Sonnet 5 | 1M tokens | 128k |
+| Claude Opus 4.8 / 4.7 / 4.6, Sonnet 4.6 | 1M tokens | 128k |
+| Claude Haiku 4.5 | 200k tokens | 64k |
+
+Two traps that come with a 1M window:
+
+1. **A bigger window is not free.** Every token in it is billed on every turn, and the "lost in the middle" effect below gets *worse* with length, not better. Filling a 1M window because you can is a cost and a quality regression.
+2. **Token counts changed.** Opus 4.7 introduced a new tokenizer, carried by Opus 4.8, Opus 5, and Fable 5: the same text produces roughly 30% more tokens than on pre-4.7 models. Any budget, chunk size, or threshold calibrated on an older model needs re-baselining with `messages.count_tokens` — never with `tiktoken`.
+
 ### Progressive Summarization Risks
 
 When context is compressed (via `/compact` or automatic compression), the system summarizes earlier conversation. This introduces risks:
@@ -428,6 +441,82 @@ When producing research synthesis:
 
 ---
 
+## 5.7 Server-Side Context Management
+
+Sections 5.1 and 5.4 cover context management as something *you* do — case-facts blocks, scratchpads, trimming, delegating to subagents. The API now offers three server-side mechanisms that do part of this work for you. They are complementary, not alternatives, and knowing which one solves which problem is the point.
+
+| Mechanism | What it does | Where state goes |
+|-----------|--------------|------------------|
+| **Context editing** | *Clears* old tool results or thinking blocks before the model sees them | Deleted — gone |
+| **Compaction** | *Summarizes* earlier context when it approaches a threshold | Replaced by a summary in the conversation |
+| **Memory tool** | Lets Claude read and write persistent files | Outside the conversation, survives everything |
+
+### Context Editing (beta `context-management-2025-06-27`)
+
+Clears, does not summarize.
+
+```python
+client.beta.messages.create(
+    model="claude-opus-5",
+    betas=["context-management-2025-06-27"],
+    context_management={"edits": [
+        {"type": "clear_thinking_20251015",
+         "keep": {"type": "thinking_turns", "value": 2}},
+        {"type": "clear_tool_uses_20250919",
+         "trigger": {"type": "input_tokens", "value": 30000},
+         "keep": {"type": "tool_uses", "value": 3},
+         "clear_at_least": {"type": "input_tokens", "value": 5000},
+         "exclude_tools": ["web_search"]},
+    ]},
+    tools=[...], messages=[...],
+)
+```
+
+- `clear_tool_uses_20250919` — clears old tool results (`clear_tool_inputs: true` also clears the parameters). Default trigger: 100,000 input tokens; default `keep`: 3.
+- `clear_thinking_20251015` — clears thinking blocks. When combining both, **`clear_thinking` must be listed first**.
+- `clear_at_least` exists to protect the prompt cache: clearing a trivial amount invalidates the cache for no benefit.
+- The response reports what happened in `context_management.applied_edits`.
+
+### Compaction (beta `compact-2026-01-12`)
+
+Summarizes rather than clears. Available on Fable 5, Opus 5, Opus 4.8/4.7/4.6, Sonnet 5, and Sonnet 4.6; default trigger around 150k tokens.
+
+> **The critical integration detail:** append the **whole `response.content`** back to your `messages` on every turn, not just the extracted text. The compaction blocks in the response are what the API uses to replace compacted history on the next request. Pulling out the text string and appending that silently destroys the compaction state — and it fails quietly, which is the worst failure mode for something you only notice at turn 90.
+
+Client-side SDK compaction (`compaction_control` on the tool runner) is **deprecated** in favor of this.
+
+### Memory Tool (`memory_20250818`)
+
+A client-side tool — Anthropic defines the interface, you implement the file operations. Declared as `{"type": "memory_20250818", "name": "memory"}`, no `input_schema`.
+
+Its role in this domain: it's the persistence layer that makes clearing safe. Combine it with context editing and Claude receives a warning to write anything important to memory *before* its tool results are cleared. That is the API-level version of the scratchpad pattern in §5.4.
+
+### Choosing
+
+| Situation | Mechanism |
+|-----------|-----------|
+| Agentic loop with dozens of verbose tool results | Context editing (`clear_tool_uses`) |
+| Extended thinking plus a need to keep cache hits high | Context editing (`clear_thinking`) |
+| Long research/analysis conversation that must keep its narrative | Compaction |
+| Findings that must survive across sessions, not just turns | Memory tool |
+| Facts that must never be paraphrased | Case-facts block (§5.1) — no mechanism protects exact numbers better than restating them |
+
+---
+
+## 5.8 Bounding and Recovering Long Runs
+
+### Task Budgets vs `max_tokens`
+
+`max_tokens` is a ceiling the model can't see; hitting it truncates output mid-thought. A **task budget** (`output_config.task_budget`, beta `task-budgets-2026-03-13`, minimum 20,000) is a ceiling the model *can* see, so it paces itself and lands the work. Available on Claude Opus 5, Fable 5, Sonnet 5, and Opus 4.8/4.7. The budget counts what Claude generates plus the tool results it reads this turn — not the full history you resend. Leave `remaining` unset in a normal loop; only pass it when you rewrite or compact history yourself and the server can no longer derive prior spend.
+
+Managed Agents **session budgets** are a different thing: hard, dollar-denominated, platform-enforced caps on one session. A task budget is advisory and token-denominated.
+
+### Refusals Are a Reliability Concern, Not Just a Safety One
+
+A `refusal` arrives as HTTP 200 with `stop_reason: "refusal"` and a `stop_details.category`. Code that reads `content` without checking `stop_reason` treats a refusal as a successful empty answer — the same class of bug as treating a failed search as zero results (§5.3). For production paths, enable server-side fallback (`betas=["server-side-fallback-2026-07-01"]`, `fallbacks="default"`) so the request is re-routed by category rather than dropped. See Domain 1 §1.1.
+
+---
+
 ## Domain 5 Practice Questions
 
 **Q1:** An agent is processing a customer support request. After context compression, the customer's order number ($149.99 order #67890) was summarized as "a recent order." What should have been done to prevent this?
@@ -461,3 +550,21 @@ When producing research synthesis:
 - D) Discard both and search again
 
 **Answer: C** — Conflicting data should be annotated with source attribution rather than silently resolved. This preserves transparency and lets downstream consumers evaluate the discrepancy.
+
+**Q5:** A long-running agent enables server-side compaction. The integration appends only `response.content[0].text` to its message history each turn. What goes wrong?
+
+- A) Nothing — text is all the API needs
+- B) Compaction state is lost silently, because the compaction blocks in `response.content` are what the API uses to replace compacted history
+- C) The request fails with a 400 on the first compaction
+- D) Compaction triggers too early
+
+**Answer: B** — Append the whole `response.content`, not the extracted text. Dropping the non-text blocks destroys the compaction state without raising an error, so the failure only surfaces deep into a long conversation.
+
+**Q6:** An agentic workflow keeps getting truncated mid-task when it hits `max_tokens`. Which mechanism lets the model pace itself instead?
+
+- A) Raise `max_tokens` and hope for the best
+- B) A task budget (`output_config.task_budget`), which the model can see and plan around
+- C) A lower `effort` setting
+- D) An iteration cap in the client loop
+
+**Answer: B** — `max_tokens` is an enforced ceiling the model is unaware of; a task budget injects a countdown the model sees during generation, so it finishes gracefully. Lower `effort` reduces spend but does not communicate a ceiling, and a client-side iteration cap is the anti-pattern from Domain 1 §1.1.
