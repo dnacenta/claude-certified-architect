@@ -89,6 +89,8 @@ I'm also building open-source tools around persistent agents and structured memo
 
 Not affiliated with Anthropic or the Claude Certified Architect program. Solo project; stars and issues help.
 
+Feel free to reach out: [dnacenta@pulse-null.com](mailto:dnacenta@pulse-null.com)
+
 ## License
 
 This is an unofficial community study guide. Claude Certified Architect is a certification program by [Anthropic](https://www.anthropic.com).
