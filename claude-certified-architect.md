@@ -17,7 +17,7 @@ The exam is model-agnostic, but scenario questions and code samples assume a cur
 | Claude Fable 5 | `claude-fable-5` | 1M | 128k | $10 / $50 | Most capable widely released model; thinking always on |
 | **Claude Opus 5** | `claude-opus-5` | 1M | 128k | $5 / $25 | **Default for complex agentic coding and enterprise work** |
 | Claude Sonnet 5 | `claude-sonnet-5` | 1M | 128k | $2 / $10 | Best speed/intelligence balance |
-| Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | 200k | 64k | $1 / $5 | Fastest; only current model still using `budget_tokens` thinking |
+| Claude Haiku 4.5 | `claude-haiku-4-5` | 200k | 64k | $1 / $5 | Fastest; only current model still using `budget_tokens` thinking |
 
 Claude Mythos 5 (`claude-mythos-5`) shares Fable 5's specs and is invitation-only under Project Glasswing, for defensive cybersecurity work. **Legacy but still available:** Opus 4.8, Opus 4.7, Opus 4.6, Sonnet 4.6, Sonnet 4.5, Opus 4.5.
 

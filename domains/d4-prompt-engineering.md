@@ -485,7 +485,7 @@ The subtlety worth flagging: on **Opus 4.8/4.7 you must set `adaptive` explicitl
 output_config={"effort": "xhigh"}   # low | medium | high | xhigh | max
 ```
 
-It defaults to `high` on Claude Opus 5 and Sonnet 5 (Claude API and Claude Code). `xhigh` is the sweet spot for most coding and agentic work on the current frontier models. Use `low` for subagents and mechanical tasks — lower effort means fewer, more-consolidated tool calls and terser output; use `max` when correctness matters more than cost. Effort matters more on these models than on any prior generation, so **re-tune it when you migrate**, don't carry the old value across.
+It defaults to `high` on the Claude API (equivalent to omitting it); Claude Code defaults to `xhigh`. `xhigh` is the sweet spot for most coding and agentic work on the current frontier models. Use `low` for subagents and mechanical tasks — lower effort means fewer, more-consolidated tool calls and terser output; use `max` when correctness matters more than cost. Effort matters more on these models than on any prior generation, so **re-tune it when you migrate**, don't carry the old value across.
 
 ### Thinking Display
 

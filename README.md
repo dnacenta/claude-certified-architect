@@ -58,7 +58,7 @@ Code samples use **`claude-opus-5`** — Anthropic's current default for complex
 | Claude Fable 5 | `claude-fable-5` | 1M | 128k | $10 / $50 |
 | **Claude Opus 5** | `claude-opus-5` | 1M | 128k | $5 / $25 |
 | Claude Sonnet 5 | `claude-sonnet-5` | 1M | 128k | $2 / $10 |
-| Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | 200k | 64k | $1 / $5 |
+| Claude Haiku 4.5 | `claude-haiku-4-5` | 200k | 64k | $1 / $5 |
 
 Opus 4.8, 4.7, 4.6, Sonnet 4.6, Sonnet 4.5, and Opus 4.5 are legacy but still available. Full notes in the [main guide](claude-certified-architect.md#current-model-lineup-august-2026).
 
@@ -78,6 +78,16 @@ The [main guide's Resources section](claude-certified-architect.md#resources) ha
 ## Credits
 
 This guide was inspired by and based on the exam breakdown by [@hooeem on X](https://x.com/hooeem/status/2033198345045336559). Full credit to them for compiling the domain coverage, scenarios, and key concepts from the official exam guide.
+
+## Related work
+
+I'm also building open-source tools around persistent agents and structured memory — same problem space as the agentic / MCP / context domains in this guide, different angle:
+
+- **[recall-echo](https://github.com/dnacenta/recall-echo)** — persistent, confidence-weighted memory for coding agents (MCP-friendly). Early but usable.
+- **[pulse-null](https://github.com/dnacenta/pulse-null)** — single-binary scaffold for longer-running AI entities. Research prototype — expect bugs.
+- **[pulse-null.com](https://pulse-null.com)** — overview of the work.
+
+Not affiliated with Anthropic or the Claude Certified Architect program. Solo project; stars and issues help.
 
 ## License
 
