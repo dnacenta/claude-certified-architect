@@ -94,3 +94,9 @@ Feel free to reach out: [dnacenta@pulse-null.com](mailto:dnacenta@pulse-null.com
 ## License
 
 This is an unofficial community study guide. Claude Certified Architect is a certification program by [Anthropic](https://www.anthropic.com).
+
+## Exam access and registration
+
+Registration runs through the Anthropic Partner Academy and requires affiliation with a Claude Partner Network organization; there is no individual sign-up. Exams are delivered by [Pearson VUE](https://www.pearsonvue.com/us/en/anthropic.html) (online proctored or at a test center), the fee is $125 per attempt as of the mid-2026 exam guide, and credentials are valid for 12 months with a free on-time renewal.
+
+No partner organization? The routes in are an employer that joins the [Claude Partner Network](https://claude.com/partners), a qualifying company of your own, or membership in an existing partner firm ([how the partner-firm route works](https://youraidept.com/network/claude-certification) — disclosure: that guide is maintained by YAID, a partner firm).
