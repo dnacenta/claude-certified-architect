@@ -74,6 +74,7 @@ Opus 4.8, 4.7, 4.6, Sonnet 4.6, Sonnet 4.5, and Opus 4.5 are legacy but still av
 The [main guide's Resources section](claude-certified-architect.md#resources) has the full, categorised link list.
 
 > **Docs note:** Anthropic split its documentation in July 2026. API docs live at `platform.claude.com/docs/en/*`, Claude Code docs at `code.claude.com/docs/en/*`; the old `docs.anthropic.com/en/docs/*` URLs still redirect. The SDK was renamed from "Claude Code SDK" to the **Claude Agent SDK**.
+- [Free timed practice exams for all four Claude certifications](https://youraidept.com/network/claude-certification-practice-exam): full-length mocks drawn to the published domain weights (60/120 for CCAR-F and CCAO-F, 53/120 for CCDV-F), scored against the 720 pass mark with a per-domain breakdown and explanations. 250 original questions, no sign-up, from YAID, a Claude Partner Network firm.
 
 ## Credits
 
