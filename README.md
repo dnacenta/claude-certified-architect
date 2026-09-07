@@ -4,7 +4,7 @@ Unofficial study guide for the **Claude Certified Architect — Foundations** (C
 
 This guide covers all 5 exam domains with detailed explanations, code examples, anti-patterns, decision frameworks, and practice questions.
 
-It is actively maintained and updated regularly to track changes to Anthropic's models, APIs, and Claude Code. **Last refresh: August 2026** — see [CHANGELOG.md](CHANGELOG.md) for what changed and when.
+It is actively maintained and updated regularly to track changes to Anthropic's models, APIs, and Claude Code. **Last refresh: September 2026** — see [CHANGELOG.md](CHANGELOG.md) for what changed and when.
 
 ## The Claude Certification Family
 
@@ -17,7 +17,7 @@ Anthropic now runs **four** certifications. This repo's deep-dive guide covers C
 | CCAR-P | Architect — Professional | Senior architects owning the full solution lifecycle | $175 | [Overview](certs/ccar-p-architect-professional.md) |
 | CCDV-F | Developer — Foundations | Engineers shipping Claude apps, agents, and workflows | $125 | [Overview](certs/ccdv-f-developer.md) |
 
-All four are 120-minute proctored exams delivered via Pearson VUE, passing score 720/1,000, credentials valid 12 months (Exam Guides v1.0, effective July 2026).
+All four are 120-minute proctored exams delivered via Pearson VUE, passing score 720/1,000, credentials valid 12 months (Exam Guides v1.0, effective July 2026). Renewal is free if done on time: review what changed and pass a non-proctored assessment; a lapsed credential means sitting the full exam again. Registration needs a partner-domain email — personal addresses are rejected.
 
 ## Read it online
 
@@ -32,7 +32,7 @@ The landing page and PDF are built and deployed automatically from this repo's m
 - **Passing score**: 720/1000
 - **Scenarios**: 4 of 6 randomly selected per exam
 - **Delivery**: Pearson VUE (OnVUE online or test center), registered via the Anthropic Partner Academy
-- **Price / validity**: $125 per attempt; certification valid 12 months (Exam Guide v1.0, effective July 2026)
+- **Price / validity**: $125 per attempt; certification valid 12 months, free on-time renewal via a non-proctored assessment (Exam Guide v1.0, effective July 2026)
 - **Target audience**: Solution architects with 6+ months experience building with Claude APIs, Agent SDK, Claude Code, and MCP; access is gated to the Claude Partner Network
 
 ## Domains
@@ -55,21 +55,22 @@ Code samples use **`claude-opus-5`** — Anthropic's current default for complex
 
 | Model | ID | Context | Max output | Price (in / out per MTok) |
 |-------|-----|---------|-----------|---------------------------|
-| Claude Fable 5 | `claude-fable-5` | 1M | 128k | $10 / $50 |
+| Claude Fable 5.1 | `claude-fable-5-1` | 1M | 128k | $10 / $50 (cache reads $0.25) |
 | **Claude Opus 5** | `claude-opus-5` | 1M | 128k | $5 / $25 |
 | Claude Sonnet 5 | `claude-sonnet-5` | 1M | 128k | $2 / $10 |
 | Claude Haiku 4.5 | `claude-haiku-4-5` | 200k | 64k | $1 / $5 |
 
-Opus 4.8, 4.7, 4.6, Sonnet 4.6, Sonnet 4.5, and Opus 4.5 are legacy but still available. Full notes in the [main guide](claude-certified-architect.md#current-model-lineup-august-2026).
+Fable 5, Opus 4.8, 4.7, 4.6, 4.5, Sonnet 4.6, and Sonnet 4.5 are legacy but still available (Opus 4.1 retired 2026-08-05). Fable 5.1 (released 2026-09-01) rejects forced `tool_choice` and binds thinking blocks to the model and history that produced them — see the [main guide](claude-certified-architect.md#current-model-lineup-september-2026).
 
 ## Resources
 
-- [Official Exam Guide (PDF, March 2026 — superseded by Exam Guide v1.0, available via the Anthropic Partner Academy)](https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F8lsy243ftffjjy1cx9lm3o2bw%2Fpublic%2F1773274827%2FClaude+Certified+Architect+%E2%80%93+Foundations+Certification+Exam+Guide.pdf)
+- [Official CCAR-F Exam Guide (PDF, v1.0)](https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542750%2FClaude+Certified+Architect+%E2%80%93+Foundations+Exam+Guide.pdf) — the [March 2026 launch guide](https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F8lsy243ftffjjy1cx9lm3o2bw%2Fpublic%2F1773274827%2FClaude+Certified+Architect+%E2%80%93+Foundations+Certification+Exam+Guide.pdf) is superseded
+- [Anthropic Partner Academy — CCAR-F registration](https://anthropic-partners.skilljar.com/claude-certified-architect-foundations-certification) · [Prep courses](https://anthropic-partners.skilljar.com/page/claude-certified-architect-foundations-prep-courses) · [Certification FAQ](https://anthropic-partners.skilljar.com/page/faq-certifications)
 - [Pearson VUE — Anthropic certification program](https://www.pearsonvue.com/us/en/anthropic.html)
 - [Anthropic Skilljar — Building with Claude API](https://anthropic.skilljar.com/claude-with-the-anthropic-api)
 - [12-Week Training Program (GitHub)](https://github.com/SGridworks/claude-certified-architect-training)
 - [Building Effective Agents (Anthropic Research)](https://www.anthropic.com/research/building-effective-agents)
-- [Claude API docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview) · [Claude Code docs](https://code.claude.com/docs/en/overview) · [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) · [MCP](https://modelcontextprotocol.io/introduction)
+- [Claude API docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview) · [Models overview](https://platform.claude.com/docs/en/models/overview) · [Claude Code docs](https://code.claude.com/docs/en/overview) · [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) · [MCP](https://modelcontextprotocol.io/introduction)
 
 The [main guide's Resources section](claude-certified-architect.md#resources) has the full, categorised link list.
 

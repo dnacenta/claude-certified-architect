@@ -217,6 +217,13 @@ Controls how Claude interacts with tools:
 
 Any `tool_choice` value can also carry `"disable_parallel_tool_use": true` to cap Claude at a single tool call per response (by default it may emit several `tool_use` blocks at once).
 
+> **Fable 5.1 / Mythos 5.1 (since 2026-09-01): forced tool use is gone.** `{"type": "any"}` and `{"type": "tool", "name": ...}` return `400 invalid_request_error` (`tool_choice: type "tool" and "any" are not supported for this model`) — on `count_tokens` and in the Batches API too. `auto` and `none` still work, and `disable_parallel_tool_use` still works with `auto`. The replacements, in order of preference:
+>
+> 1. `tool_choice: {"type": "auto"}` plus an explicit instruction naming the tool (in the `user` turn, or in a mid-conversation `role: "system"` message when the app requires the call), with `strict: true` on the tool so the arguments still match your schema.
+> 2. Structured outputs (`output_config.format`, Domain 4 §4.3) when the forced call only existed to get JSON back.
+>
+> Opus 5, Sonnet 5, and the 4.x family keep all four `tool_choice` values, so the exam's "`any` guarantees a tool call" answer is still correct — just not model-agnostic anymore. Check `client.models.retrieve(id).capabilities` before assuming.
+
 ### When to Use Each
 
 **`"auto"`** — Most conversations. Claude decides whether a tool is needed.
@@ -228,7 +235,7 @@ Any `tool_choice` value can also carry `"disable_parallel_tool_use": true` to ca
 **`"none"`** — When a turn must produce prose (e.g., a final summarization pass) without stripping the tool definitions from the request.
 
 ```python
-# Force Claude to call a specific tool
+# Force Claude to call a specific tool (Opus 5 / Sonnet 5 / 4.x — 400 on Fable 5.1)
 response = client.messages.create(
     model="claude-opus-5",
     messages=[...],
@@ -313,6 +320,7 @@ Three scopes, and the file a server lands in depends on the scope — not on whi
 | **Local** (default) | Current project only | No | `~/.claude.json`, keyed by project path |
 | **Project** | Current project only | Yes, via version control | `.mcp.json` in the project root |
 | **User** | All your projects | No | `~/.claude.json` |
+| **Managed** (admin) | Every session in the org | Yes, pushed by IT | `managedMcpServers` in managed settings (v2.1.259+) — org-provided servers users can't remove |
 
 Note the naming trap: MCP *local scope* lives in `~/.claude.json` (home directory), while general *local settings* live in `.claude/settings.local.json` (project directory). They are unrelated files.
 
@@ -420,6 +428,9 @@ Claude Code's built-in tools and when to use each:
 | **Skill** | Invoke a skill by name | Running a packaged workflow |
 | **NotebookEdit** | Edit Jupyter notebook cells | `.ipynb` files |
 | **AskUserQuestion** | Ask the user a blocking question | Decisions only the user can make |
+| **ToolSearch** | Load a deferred tool's schema on demand | The client-side counterpart of the API's tool search — MCP and rarely used built-in tools ship as names only until Claude searches for them |
+| **SendMessage / ListAgents** | Message a running or completed subagent, teammate, or another session | Resuming a subagent with its context intact (Domain 3 §3.4); cross-session messaging |
+| **Workflow** | Run a dynamic-workflow script that orchestrates many subagents | Only when the user opts in ("use a workflow", `ultracode`) — see Domain 1 §1.3 |
 
 ### Codebase Exploration Pattern
 
@@ -490,6 +501,10 @@ client.beta.messages.create(
 
 Set `defer_loading` once on the `mcp_toolset` entry's `default_config` (or per tool in `configs`) rather than on individual tool definitions.
 
+### Changing Tools Mid-Conversation Without Breaking the Cache
+
+The `tools` array sits *earlier* in the cached prefix than `system`, so editing it between turns invalidates the cache for the whole conversation (Domain 4 §4.8). On the models that support mid-conversation system messages (Fable 5 / 5.1, Mythos 5 / 5.1, Opus 4.8, Opus 5 — not Sonnet 5), declare the full tool set up front and then *offer or withdraw* tools with `tool_addition` / `tool_removal` blocks inside a `role: "system"` message (beta header `mid-conversation-tool-changes-2026-07-01`). A tool declared with `defer_loading: true` stays withheld until a `tool_addition` surfaces it. On Fable 5.1 this is also the only history-safe way to change tools, because rebuilding `tools` counts as editing earlier turns and invalidates later thinking blocks.
+
 ---
 
 ## Domain 2 Practice Questions
@@ -526,3 +541,12 @@ Set `defer_loading` once on the `mcp_toolset` entry's `default_config` (or per t
 - D) Set `defer_loading: true` on every tool including the search tool
 
 **Answer: B** — Tool search keeps only a small hot set plus the search tool in context and loads the rest on demand via `tool_reference` blocks, cutting definition tokens by ~85% while preserving prompt caching. D is a 400 error: at least one tool must stay non-deferred. Splitting across subagents (§2.3) is still valid, but tool search is what makes a 200-tool catalog workable inside one agent.
+
+**Q5:** An extraction service forces its schema with `tool_choice: {"type": "tool", "name": "extract_invoice"}` and is being moved from Claude Opus 5 to Claude Fable 5.1. What happens, and what is the right fix?
+
+- A) Nothing changes — forced tool use works on every current model
+- B) The request returns 400; switch to `tool_choice: "any"` instead
+- C) The request returns 400; use `tool_choice: "auto"` with an explicit instruction and `strict: true`, or structured outputs via `output_config.format`
+- D) The call silently falls back to text output
+
+**Answer: C** — Fable 5.1 and Mythos 5.1 reject both forced forms (`any` and `tool`) with a 400. `auto` plus an instruction keeps the tool call, `strict: true` keeps the arguments schema-valid, and structured outputs replace the pattern entirely when the tool only existed to return JSON. Opus 5 and Sonnet 5 still accept forced tool use, so this is a per-model check, not a global rule.

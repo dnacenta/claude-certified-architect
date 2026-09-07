@@ -14,14 +14,14 @@ Current sizes, because "1M tokens" changes the shape of the problem without elim
 
 | Model | Context window | Max output |
 |-------|----------------|-----------|
-| Claude Fable 5 / Opus 5 / Sonnet 5 | 1M tokens | 128k |
+| Claude Fable 5.1 / Fable 5 / Opus 5 / Sonnet 5 | 1M tokens | 128k |
 | Claude Opus 4.8 / 4.7 / 4.6, Sonnet 4.6 | 1M tokens | 128k |
 | Claude Haiku 4.5 | 200k tokens | 64k |
 
 Two traps that come with a 1M window:
 
 1. **A bigger window is not free.** Every token in it is billed on every turn, and the "lost in the middle" effect below gets *worse* with length, not better. Filling a 1M window because you can is a cost and a quality regression.
-2. **Token counts changed.** Opus 4.7 introduced a new tokenizer, carried by Opus 4.8, Opus 5, and Fable 5: the same text produces roughly 30% more tokens than on pre-4.7 models. Any budget, chunk size, or threshold calibrated on an older model needs re-baselining with `messages.count_tokens` — never with `tiktoken`.
+2. **Token counts changed.** Opus 4.7 introduced a new tokenizer, carried by Opus 4.8, Opus 5, Sonnet 5, and Fable 5 / 5.1: the same text produces roughly 30% more tokens than on pre-4.7 models (1M tokens ≈ 555k words now, versus ≈ 750k before). Any budget, chunk size, or threshold calibrated on an older model needs re-baselining with `messages.count_tokens` — never with `tiktoken`.
 
 ### Progressive Summarization Risks
 
@@ -479,11 +479,23 @@ client.beta.messages.create(
 
 ### Compaction (beta `compact-2026-01-12`)
 
-Summarizes rather than clears. Available on Fable 5, Opus 5, Opus 4.8/4.7/4.6, Sonnet 5, and Sonnet 4.6; default trigger around 150k tokens.
+Summarizes rather than clears. Available on Fable 5 / 5.1, Mythos 5 / 5.1, Opus 5, Opus 4.8/4.7/4.6, Sonnet 5, and Sonnet 4.6; default trigger around 150k tokens. An `instructions` parameter accepts your own summarization prompt.
 
 > **The critical integration detail:** append the **whole `response.content`** back to your `messages` on every turn, not just the extracted text. The compaction blocks in the response are what the API uses to replace compacted history on the next request. Pulling out the text string and appending that silently destroys the compaction state — and it fails quietly, which is the worst failure mode for something you only notice at turn 90.
 
 Client-side SDK compaction (`compaction_control` on the tool runner) is **deprecated** in favor of this.
+
+### Preserved Thinking: Compaction Shapes That Stay Valid
+
+Fable 5.1 adds a constraint the other mechanisms didn't have: its thinking blocks are valid only against the exact history that preceded them, so **editing earlier turns invalidates every later block** (Domain 4 §4.7). Server-side compaction and context editing don't count as edits — the check compares the conversation *as you sent it* — which is now the strongest argument for moving trimming to the server. If you must compact on the client, only three shapes survive:
+
+| Shape | Rule |
+|-------|------|
+| **Simple compaction** (recommended) | Replace the whole history with one summary message plus the new user turn; replay nothing else. No thinking blocks carry over, so nothing fails |
+| **Keep-tail compaction** | If recent turns stay verbatim behind a summary, strip their `thinking` / `redacted_thinking` blocks (text and tool calls can stay), or send `prefix_mismatch_behavior: "drop_block"` |
+| **Background compaction** | A summary swapped in later invalidates every block produced in between — send `"drop_block"` on each request that still carries pre-swap thinking, or compact synchronously |
+
+What never works: snipping individual turns out of the middle of the transcript, deleting old tool results by hand, or rebuilding `system` / `tools` between requests. Use a mid-conversation `role: "system"` message for the instruction change you were making, and server-side context editing for selective removal. Dropping blocks once at a compaction boundary is cheap; invalidating them on *every* request restarts the prompt cache each time.
 
 ### Memory Tool (`memory_20250818`)
 
@@ -507,13 +519,13 @@ Its role in this domain: it's the persistence layer that makes clearing safe. Co
 
 ### Task Budgets vs `max_tokens`
 
-`max_tokens` is a ceiling the model can't see; hitting it truncates output mid-thought. A **task budget** (`output_config.task_budget`, beta `task-budgets-2026-03-13`, minimum 20,000) is a ceiling the model *can* see, so it paces itself and lands the work. Available on Claude Opus 5, Fable 5, Sonnet 5, and Opus 4.8/4.7. The budget counts what Claude generates plus the tool results it reads this turn — not the full history you resend. Leave `remaining` unset in a normal loop; only pass it when you rewrite or compact history yourself and the server can no longer derive prior spend.
+`max_tokens` is a ceiling the model can't see; hitting it truncates output mid-thought. A **task budget** (`output_config.task_budget`, beta `task-budgets-2026-03-13`, minimum 20,000) is a ceiling the model *can* see, so it paces itself and lands the work. Available on Claude Fable 5.1 / Mythos 5.1, Fable 5 / Mythos 5, Opus 5, and Opus 4.8/4.7 — **not** on Sonnet 5, Opus 4.6, or Haiku 4.5. The budget counts what Claude generates plus the tool results it reads this turn — not the full history you resend. Leave `remaining` unset in a normal loop; only pass it when you rewrite or compact history yourself and the server can no longer derive prior spend. Two reliability footnotes: a budget that is obviously too small for the task makes Claude decline, scope down, or stop early with a partial result (raise the budget before debugging anything else), and the budget value is rendered into the prompt, so changing it mid-task is a cache miss.
 
 Managed Agents **session budgets** are a different thing: hard, dollar-denominated, platform-enforced caps on one session. A task budget is advisory and token-denominated.
 
 ### Refusals Are a Reliability Concern, Not Just a Safety One
 
-A `refusal` arrives as HTTP 200 with `stop_reason: "refusal"` and a `stop_details.category`. Code that reads `content` without checking `stop_reason` treats a refusal as a successful empty answer — the same class of bug as treating a failed search as zero results (§5.3). For production paths, enable server-side fallback (`betas=["server-side-fallback-2026-07-01"]`, `fallbacks="default"`) so the request is re-routed by category rather than dropped. See Domain 1 §1.1.
+A `refusal` arrives as HTTP 200 with `stop_reason: "refusal"` and a `stop_details.category`. Code that reads `content` without checking `stop_reason` treats a refusal as a successful empty answer — the same class of bug as treating a failed search as zero results (§5.3). For production paths, enable server-side fallback (`betas=["server-side-fallback-2026-07-01"]`, `fallbacks="default"`) so the request is re-routed by category rather than dropped. See Domain 1 §1.1. Mythos 5.1 now runs classifiers too (Mythos 5 did not), so the same handling applies under Project Glasswing; and a fallback *from* Fable 5.1 lands on a model that can't read its thinking blocks, so budget for a re-planning turn.
 
 ---
 
@@ -568,3 +580,12 @@ A `refusal` arrives as HTTP 200 with `stop_reason: "refusal"` and a `stop_detail
 - D) An iteration cap in the client loop
 
 **Answer: B** — `max_tokens` is an enforced ceiling the model is unaware of; a task budget injects a countdown the model sees during generation, so it finishes gracefully. Lower `effort` reduces spend but does not communicate a ceiling, and a client-side iteration cap is the anti-pattern from Domain 1 §1.1.
+
+**Q7:** A custom harness keeps context small by deleting old tool results from the middle of the `messages` array before each request. It worked on Claude Opus 5. After moving to Claude Fable 5.1, requests start failing with a 400 that mentions thinking blocks. What is the correct fix?
+
+- A) Strip all `thinking` blocks from every request
+- B) Keep the history append-only and move the trimming to server-side context editing (`clear_tool_uses`) or compaction, which don't count as edits
+- C) Switch `thinking` to `{"type": "disabled"}`
+- D) Delete the tool results *and* the thinking blocks that follow them
+
+**Answer: B** — Fable 5.1's thinking blocks are valid only against the exact prefix that preceded them, so any client-side edit to earlier turns invalidates every later block. Server-side context editing and compaction are exempt because the check compares the conversation as you sent it. A always works but throws away the reasoning and restarts the prompt cache on every request; C is a 400 on Fable 5.1 (thinking is always on); D still edits the middle of the transcript.

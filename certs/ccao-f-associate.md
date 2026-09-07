@@ -76,6 +76,7 @@ Much of this repo's [Domain 4 (explicit criteria, few-shot)](../domains/d4-promp
 2. Cancel/reschedule up to 24 hours before the appointment; changes within 24 hours forfeit the fee.
 3. Retakes: up to 4 attempts per rolling 12 months, with waiting periods after each failed attempt (14 / 30 / 90 days), per Pearson VUE program policy.
 4. Government-issued photo ID required; the name must exactly match your registration.
+5. Renewal: the credential is valid 12 months; renewing on time is free — review what changed since you certified and pass a non-proctored assessment. If it lapses, the full exam fee applies again. Registration requires a partner-domain email address.
 
 ---
 

@@ -151,7 +151,7 @@ Define a tool that represents your desired output structure:
 }
 ```
 
-Use `tool_choice: {"type": "tool", "name": "extract_invoice_data"}` to force Claude to call this tool, guaranteeing structured output.
+Use `tool_choice: {"type": "tool", "name": "extract_invoice_data"}` to force Claude to call this tool, guaranteeing structured output — on Opus 5, Sonnet 5, and the 4.x family. **Fable 5.1 / Mythos 5.1 reject forced tool use with a 400** (Domain 2 §2.3); there, prefer Solution 3 below, or `auto` plus an instruction naming the tool with `strict: true`.
 
 ### Solution 2: Strict Mode
 
@@ -469,6 +469,7 @@ response = client.messages.create(
 
 | Model | Thinking config | Omitting `thinking` | `budget_tokens` | `temperature` / `top_p` / `top_k` |
 |-------|-----------------|---------------------|-----------------|-----------------------------------|
+| Claude Fable 5.1 / Mythos 5.1 | `{"type": "adaptive"}` or omit; `disabled` → 400 | Runs adaptive (always on) | **400** | **400** |
 | Claude Fable 5 | `{"type": "adaptive"}` or omit | Runs adaptive (always on) | **400** | **400** |
 | Claude Opus 5 | `{"type": "adaptive"}` or omit | Runs **adaptive** by default | **400** | **400** |
 | Claude Opus 4.8 / 4.7 | `{"type": "adaptive"}` | Runs **without** thinking | **400** | **400** |
@@ -485,11 +486,11 @@ The subtlety worth flagging: on **Opus 4.8/4.7 you must set `adaptive` explicitl
 output_config={"effort": "xhigh"}   # low | medium | high | xhigh | max
 ```
 
-It defaults to `high` on the Claude API (equivalent to omitting it); Claude Code defaults to `xhigh`. `xhigh` is the sweet spot for most coding and agentic work on the current frontier models. Use `low` for subagents and mechanical tasks — lower effort means fewer, more-consolidated tool calls and terser output; use `max` when correctness matters more than cost. Effort matters more on these models than on any prior generation, so **re-tune it when you migrate**, don't carry the old value across.
+It defaults to `high` on the Claude API (equivalent to omitting it) and to `xhigh` in Claude Code; Haiku 4.5 rejects it, and `xhigh` is not available on Opus 4.6 / Sonnet 4.6. Anthropic's current per-model guidance: on **Opus 5 and Fable 5.1 start at `high` and sweep** — step up to `xhigh`/`max` only where evals show headroom, and use `low`/`medium` liberally for routine or latency-sensitive routes (lower effort on these models often beats `xhigh` on the previous generation); on **Opus 4.8 / 4.7 start at `xhigh`** for coding and agentic work. Lower effort means fewer, more-consolidated tool calls and terser output. Effort matters more on these models than on any prior generation, so **re-tune it when you migrate**, don't carry the old value across. Changing the top-level `effort` mid-conversation invalidates the message cache; on Fable 5.1, Mythos 5.1, and Opus 5, a **per-message effort** change — a `role: "system"` message carrying `output_config.effort` (beta `mid-conversation-output-config-2026-07-01`) — keeps the prefix intact.
 
 ### Thinking Display
 
-`display: "omitted"` is now the **default** on Fable 5, Opus 5, Opus 4.8/4.7, and Sonnet 5 — a silent change from Opus 4.6 and Sonnet 4.6, where it was `"summarized"`. Thinking still happens and is still billed identically; only visibility changes. If you stream reasoning to users, the default looks like a long pause before any output, so set `display: "summarized"` explicitly. The raw chain of thought is never exposed on any model.
+`display: "omitted"` is now the **default** on Fable 5 / 5.1, Opus 5, Opus 4.8/4.7, and Sonnet 5 — a silent change from Opus 4.6 and Sonnet 4.6, where it was `"summarized"`. Thinking still happens and is still billed identically; only visibility changes. If you stream reasoning to users, the default looks like a long pause before any output, so set `display: "summarized"` explicitly. The raw chain of thought is never exposed on any model. On Fable 5.x the text Claude writes *between tool calls* comes back as progress-update `thinking` blocks rather than `text` blocks, so under the default it is empty; `display: "updates"` (beta `thinking-display-updates-2026-08-18`) returns those progress notes as readable text while the reasoning itself stays hidden.
 
 ### Assistant Prefill Is Gone
 
@@ -497,7 +498,18 @@ Prefilling the last assistant turn to force a response format returns **400** on
 
 ### Mid-Conversation System Messages
 
-On Claude Opus 5, Opus 4.8, and Fable 5 (not Sonnet 5, no beta header) you can append `{"role": "system", "content": "..."}` to the **`messages` array** rather than editing the top-level `system` field. This is the prompt-injection-safe operator channel, and — because it doesn't touch the cached prefix — the cheap one. Constraints: it must follow a `user` message (or an assistant message ending in server-tool use), can't be `messages[0]`, and must either be last or be followed by an assistant turn.
+On Claude Opus 5, Opus 4.8, Fable 5 / 5.1, and Mythos 5 / 5.1 (not Sonnet 5, no beta header) you can append `{"role": "system", "content": "..."}` to the **`messages` array** rather than editing the top-level `system` field. This is the prompt-injection-safe operator channel, and — because it doesn't touch the cached prefix — the cheap one. Constraints: it must follow a `user` message (or an assistant message ending in server-tool use), can't be `messages[0]`, and must either be last or be followed by an assistant turn.
+
+Two extensions arrived with Fable 5.1 (both beta): **turn-scoped** messages with `clear_at: "next_user_message"` (header `mid-conversation-system-clear-at-2026-08-21`) render for one turn, then stay in the transcript cleared — the right shape for a per-turn reminder such as "batch independent tool calls", which Fable 5.1 needs more often than Fable 5 in long loops; and **tool changes** via `tool_addition` / `tool_removal` blocks (header `mid-conversation-tool-changes-2026-07-01`), covered in Domain 2 §2.6. Never delete earlier copies of these messages: on Fable 5.1 that counts as editing history.
+
+### Preserved Thinking: The History Is Now Part of the Contract
+
+Every `thinking` block Fable 5.1 emits records the model that produced it *and* is valid only against the exact `system`, `tools`, and message prefix that preceded it. Two rules follow:
+
+1. **Model binding.** Fable 5.1 reads its own blocks and those of Opus 5, Fable 5, Mythos 5, and earlier models; none of those can read Fable 5.1's. When a fallback, router, or retry moves a conversation to an older model, the API silently drops the unreadable blocks (unbilled) and that model re-plans.
+2. **Prefix binding.** Editing, reordering, or removing earlier turns — including client-side compaction that keeps recent turns verbatim behind a summary — invalidates every later thinking block. Where enforced (organizations created on or after 2026-08-31 today; every organization on later models), a request that replays such a block returns a 400. Append-only histories, server-side compaction, and context editing are all safe, because the check compares the conversation *as you sent it*.
+
+If Claude Code, claude.ai, Managed Agents, or the Agent SDK own your history, they already comply. If your code builds `messages` itself, run the three-step check from the migration guide: capture consecutive request bodies, diff `system` / `tools` / shared `messages` prefix, and fix every non-append change — using `thinking-binding-controls-2026-08-01` with `prefix_mismatch_behavior: "drop_block"` to log `input_transformations` while you do. Domain 5 §5.7 covers the compaction shapes that stay valid.
 
 ---
 
@@ -512,11 +524,12 @@ Caching is a prompt-*structure* problem, which is why it belongs here rather tha
 | Mechanic | Detail |
 |----------|--------|
 | Breakpoints | Max 4 per request (`cache_control: {"type": "ephemeral"}`) |
-| Minimum prefix | ~1024 tokens — shorter prefixes silently don't cache |
-| Verification | `usage.cache_read_input_tokens`. Zero across repeated requests means something is invalidating the prefix |
-| Pre-warming | `max_tokens: 0` warms a cache entry without generating |
+| Minimum prefix | Model-dependent — 512 tokens on Fable 5.x / Mythos 5.x / Opus 5; 1,024 on Opus 4.8, Sonnet 5, Sonnet 4.6/4.5; 2,048 on Opus 4.7; 4,096 on Opus 4.6/4.5 and Haiku 4.5. Shorter prefixes silently don't cache |
+| Pricing | Cache reads cost 10% of the input price (2.5% on Fable 5.1 / Mythos 5.1 — $0.25/MTok); 5-minute writes 1.25×, 1-hour writes 2× |
+| Verification | `usage.cache_read_input_tokens`. Zero across repeated requests means something is invalidating the prefix. **Cache diagnostics** (beta `cache-diagnosis-2026-04-07`, `diagnostics: {previous_message_id}`) has the API report exactly where consecutive requests diverged |
+| Pre-warming | `max_tokens: 0` warms a cache entry without generating — with the same thinking and `effort` configuration your real traffic uses, or the entry is never hit |
 
-**Silent invalidators to audit for:** `datetime.now()` in the system prompt, JSON serialized with non-deterministic key order, a tool set that varies per request, a session ID or user name interpolated into the prefix, and switching `speed` (fast mode) mid-conversation.
+**Silent invalidators to audit for:** `datetime.now()` in the system prompt, JSON serialized with non-deterministic key order, a tool set that varies per request, a session ID or user name interpolated into the prefix, switching `speed` (fast mode) mid-conversation, changing the top-level `effort` or thinking configuration between requests (use per-message effort on Fable 5.1 / Opus 5), and changing a task-budget value (it is rendered into the prompt).
 
 **Interaction with tool search:** deferred tools are excluded from the system-prompt prefix and discovered tools are appended inline, so `defer_loading` *preserves* the cache. A tool with `defer_loading: true` cannot also carry `cache_control` — put the breakpoint on a non-deferred tool.
 

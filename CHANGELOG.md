@@ -6,6 +6,30 @@ The exam blueprint itself (domains, weights, scenarios) comes from the official 
 
 ---
 
+## 2026-09 — Claude Fable 5.1, preserved thinking, dynamic workflows
+
+**What changed at Anthropic**
+
+- **Claude Fable 5.1** (`claude-fable-5-1`, released 2026-09-01) is the most capable widely released model; **Claude Mythos 5.1** is its Project Glasswing twin and, unlike Mythos 5, runs safety classifiers. Fable 5 joins Opus 4.8/4.7/4.6/4.5 and Sonnet 4.6/4.5 on the legacy list; Opus 4.1 retired 2026-08-05. Same $10/$50 pricing as Fable 5, cache reads down to $0.25/MTok. Anthropic now publishes per-model retirement floors.
+- Three **breaking changes on Fable 5.1**: forced `tool_choice` (`any` / `tool`) returns 400; thinking blocks are readable only by the producing model or a newer one (a fallback to an older model drops them, unbilled); and **editing earlier turns invalidates later thinking blocks** — harnesses must keep history append-only or trim on the server. New organizations (created on or after 2026-08-31) already get a 400 on edited history.
+- Additive on Fable 5.1 / Mythos 5.1 (beta): per-message `effort` inside a `role: "system"` message (also on Opus 5), turn-scoped system messages (`clear_at: "next_user_message"`), `thinking.display: "updates"` progress notes, `tool_addition` / `tool_removal` blocks, and content provenance.
+- **Task budgets are not supported on Sonnet 5** (the docs' feature table); a budget that is too small produces refusal-like scoping-down. Prompt-cache minimums are model-dependent (512 tokens on Opus 5 / Fable 5.x, up to 4,096 on Opus 4.6 and Haiku 4.5). Effort guidance changed: start at `high` and sweep on Opus 5 / Fable 5.1; `xhigh` remains the starting point on Opus 4.8/4.7.
+- The **Admin API** landed in every SDK (`client.beta.organization`) and the **`ant` CLI** (`ant auth login`, `ant beta:agents create < agent.yaml`) is now the recommended control plane for Managed Agents. The Python SDK crossed to 1.x.
+- Claude Code (v2.1.236 → v2.1.263): **dynamic workflows** (`Workflow` tool, `/workflows`, `/workflow-authoring`, `/deep-research`, `ultracode`) and experimental **agent teams**; `PreModelSwitch` / `PostModelSwitch` hooks (33 events); `subagent_type: "fork"` with fork mode on by default, `/fork` now copying a session into a background session and `/branch` for in-place branching; background-session lifecycle (`claude --bg`, `claude agents`, `attach` / `logs` / `stop` / `respawn` / `rm`); `--restricted`, `--permission-prompts none`, `--safe-mode`, `--append-subagent-system-prompt-file`; `/skill-doctor`, `/diff`, `/advisor`, `/fast`, `/feedback`; `managedMcpServers`, `promptCacheTtl`, `modelPicker`, `modelPricing`, output-cap settings; auto memory as one typed file per memory behind a `MEMORY.md` index.
+- Certification program: the Partner Academy FAQ confirms **free on-time renewal** via a non-proctored assessment (a lapsed credential means the full exam again) and partner-domain-email registration. The v1.0 CCAR-F Exam Guide PDF is now linked directly.
+
+**What changed here**
+
+- README and main guide: lineup table led by Fable 5.1 with the three breaking changes summarised; retirement floors; renewal policy; official v1.0 exam guide and Partner Academy links; decision-framework rows for `tool_choice` (per-model), effort (start at `high`), append-only history, and subagents vs workflows; models-docs URL updated to `platform.claude.com/docs/en/models/overview`.
+- **Domain 1**: fallback consequences on Fable 5.1; task-budget availability corrected (no Sonnet 5) and too-small-budget behaviour; `ant` CLI flow for Managed Agents; a subagents / skills / agent teams / workflows comparison; `subagent_type: "fork"`, `/fork` vs `/subtask` vs `/branch`; hook catalog 31 → 33 (`PreModelSwitch`, `PostModelSwitch`); background-session commands.
+- **Domain 2**: Fable 5.1 forced-tool-use box and replacement patterns; `managedMcpServers` scope; `ToolSearch`, `SendMessage` / `ListAgents`, and `Workflow` in the built-in tools table; new section on `tool_addition` / `tool_removal`; new practice question Q5.
+- **Domain 3**: background sessions, `/fork`, `/loop` self-pacing; typed auto-memory files; refreshed bundled-skill list; `experimental.cacheTtl`; new "Agent Teams and Dynamic Workflows" section; new CI flags (`--permission-prompts none`, `--restricted`, `--safe-mode`, `--append-subagent-system-prompt-file`); new cost/cache/fleet settings table.
+- **Domain 4**: Fable 5.1 row in the thinking table; rewritten effort guidance with per-message effort; `display: "updates"`; turn-scoped and tool-change system messages; new "Preserved Thinking" section; caching table with per-model minimums, pricing, and cache diagnostics; extra silent invalidators.
+- **Domain 5**: Fable 5.1 in the context table and tokenizer note; compaction availability and `instructions`; new "Compaction Shapes That Stay Valid" section; task-budget corrections; Mythos 5.1 refusals; new practice question Q7.
+- `certs/`: renewal policy added to each overview.
+
+---
+
 ## 2026-08 — Claude Opus 5, tool search, server-side context management
 
 **What changed at Anthropic**
