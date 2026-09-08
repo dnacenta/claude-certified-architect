@@ -86,7 +86,7 @@ I'm also building open-source tools around persistent agents, structured memory,
 
 - **[recall-echo](https://github.com/dnacenta/recall-echo)** — persistent, confidence-weighted memory for coding agents (MCP-friendly). Early but usable.
 - **[pulse-null](https://github.com/dnacenta/pulse-null)** — single-binary scaffold for longer-running AI entities. Research prototype — expect bugs.
-- **[pulse-limits](https://github.com/dnacenta/pulse-limits)** — your Claude plan limits in the macOS menu bar, as a retro patient monitor: the 5-hour session window, the weekly and per-model windows, a 12-hour trend, and a heartbeat that follows what Claude Code is doing right now. A SwiftBar plugin, `brew install dnacenta/tap/pulse-limits`. No account, no server — it reuses the Claude Code login already in your Keychain.
+- **[pulse-limits](https://github.com/pulse-null/pulse-limits)** — Claude, Codex and Grok plan limits as a retro patient monitor: macOS menu bar, Waybar, terminal. One Rust binary. `brew install pulse-null/tap/pulse-limits && pulse-limits install`. No account, no server — it reuses the logins your CLIs already keep.
 - **[pulse-null.com](https://pulse-null.com)** — overview of the work.
 
 Not affiliated with Anthropic or the Claude Certified Architect program. Solo project; stars and issues help.
