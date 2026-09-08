@@ -82,10 +82,11 @@ This guide was inspired by and based on the exam breakdown by [@hooeem on X](htt
 
 ## Related work
 
-I'm also building open-source tools around persistent agents and structured memory — same problem space as the agentic / MCP / context domains in this guide, different angle:
+I'm also building open-source tools around persistent agents, structured memory, and Claude Code usage visibility — same problem space as the agentic / MCP / context domains in this guide, different angle:
 
 - **[recall-echo](https://github.com/dnacenta/recall-echo)** — persistent, confidence-weighted memory for coding agents (MCP-friendly). Early but usable.
 - **[pulse-null](https://github.com/dnacenta/pulse-null)** — single-binary scaffold for longer-running AI entities. Research prototype — expect bugs.
+- **[pulse-limits](https://github.com/dnacenta/pulse-limits)** — your Claude plan limits in the macOS menu bar, as a retro patient monitor: the 5-hour session window, the weekly and per-model windows, a 12-hour trend, and a heartbeat that follows what Claude Code is doing right now. A SwiftBar plugin, `brew install dnacenta/tap/pulse-limits`. No account, no server — it reuses the Claude Code login already in your Keychain.
 - **[pulse-null.com](https://pulse-null.com)** — overview of the work.
 
 Not affiliated with Anthropic or the Claude Certified Architect program. Solo project; stars and issues help.
