@@ -85,7 +85,7 @@ This guide was inspired by and based on the exam breakdown by [@hooeem on X](htt
 I'm also building open-source tools around persistent agents, structured memory, and Claude Code usage visibility — same problem space as the agentic / MCP / context domains in this guide, different angle:
 
 - **[recall-echo](https://github.com/dnacenta/recall-echo)** — persistent, confidence-weighted memory for coding agents (MCP-friendly). Early but usable.
-- **[pulse-null](https://github.com/dnacenta/pulse-null)** — single-binary scaffold for longer-running AI entities. Research prototype — expect bugs.
+- **[pulse-null](https://github.com/dnacenta/pulse-null)** — single-binary scaffold for longer-running AI pulses. Research prototype — expect bugs.
 - **[pulse-limits](https://github.com/pulse-null/pulse-limits)** — Claude, Codex and Grok plan limits as a retro patient monitor: macOS menu bar, Waybar, terminal. One Rust binary. `brew install pulse-null/tap/pulse-limits && pulse-limits install`. No account, no server — it reuses the logins your CLIs already keep.
 - **[pulse-null.com](https://pulse-null.com)** — overview of the work.
 
