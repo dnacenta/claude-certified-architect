@@ -60,15 +60,15 @@ User sends prompt with tool definitions
 | `"refusal"` | Claude declined to respond on safety grounds | Loop ends; inspect `stop_details` (see below), rephrase or route the request |
 | `"model_context_window_exceeded"` | Generation hit the model's context window before `max_tokens` | Response is valid but truncated; trim input or continue. Default in Sonnet 4.5+ |
 
-> **`stop_details` on refusals (Opus 4.7+):** A `refusal` response also carries a `stop_details` object (no beta header needed). `stop_details.type` is always `"refusal"`; `stop_details.category` is the policy category (e.g. `"cyber"`, `"bio"`, `"reasoning_extraction"`, `"frontier_llm"`, or `null` — the set has grown over time); `stop_details.explanation` is a human-readable string (don't parse it). `stop_details` is `null` for every other stop reason. Use the category to route or log specific refusals differently.
+> **`stop_details` on refusals (Opus 4.7+):** A `refusal` response also carries a `stop_details` object (no beta header needed). `stop_details.type` is always `"refusal"`; `stop_details.category` is the policy category (`"cyber"`, `"bio"`, `"frontier_llm"`, `"reasoning_extraction"`, `"general_harms"`, or `null` — the set grows over time); `stop_details.explanation` is a human-readable string (don't parse it). `stop_details` is `null` for every other stop reason. Use the category to route or log specific refusals differently. Since 2026-09-24 a refusal that arrives **before any output is billed** when its category is `bio`, `frontier_llm`, or `reasoning_extraction` (the low-false-positive categories); `cyber`, `general_harms`, and `null` refusals before output are still free. Mid-stream refusals were always billed, and every refusal counts against rate limits.
 
 ### Server-Side Refusal Fallbacks
 
-A `refusal` arrives as **HTTP 200**, not an exception — code that reads `content` without checking `stop_reason` first will silently process an empty or partial response. For production agents on Claude Opus 5, Fable 5 / 5.1, and Mythos 5.1 (which, unlike Mythos 5, runs safety classifiers), don't just log the refusal: opt into server-side fallback so the request is re-routed automatically by refusal category.
+A `refusal` arrives as **HTTP 200**, not an exception — code that reads `content` without checking `stop_reason` first will silently process an empty or partial response. For production agents on Claude Opus 5.5, Opus 5, and Fable 5 / 5.1 (all four ship safety classifiers; Mythos 5.1's safeguards depend on its access program, so handle `refusal` there too), don't just log the refusal: opt into server-side fallback so the request is re-routed automatically by refusal category.
 
 ```python
 response = client.messages.create(
-    model="claude-opus-5",
+    model="claude-opus-5-5",
     max_tokens=16000,
     betas=["server-side-fallback-2026-07-01"],
     fallbacks="default",          # server routes by refusal category
@@ -78,9 +78,9 @@ response = client.messages.create(
 
 `fallbacks="default"` means you never maintain a model list. The older array form (`betas=["server-side-fallback-2026-06-01"]` + `fallbacks=[{"model": "claude-opus-4-8"}]`) still works. Server-side fallback is **Claude API only** — on Bedrock, Vertex, and Foundry use the SDKs' client-side `BetaRefusalFallbackMiddleware` instead.
 
-One Fable 5.1 consequence: a fallback lands the conversation on an *older* model, which cannot read Fable 5.1's thinking blocks. The API drops them (unbilled), the request succeeds, and the fallback model re-plans without that reasoning — expect a slower, costlier first turn after the switch. Send the `thinking-binding-controls-2026-08-01` beta header to get an `input_transformations` list of what was dropped.
+One consequence on Fable 5.1 and Opus 5.5: a fallback usually lands on a model that cannot read their thinking blocks. Fable 5.1 / Mythos 5.1 read everything (each other's, Opus 5.5's, and earlier models'); Opus 5.5 reads Opus 5 and earlier Opus / Sonnet / Haiku blocks but not Fable or Mythos ones; no older model reads Fable 5.1's or Opus 5.5's. The API drops unreadable blocks (unbilled), the request succeeds, and the fallback model re-plans without that reasoning — expect a slower, costlier first turn after the switch. Send the `thinking-binding-controls-2026-08-01` beta header to get an `input_transformations` list of what was dropped.
 
-**Loop rule:** always branch on `stop_reason` *before* reading `content`. `refusal` is a terminal stop reason for that request, not a retryable tool error. And on Fable 5.1, keep the `messages` array **append-only** — editing or snipping earlier turns invalidates every later thinking block (Domain 5 §5.7).
+**Loop rule:** always branch on `stop_reason` *before* reading `content`. `refusal` is a terminal stop reason for that request, not a retryable tool error. And on Fable 5.1 and Opus 5.5, keep the `messages` array **append-only** — editing or snipping earlier turns invalidates every later thinking block (Domain 5 §5.7).
 
 ### API Response Structure
 
@@ -89,7 +89,7 @@ When Claude wants to use a tool, the response contains both text and a tool_use 
 ```json
 {
   "id": "msg_01Aq9w938a90dw8q",
-  "model": "claude-opus-5",
+  "model": "claude-opus-5-5",
   "stop_reason": "tool_use",
   "role": "assistant",
   "content": [
@@ -159,7 +159,7 @@ This is fundamentally different from traditional workflow automation where steps
 >
 > ```python
 > with client.beta.messages.stream(
->     model="claude-opus-5", max_tokens=128000,
+>     model="claude-opus-5-5", max_tokens=128000,
 >     betas=["task-budgets-2026-03-13"],
 >     output_config={"effort": "high",
 >                    "task_budget": {"type": "tokens", "total": 64000}},
@@ -168,7 +168,7 @@ This is fundamentally different from traditional workflow automation where steps
 >     response = stream.get_final_message()
 > ```
 >
-> Minimum `total` is 20,000. Available on Claude Fable 5.1 / Mythos 5.1, Fable 5 / Mythos 5, Opus 5, and Opus 4.8/4.7 — **not** on Sonnet 5, Opus 4.6, or Haiku 4.5. Stream it — a large `max_tokens` on a non-streaming request hits HTTP timeouts. Size the budget against your real task-length distribution: a budget that is obviously too small makes Claude decline, scope down, or stop early with a partial result, which looks like a refusal but isn't one. The exam's anti-pattern still holds: a budget paces the loop, `stop_reason` still terminates it.
+> Minimum `total` is 20,000. Available on Claude Fable 5.1 / Mythos 5.1, Fable 5 / Mythos 5, Opus 5.5, Opus 5, and Opus 4.8/4.7 — **not** on Sonnet 5, Opus 4.6, or Haiku 4.5, and not through Claude Code or Cowork (Messages API only). Stream it — a large `max_tokens` on a non-streaming request hits HTTP timeouts. Size the budget against your real task-length distribution: a budget that is obviously too small makes Claude decline, scope down, or stop early with a partial result, which looks like a refusal but isn't one. The exam's anti-pattern still holds: a budget paces the loop, `stop_reason` still terminates it.
 
 ### Who Runs the Loop: Four Ways to Build an Agent
 
@@ -183,7 +183,7 @@ Two independent questions separate the options: **who supplies the harness** (th
 
 **Tool Runner ≠ Claude Agent SDK.** Tool Runner ships inside the regular Anthropic SDK (`anthropic` / `@anthropic-ai/sdk`) and only loops over tools *you* define — no built-in tools, no filesystem, no sandbox. It exposes per-turn hooks for approval gates, error interception, result modification (e.g. attaching `cache_control`), and retries. The Claude Agent SDK is Claude Code packaged as a library.
 
-**Managed Agents (beta)** is the newest surface and the only one that adds managed *deployment*. The mandatory flow is Agent (created once, versioned, persisted) → Session (one per run). `model`, `system`, and `tools` live on the **agent**, never the session. Each session provisions a container that acts as the agent's workspace and streams events back; you send messages and tool results in. It also adds scheduled deployments (cron-fired sessions), vault-stored credentials substituted at egress, dollar-denominated session budgets, and multiagent rosters. Beta header: `managed-agents-2026-04-01`. Not available on Bedrock / Vertex / Foundry — use Claude API + tool use there. The recommended control-plane flow is now the **`ant` CLI**: define agents and environments as version-controlled YAML (`ant beta:agents create < agent.yaml`), and let application code own only the data plane (`sessions.create` with the stored agent ID). `ant auth login` also gives the SDKs an OAuth profile, so a bare `Anthropic()` client works with no API key in the environment.
+**Managed Agents (beta)** is the newest surface and the only one that adds managed *deployment*. The mandatory flow is Agent (created once, versioned, persisted) → Session (one per run). `model`, `system`, and `tools` live on the **agent**, never the session. Each session provisions a container that acts as the agent's workspace and streams events back; you send messages and tool results in. It also adds scheduled deployments (cron-fired sessions), vault-stored credentials substituted at egress, dollar-denominated session budgets, and multiagent rosters. Beta header: `managed-agents-2026-04-01`. Not available on Bedrock / Vertex / Foundry — use Claude API + tool use there. The recommended control-plane flow is now the **`ant` CLI**: describe agents, environments, skills, memory stores, and deployments as files in your repository and run **`ant apply`** (v1.30.0, 2026-09-03), which prints a plan, applies it, and writes a `claude-lock.json` lockfile — commit it so later runs, locally or in CI, update the same resources instead of creating new ones (`ant beta:agents create < agent.yaml` still works for one-offs). Application code owns only the data plane (`sessions.create` with the stored agent ID). `ant auth login` also gives the SDKs an OAuth profile, so a bare `Anthropic()` client works with no API key in the environment. Two September additions: permission policies gained **`auto`** — the server evaluates each agent or MCP tool call and runs it, denies it as high-risk, or pauses for your approval, reporting the verdict in an `evaluation` field on `agent.tool_use` events — and **`ant beta:sessions connect`** attaches your terminal to a live session to follow it, send messages, and approve or deny waiting tool calls (`--web` serves the Console's session viewer locally).
 
 **Choosing:** stay at the simplest tier that works. A single call or a code-controlled workflow handles most tasks; reach for an agent only when the task is genuinely open-ended and model-driven, the value justifies the latency and cost, and errors are catchable (tests, review, rollback).
 
@@ -320,7 +320,7 @@ Claude Code caps concurrent subagents at 20 (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGEN
 > | Intermediate results live in | Claude's context | Claude's context | A shared task list | Script variables |
 > | Scale | A few delegated tasks per turn | Same | A handful of long-running peers | Dozens to hundreds of agents per run, resumable |
 >
-> A workflow moves the coordinator's plan out of the model and into code — the deterministic answer to "the coordinator forgot half the subtasks" (§1.2). Claude writes the script; `/workflows` watches it; `ultracode` (an effort setting) lets Claude decide when to reach for one. Agent teams need `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
+> A workflow moves the coordinator's plan out of the model and into code — the deterministic answer to "the coordinator forgot half the subtasks" (§1.2). Claude writes the script; `/workflows` watches it; `ultracode` (an effort setting) lets Claude decide when to reach for one. Agent teams need `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. The medium workflow-size guideline is now 10 agents (was 15), Pro plans default to small, and `CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS` (1–256) raises a run's concurrency cap for inference-bound fan-outs.
 
 ### AgentDefinition in the Claude Agent SDK
 
@@ -470,6 +470,8 @@ Five types are supported. `mcp_tool` is new in 2026.
 | `mcp_tool` | Calls a tool on a configured MCP server | Structured validation via a reusable service |
 | `prompt` | Single LLM call that returns a yes/no decision | Context-dependent approval |
 | `agent` | Multi-turn subagent with tool access | Complex compliance checks |
+
+Two constraints from recent releases: `PermissionRequest` no longer runs `agent`-type hooks — their answer could never allow or deny the request, so use `command` or `http` there (v2.1.280+) — and `mcp_tool` hooks on blocking events wait for their MCP server to finish connecting instead of being skipped.
 
 ### PreToolUse Hooks (Current JSON Shape)
 
