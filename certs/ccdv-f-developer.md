@@ -90,7 +90,7 @@ The developer exam goes deeper on API mechanics, SDK usage, evals, security, and
 1. Register via the exam's page on the **Anthropic Partner Academy** (partner-tier discounts apply at checkout), then schedule through **Pearson VUE** — online proctoring or a test center.
 2. Cancel/reschedule up to 24 hours before the appointment; changes within 24 hours forfeit the fee.
 3. Retakes: up to 4 attempts per rolling 12 months, with waiting periods after each failed attempt (14 / 30 / 90 days), per Pearson VUE program policy.
-4. Renewal: the credential is valid 12 months; renewing on time is free — review what changed since you certified and pass a non-proctored assessment. If it lapses, the full exam fee applies again. Registration requires a partner-domain email address.
+4. Renewal: the credential is valid 12 months; renewing on time is free — review what changed since you certified and pass a non-proctored assessment. If it lapses, the full exam fee applies again. Registration requires a partner-domain email address. Delivery moved to Pearson VUE and digital badging to Credly on 2026-06-30; candidates must be at least 18. Partner-tier discounts apply at checkout — 50% for Select, Preferred, and Global Premier partners, 100% for Global Premier partners through 2026-12-31.
 
 ---
 

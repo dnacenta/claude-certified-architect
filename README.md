@@ -4,7 +4,9 @@ Unofficial study guide for the **Claude Certified Architect — Foundations** (C
 
 This guide covers all 5 exam domains with detailed explanations, code examples, anti-patterns, decision frameworks, and practice questions.
 
-It is actively maintained and updated regularly to track changes to Anthropic's models, APIs, and Claude Code. **Last refresh: September 2026** — see [CHANGELOG.md](CHANGELOG.md) for what changed and when.
+Read it online as a **website** at https://dnacenta.github.io/claude-certified-architect/ or download the **PDF (English)** at https://dnacenta.github.io/claude-certified-architect/guide_en.pdf. Both are built and deployed automatically from this repo's markdown on every push to `main` (see [`.github/workflows/pages.yml`](.github/workflows/pages.yml)), so the PDF never drifts from the guide.
+
+It is actively maintained and updated regularly to track changes to Anthropic's models, APIs, and Claude Code. **Last refresh: 25 September 2026** — see [CHANGELOG.md](CHANGELOG.md) for what changed and when.
 
 ## The Claude Certification Family
 
@@ -17,18 +19,11 @@ Anthropic now runs **four** certifications. This repo's deep-dive guide covers C
 | CCAR-P | Architect — Professional | Senior architects owning the full solution lifecycle | $175 | [Overview](certs/ccar-p-architect-professional.md) |
 | CCDV-F | Developer — Foundations | Engineers shipping Claude apps, agents, and workflows | $125 | [Overview](certs/ccdv-f-developer.md) |
 
-All four are 120-minute proctored exams delivered via Pearson VUE, passing score 720/1,000, credentials valid 12 months (Exam Guides v1.0, effective July 2026). Renewal is free if done on time: review what changed and pass a non-proctored assessment; a lapsed credential means sitting the full exam again. Registration needs a partner-domain email — personal addresses are rejected.
-
-## Read it online
-
-- **Website:** https://dnacenta.github.io/claude-certified-architect/
-- **PDF (English):** https://dnacenta.github.io/claude-certified-architect/guide_en.pdf
-
-The landing page and PDF are built and deployed automatically from this repo's markdown on every push to `main` (see [`.github/workflows/pages.yml`](.github/workflows/pages.yml)). The PDF is generated from the source `.md` files, so it never drifts from the guide.
+All four are 120-minute proctored exams delivered via Pearson VUE, passing score 720/1,000, credentials valid 12 months (Exam Guides v1.0, effective July 2026). Renewal is free if done on time: review what changed and pass a non-proctored assessment; a lapsed credential means sitting the full exam again. Registration needs a partner-domain email — personal addresses are rejected. Delivery moved to Pearson VUE and digital badging to Credly on 2026-06-30. Partner-tier discounts apply at checkout (50% for Select, Preferred, and Global Premier partners; 100% for Global Premier through 2026-12-31), and candidates must be at least 18.
 
 ## Exam Overview
 
-- **Format**: 60 multiple-choice, scenario-based questions in 120 minutes (proctored, closed-book)
+- **Format**: 60 multiple-choice and multiple-response, scenario-based questions in 120 minutes (proctored, closed-book)
 - **Passing score**: 720/1000
 - **Scenarios**: 4 of 6 randomly selected per exam
 - **Delivery**: Pearson VUE (OnVUE online or test center), registered via the Anthropic Partner Academy
@@ -51,16 +46,16 @@ See [claude-certified-architect.md](claude-certified-architect.md) for the full 
 
 ## Model Lineup Used in This Guide
 
-Code samples use **`claude-opus-5`** — Anthropic's current default for complex agentic coding and enterprise work.
+Code samples use **`claude-opus-5-5`** — Anthropic's current default for most workloads (Claude Opus 5.5 launched 2026-09-22). Samples that rely on forced `tool_choice` use `claude-sonnet-5`, because Opus 5.5 and Fable 5.1 reject it.
 
 | Model | ID | Context | Max output | Price (in / out per MTok) |
 |-------|-----|---------|-----------|---------------------------|
 | Claude Fable 5.1 | `claude-fable-5-1` | 1M | 128k | $10 / $50 (cache reads $0.25) |
-| **Claude Opus 5** | `claude-opus-5` | 1M | 128k | $5 / $25 |
+| **Claude Opus 5.5** | `claude-opus-5-5` | 1M | 128k | $4 / $20 (cache reads $0.20) |
 | Claude Sonnet 5 | `claude-sonnet-5` | 1M | 128k | $2 / $10 |
 | Claude Haiku 4.5 | `claude-haiku-4-5` | 200k | 64k | $1 / $5 |
 
-Fable 5, Opus 4.8, 4.7, 4.6, 4.5, Sonnet 4.6, and Sonnet 4.5 are legacy but still available (Opus 4.1 retired 2026-08-05). Fable 5.1 (released 2026-09-01) rejects forced `tool_choice` and binds thinking blocks to the model and history that produced them — see the [main guide](claude-certified-architect.md#current-model-lineup-september-2026).
+Opus 5, Fable 5, Opus 4.8, 4.7, 4.6, 4.5, Sonnet 4.6, and Sonnet 4.5 are legacy but still available (Opus 4.1 retired 2026-08-05; Haiku 4.5's retirement floor is 2026-10-15). Opus 5.5 inherits Fable 5.1's three breaking changes — no forced `tool_choice`, thinking blocks bound to the model and history that produced them, append-only history — and adds two of its own: thinking can't be disabled, and its default effort is `medium`. See the [main guide](claude-certified-architect.md#current-model-lineup-september-2026).
 
 ## Resources
 

@@ -14,14 +14,14 @@ Current sizes, because "1M tokens" changes the shape of the problem without elim
 
 | Model | Context window | Max output |
 |-------|----------------|-----------|
-| Claude Fable 5.1 / Fable 5 / Opus 5 / Sonnet 5 | 1M tokens | 128k |
+| Claude Fable 5.1 / Fable 5 / Opus 5.5 / Opus 5 / Sonnet 5 | 1M tokens | 128k |
 | Claude Opus 4.8 / 4.7 / 4.6, Sonnet 4.6 | 1M tokens | 128k |
 | Claude Haiku 4.5 | 200k tokens | 64k |
 
 Two traps that come with a 1M window:
 
 1. **A bigger window is not free.** Every token in it is billed on every turn, and the "lost in the middle" effect below gets *worse* with length, not better. Filling a 1M window because you can is a cost and a quality regression.
-2. **Token counts changed.** Opus 4.7 introduced a new tokenizer, carried by Opus 4.8, Opus 5, Sonnet 5, and Fable 5 / 5.1: the same text produces roughly 30% more tokens than on pre-4.7 models (1M tokens ≈ 555k words now, versus ≈ 750k before). Any budget, chunk size, or threshold calibrated on an older model needs re-baselining with `messages.count_tokens` — never with `tiktoken`.
+2. **Token counts changed.** Opus 4.7 introduced a new tokenizer, carried by Opus 4.8, Opus 5, Opus 5.5, Sonnet 5, and Fable 5 / 5.1: the same text produces roughly 30% more tokens than on pre-4.7 models (1M tokens ≈ 555k words now, versus ≈ 750k before). Any budget, chunk size, or threshold calibrated on an older model needs re-baselining with `messages.count_tokens` — never with `tiktoken`.
 
 ### Progressive Summarization Risks
 
@@ -448,7 +448,7 @@ Sections 5.1 and 5.4 cover context management as something *you* do — case-fac
 | Mechanism | What it does | Where state goes |
 |-----------|--------------|------------------|
 | **Context editing** | *Clears* old tool results or thinking blocks before the model sees them | Deleted — gone |
-| **Compaction** | *Summarizes* earlier context when it approaches a threshold | Replaced by a summary in the conversation |
+| **Compaction** | *Summarizes* earlier context — on demand (you send a `compaction` request) or when input reaches a token threshold | Replaced by a signed summary block in the conversation |
 | **Memory tool** | Lets Claude read and write persistent files | Outside the conversation, survives everything |
 
 ### Context Editing (beta `context-management-2025-06-27`)
@@ -457,7 +457,7 @@ Clears, does not summarize.
 
 ```python
 client.beta.messages.create(
-    model="claude-opus-5",
+    model="claude-opus-5-5",
     betas=["context-management-2025-06-27"],
     context_management={"edits": [
         {"type": "clear_thinking_20251015",
@@ -476,26 +476,42 @@ client.beta.messages.create(
 - `clear_thinking_20251015` — clears thinking blocks. When combining both, **`clear_thinking` must be listed first**.
 - `clear_at_least` exists to protect the prompt cache: clearing a trivial amount invalidates the cache for no benefit.
 - The response reports what happened in `context_management.applied_edits`.
+- On Fable 5.1 and Opus 5.5, server-side context editing **never invalidates thinking blocks**; deleting the same tool results client-side would (see below).
 
-### Compaction (beta `compact-2026-01-12`)
+### Compaction: On Demand (beta `compact-2026-09-04`) vs At a Threshold (beta `compact-2026-01-12`)
 
-Summarizes rather than clears. Available on Fable 5 / 5.1, Mythos 5 / 5.1, Opus 5, Opus 4.8/4.7/4.6, Sonnet 5, and Sonnet 4.6; default trigger around 150k tokens. An `instructions` parameter accepts your own summarization prompt.
+Summarizes rather than clears. Two kinds exist since 2026-09-14, and the docs say to **prefer on-demand compaction wherever it is available**:
 
-> **The critical integration detail:** append the **whole `response.content`** back to your `messages` on every turn, not just the extracted text. The compaction blocks in the response are what the API uses to replace compacted history on the next request. Pulling out the text string and appending that silently destroys the compaction state — and it fails quietly, which is the worst failure mode for something you only notice at turn 90.
+| | On demand | At a threshold |
+|---|---|---|
+| Who decides when | You, by sending a request | The API, when input tokens reach the trigger (default ~150k) |
+| How | Send the conversation as it stands (same `system` and `tools`) with top-level `compaction: {"type": "summarize"}`; the response is a single signed `compaction` block with `stop_reason: "compaction"` and no reply | `context_management.edits: [{"type": "compact_20260112"}]` on ordinary requests |
+| What you send back | The block **first** in `messages`, in place of the messages it summarized, on every later request — exactly one block, unmodified, with the beta header | The whole `response.content`, appended as usual; the API drops what came before the block |
+| Recent turns word for word | Yes — leave them out of the compaction request and send them after the block | Only by pausing after compaction and re-inserting them |
+| Runs in the background | Yes — the conversation continues while the summary is written | No, it runs inside the request that hit the threshold |
+| Kept turns keep their thinking (Fable 5.1 / Opus 5.5) | Yes, when the API wrote the summary and `system` / `tools` didn't change | No — strip or drop it |
+| Availability | Fable 5.x, Mythos 5.x, Opus 5.5 / 5 / 4.8 / 4.7 / 4.6, Sonnet 5 / 4.6; Claude API, Claude Platform on AWS, Google Cloud, Foundry — **not Bedrock** | Same models |
 
-Client-side SDK compaction (`compaction_control` on the tool runner) is **deprecated** in favor of this.
+On-demand details worth carrying: `instructions` (up to 16,384 characters) *replaces* the default summarization prompt, so say what to retain and tell the model not to call tools; the summarization call is billed and reported under `usage.iterations` while the top-level token counts are zero; check `stop_reason` before looking for the block — `max_tokens`, `tool_use`, `refusal`, or `end_turn` mean no summary came back, and you simply continue and try again later; a request that ends in an unanswered tool call, or that carries `stop_sequences`, `output_config.format`, forced `tool_choice`, `context_management`, or a task budget's `remaining`, is rejected; and images, documents, and fetched URLs inside the summarized range are gone once the block replaces them. `role: "system"` messages in that range are summarized too — restate an instruction that still matters in a new `role: "system"` message right after your next `user` turn. The SDK tool runner does the swap for you via `compact_before_next_turn()`.
+
+> **The critical integration detail for threshold compaction:** append the **whole `response.content`** back to your `messages` on every turn, not just the extracted text. The compaction blocks in the response are what the API uses to replace compacted history on the next request. Pulling out the text string and appending that silently destroys the compaction state — and it fails quietly, which is the worst failure mode for something you only notice at turn 90.
+>
+> On-demand compaction has two silent mistakes of its own: leaving summarized messages *after* the block sends them to Claude twice, and leaving the block out of a later request means Claude gets no summary at all. Summarized messages left *in front of* the block are the one case that errors (`compaction_block_misplaced`).
+
+Client-side SDK compaction (`compaction_control` on the tool runner) is **deprecated** in favor of these.
 
 ### Preserved Thinking: Compaction Shapes That Stay Valid
 
-Fable 5.1 adds a constraint the other mechanisms didn't have: its thinking blocks are valid only against the exact history that preceded them, so **editing earlier turns invalidates every later block** (Domain 4 §4.7). Server-side compaction and context editing don't count as edits — the check compares the conversation *as you sent it* — which is now the strongest argument for moving trimming to the server. If you must compact on the client, only three shapes survive:
+Fable 5.1 and Opus 5.5 add a constraint the other mechanisms didn't have: their thinking blocks are valid only against the exact history that preceded them, so **editing earlier turns invalidates every later block** (Domain 4 §4.7). Server-side context editing and compaction don't count as edits — the check compares the conversation *as you sent it*, and it accepts the swap when the API wrote the summary — which is now the strongest argument for moving trimming to the server. The shapes, and whether the thinking in kept turns survives:
 
 | Shape | Rule |
 |-------|------|
-| **Simple compaction** (recommended) | Replace the whole history with one summary message plus the new user turn; replay nothing else. No thinking blocks carry over, so nothing fails |
-| **Keep-tail compaction** | If recent turns stay verbatim behind a summary, strip their `thinking` / `redacted_thinking` blocks (text and tool calls can stay), or send `prefix_mismatch_behavior: "drop_block"` |
-| **Background compaction** | A summary swapped in later invalidates every block produced in between — send `"drop_block"` on each request that still carries pre-swap thinking, or compact synchronously |
+| **Simple compaction** | Replace the whole history with one summary (the API's block, or a summary message of your own) plus the new user turn; replay nothing else. No thinking blocks carry over, so nothing fails |
+| **Keep-tail compaction, API-written** (on demand) | Kept turns keep valid thinking while three conditions hold: every compaction since a block was produced ran on a model with preserved thinking; the kept turns directly follow the summarized messages, unchanged, and start with a different role than the last summarized message (compacting exactly the `messages` of a request you already sent gets this right); and `system` plus the non-deferred `tools` are identical on the compaction request and every request after it |
+| **Keep-tail compaction, client-written** | The kept assistant turns still carry thinking produced against the original turns, so those blocks fail. Strip their `thinking` / `redacted_thinking` blocks (text and tool calls can stay), or send `prefix_mismatch_behavior: "drop_block"` |
+| **Background compaction** | With on-demand compaction, turns that arrived while the summary was written are kept turns and keep their thinking under the same conditions. With a client-written summary swapped in later, every block produced in between fails — send `"drop_block"` on each request that still carries pre-swap thinking, or compact synchronously |
 
-What never works: snipping individual turns out of the middle of the transcript, deleting old tool results by hand, or rebuilding `system` / `tools` between requests. Use a mid-conversation `role: "system"` message for the instruction change you were making, and server-side context editing for selective removal. Dropping blocks once at a compaction boundary is cheap; invalidating them on *every* request restarts the prompt cache each time.
+Nothing fails at compaction time; the failure comes on the first later request that replays the kept thinking where the check is enforced — a 400 by default, or dropped blocks under `"drop_block"`, reported in `input_transformations`. Test it once: compact, keep one turn that holds a thinking block, send the next request with `prefix_mismatch_behavior: "error"`, and expect a 200 with an empty `input_transformations`. What never works: snipping individual turns out of the middle of the transcript, deleting old tool results by hand, placing a `role: "system"` message between the block and the kept turns, or rebuilding `system` / `tools` between requests. To change `system` or `tools` safely, compact the whole conversation first (no kept turns), then change them on the next request; to change instructions or tools without touching either, append a `role: "system"` message (Domain 2 §2.6, Domain 4 §4.7). Dropping blocks once at a compaction boundary is cheap; invalidating them on *every* request restarts the prompt cache each time.
 
 ### Memory Tool (`memory_20250818`)
 
@@ -509,7 +525,8 @@ Its role in this domain: it's the persistence layer that makes clearing safe. Co
 |-----------|-----------|
 | Agentic loop with dozens of verbose tool results | Context editing (`clear_tool_uses`) |
 | Extended thinking plus a need to keep cache hits high | Context editing (`clear_thinking`) |
-| Long research/analysis conversation that must keep its narrative | Compaction |
+| Long research/analysis conversation that must keep its narrative | Compaction — on demand where available, threshold when the API should manage it inside ordinary requests |
+| Application must pick the moment, keep the last turns word for word, or keep working while the summary is written | Compaction on demand |
 | Findings that must survive across sessions, not just turns | Memory tool |
 | Facts that must never be paraphrased | Case-facts block (§5.1) — no mechanism protects exact numbers better than restating them |
 
@@ -519,13 +536,13 @@ Its role in this domain: it's the persistence layer that makes clearing safe. Co
 
 ### Task Budgets vs `max_tokens`
 
-`max_tokens` is a ceiling the model can't see; hitting it truncates output mid-thought. A **task budget** (`output_config.task_budget`, beta `task-budgets-2026-03-13`, minimum 20,000) is a ceiling the model *can* see, so it paces itself and lands the work. Available on Claude Fable 5.1 / Mythos 5.1, Fable 5 / Mythos 5, Opus 5, and Opus 4.8/4.7 — **not** on Sonnet 5, Opus 4.6, or Haiku 4.5. The budget counts what Claude generates plus the tool results it reads this turn — not the full history you resend. Leave `remaining` unset in a normal loop; only pass it when you rewrite or compact history yourself and the server can no longer derive prior spend. Two reliability footnotes: a budget that is obviously too small for the task makes Claude decline, scope down, or stop early with a partial result (raise the budget before debugging anything else), and the budget value is rendered into the prompt, so changing it mid-task is a cache miss.
+`max_tokens` is a ceiling the model can't see; hitting it truncates output mid-thought. A **task budget** (`output_config.task_budget`, beta `task-budgets-2026-03-13`, minimum 20,000) is a ceiling the model *can* see, so it paces itself and lands the work. Available on Claude Fable 5.1 / Mythos 5.1, Fable 5 / Mythos 5, Opus 5.5, Opus 5, and Opus 4.8/4.7 — **not** on Sonnet 5, Opus 4.6, or Haiku 4.5. The budget counts what Claude generates plus the tool results it reads this turn — not the full history you resend. Leave `remaining` unset in a normal loop; only pass it when you rewrite or compact history yourself and the server can no longer derive prior spend — and never on an on-demand compaction request or a request that carries its block (400). Two reliability footnotes: a budget that is obviously too small for the task makes Claude decline, scope down, or stop early with a partial result (raise the budget before debugging anything else), and the budget value is rendered into the prompt, so changing it mid-task is a cache miss.
 
 Managed Agents **session budgets** are a different thing: hard, dollar-denominated, platform-enforced caps on one session. A task budget is advisory and token-denominated.
 
 ### Refusals Are a Reliability Concern, Not Just a Safety One
 
-A `refusal` arrives as HTTP 200 with `stop_reason: "refusal"` and a `stop_details.category`. Code that reads `content` without checking `stop_reason` treats a refusal as a successful empty answer — the same class of bug as treating a failed search as zero results (§5.3). For production paths, enable server-side fallback (`betas=["server-side-fallback-2026-07-01"]`, `fallbacks="default"`) so the request is re-routed by category rather than dropped. See Domain 1 §1.1. Mythos 5.1 now runs classifiers too (Mythos 5 did not), so the same handling applies under Project Glasswing; and a fallback *from* Fable 5.1 lands on a model that can't read its thinking blocks, so budget for a re-planning turn.
+A `refusal` arrives as HTTP 200 with `stop_reason: "refusal"` and a `stop_details.category`. Code that reads `content` without checking `stop_reason` treats a refusal as a successful empty answer — the same class of bug as treating a failed search as zero results (§5.3). For production paths, enable server-side fallback (`betas=["server-side-fallback-2026-07-01"]`, `fallbacks="default"`) so the request is re-routed by category rather than dropped. See Domain 1 §1.1. Opus 5.5 widened the classifier set — a biology classifier joins the cybersecurity one, and prompts that push the model to reproduce its internal reasoning can be declined as `reasoning_extraction` — so refusals are now a first-class path on the default model, not just the flagship. Since 2026-09-24 a refusal before any output is **billed** when its category is `bio`, `frontier_llm`, or `reasoning_extraction`, and every refusal counts against rate limits, so budget for them. Mythos 5.1's safeguards depend on its Project Glasswing access program, so handle `refusal` there as well. And a fallback *from* Fable 5.1 or Opus 5.5 usually lands on a model that can't read their thinking blocks (only Fable 5.1 / Mythos 5.1 read Opus 5.5's), so budget for a re-planning turn.
 
 ---
 
@@ -588,4 +605,13 @@ A `refusal` arrives as HTTP 200 with `stop_reason: "refusal"` and a `stop_detail
 - C) Switch `thinking` to `{"type": "disabled"}`
 - D) Delete the tool results *and* the thinking blocks that follow them
 
-**Answer: B** — Fable 5.1's thinking blocks are valid only against the exact prefix that preceded them, so any client-side edit to earlier turns invalidates every later block. Server-side context editing and compaction are exempt because the check compares the conversation as you sent it. A always works but throws away the reasoning and restarts the prompt cache on every request; C is a 400 on Fable 5.1 (thinking is always on); D still edits the middle of the transcript.
+**Answer: B** — Fable 5.1's thinking blocks are valid only against the exact prefix that preceded them, so any client-side edit to earlier turns invalidates every later block. Server-side context editing and compaction are exempt because the check compares the conversation as you sent it. A always works but throws away the reasoning and restarts the prompt cache on every request; C is a 400 on Fable 5.1 and Opus 5.5 (thinking is always on); D still edits the middle of the transcript.
+
+**Q8:** An application uses on-demand compaction. It puts the returned `compaction` block first in `messages`, but leaves the messages the block summarized in place after it. Requests keep returning 200. What is happening?
+
+- A) The request should have returned `compaction_block_misplaced`; the API is being lenient
+- B) Nothing was saved — the API sends the summarized messages to Claude again after the summary, and no error is raised
+- C) The API deduplicates the summarized messages against the block automatically
+- D) The block is dropped because its signature no longer matches the messages
+
+**Answer: B** — After the swap, the block stands in for the messages it summarized, and the API passes every message after it to Claude unchanged, so leaving them in place re-sends them with no error. `compaction_block_misplaced` (A) fires only when summarized messages remain *in front of* the block. Leaving the block out of a later request is the other silent mistake: Claude simply gets no summary. Signatures (D) are checked, but only against edits to the block itself.
