@@ -217,12 +217,12 @@ Controls how Claude interacts with tools:
 
 Any `tool_choice` value can also carry `"disable_parallel_tool_use": true` to cap Claude at a single tool call per response (by default it may emit several `tool_use` blocks at once).
 
-> **Fable 5.1 / Mythos 5.1 (since 2026-09-01): forced tool use is gone.** `{"type": "any"}` and `{"type": "tool", "name": ...}` return `400 invalid_request_error` (`tool_choice: type "tool" and "any" are not supported for this model`) — on `count_tokens` and in the Batches API too. `auto` and `none` still work, and `disable_parallel_tool_use` still works with `auto`. The replacements, in order of preference:
+> **Fable 5.1 / Mythos 5.1 (since 2026-09-01) and Opus 5.5 (since 2026-09-22): forced tool use is gone.** `{"type": "any"}` and `{"type": "tool", "name": ...}` return `400 invalid_request_error` (`tool_choice: type "tool" and "any" are not supported for this model`) — on `count_tokens` and in the Batches API too. `auto` and `none` still work, and `disable_parallel_tool_use` still works with `auto`. The replacements, in order of preference:
 >
 > 1. `tool_choice: {"type": "auto"}` plus an explicit instruction naming the tool (in the `user` turn, or in a mid-conversation `role: "system"` message when the app requires the call), with `strict: true` on the tool so the arguments still match your schema.
 > 2. Structured outputs (`output_config.format`, Domain 4 §4.3) when the forced call only existed to get JSON back.
 >
-> Opus 5, Sonnet 5, and the 4.x family keep all four `tool_choice` values, so the exam's "`any` guarantees a tool call" answer is still correct — just not model-agnostic anymore. Check `client.models.retrieve(id).capabilities` before assuming.
+> Sonnet 5, Opus 5 (now legacy), and the 4.x family keep all four `tool_choice` values, so the exam's "`any` guarantees a tool call" answer is still correct — but it no longer holds on either current flagship. Check `client.models.retrieve(id).capabilities` before assuming.
 
 ### When to Use Each
 
@@ -235,9 +235,9 @@ Any `tool_choice` value can also carry `"disable_parallel_tool_use": true` to ca
 **`"none"`** — When a turn must produce prose (e.g., a final summarization pass) without stripping the tool definitions from the request.
 
 ```python
-# Force Claude to call a specific tool (Opus 5 / Sonnet 5 / 4.x — 400 on Fable 5.1)
+# Force Claude to call a specific tool (Sonnet 5 / Opus 5 / 4.x — 400 on Opus 5.5 and Fable 5.1)
 response = client.messages.create(
-    model="claude-opus-5",
+    model="claude-sonnet-5",
     messages=[...],
     tools=[...],
     tool_choice={"type": "tool", "name": "extract_metadata"}
@@ -294,6 +294,8 @@ The Model Context Protocol is an open standard for connecting AI models to exter
   2. `notifications/initialized` — Server confirms ready
   3. `tools/list` — Client discovers available tools
   4. `tools/call` — Client invokes a tool
+
+Claude Code negotiates the **2026-07-28** protocol revision with direct HTTP servers by default on every provider (v2.1.274+; `MCP_PROTOCOL_NEGOTIATION=legacy` opts out). That revision adds URL-mode elicitation: a server can ask the client to open a browser-based flow instead of a form.
 
 ### Server Primitives
 
@@ -369,7 +371,7 @@ This file lives in the project root and is version-controlled:
 - `${DATABASE_URL}` — Environment variable expansion. The actual secret is NOT in the config file. Use `${VAR:-default}` when the variable may be unset.
 - `command` + `args` — How to start the MCP server process (stdio transport)
 - `timeout` — per-server tool execution timeout in milliseconds; overrides `MCP_TOOL_TIMEOUT` for that server
-- Claude Code **prompts for approval** before using project-scoped servers from `.mcp.json` in interactive sessions. `claude -p`, Agent SDK sessions, and cloud sessions can't show that prompt and load them without asking — use `disabledMcpjsonServers` or `--setting-sources` to keep a server out of headless runs
+- Claude Code **prompts for approval** before using project-scoped servers from `.mcp.json` in interactive sessions. `claude -p`, Agent SDK sessions, and cloud sessions can't show that prompt and load them without asking — use `disabledMcpjsonServers` or `--setting-sources` to keep a server out of headless runs; `CLAUDE_CODE_MCP_STARTUP_WAIT_MS` bounds how long the first non-interactive turn waits for servers to connect (`0` = don't wait)
 - Some server names are reserved (`workspace`, `claude-in-chrome`, `computer-use`, `Claude Preview`, `Claude Browser`) and will be skipped with a warning
 
 ### Authentication for Remote Servers
@@ -387,7 +389,7 @@ MCP tool definitions are **deferred** by default: only tool names and server ins
 | `auto` / `auto:N` | Load upfront while deferred definitions total under 10% (or N%) of the context window; defer once past it |
 | `false` | Load every MCP tool upfront |
 
-Set `"alwaysLoad": true` on a server entry to exempt it from deferral when Claude needs its tools on every turn. Server authors should write good **server instructions** — with tool search on, those instructions are how Claude decides whether to search your server at all. Claude Code truncates tool descriptions and server instructions at 2 KB each.
+Set `"alwaysLoad": true` on a server entry to exempt it from deferral when Claude needs its tools on every turn. Server authors should write good **server instructions** — with tool search on, those instructions are how Claude decides whether to search your server at all. Claude Code truncates tool descriptions and server instructions at 2,048 characters each (`CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH` changes the cap, v2.1.280+).
 
 ### Output Limits
 
@@ -491,7 +493,7 @@ Domain 2's MCP material is written from Claude Code's perspective (a host that m
 
 ```python
 client.beta.messages.create(
-    model="claude-opus-5",
+    model="claude-opus-5-5",
     betas=["mcp-client-2025-11-20"],
     mcp_servers=[{"type": "url", "url": "https://mcp.example.com/mcp", "name": "example"}],
     tools=[{"type": "mcp_toolset", "mcp_server_name": "example"}],
@@ -503,7 +505,32 @@ Set `defer_loading` once on the `mcp_toolset` entry's `default_config` (or per t
 
 ### Changing Tools Mid-Conversation Without Breaking the Cache
 
-The `tools` array sits *earlier* in the cached prefix than `system`, so editing it between turns invalidates the cache for the whole conversation (Domain 4 §4.8). On the models that support mid-conversation system messages (Fable 5 / 5.1, Mythos 5 / 5.1, Opus 4.8, Opus 5 — not Sonnet 5), declare the full tool set up front and then *offer or withdraw* tools with `tool_addition` / `tool_removal` blocks inside a `role: "system"` message (beta header `mid-conversation-tool-changes-2026-07-01`). A tool declared with `defer_loading: true` stays withheld until a `tool_addition` surfaces it. On Fable 5.1 this is also the only history-safe way to change tools, because rebuilding `tools` counts as editing earlier turns and invalidates later thinking blocks.
+The `tools` array sits *earlier* in the cached prefix than `system`, so editing it between turns invalidates the cache for the whole conversation (Domain 4 §4.8). On the models that support mid-conversation system messages (Fable 5 / 5.1, Mythos 5 / 5.1, Opus 5.5, Opus 5, Opus 4.8 — not Sonnet 5), declare the full tool set up front and then *offer or withdraw* tools with `tool_addition` / `tool_removal` blocks inside a `role: "system"` message (beta header `mid-conversation-tool-changes-2026-07-01`; each block's `tool` is a `tool_reference` by name, or `mcp_tool_reference` / `mcp_toolset_reference` for connector tools — naming a tool that isn't in `tools` is a 400, `tool_reference_unresolved`). A tool declared with `defer_loading: true` stays withheld until a `tool_addition` surfaces it. On Fable 5.1 and Opus 5.5 this is also the only history-safe way to change tools, because rebuilding `tools` counts as editing earlier turns and invalidates later thinking blocks.
+
+### Defining Tools in a Message (beta `inline-tools-2026-09-15`, since 2026-09-22)
+
+The reference form assumes you knew every tool at the first request. The inline form lets a `tool_addition` block carry the **full definition** instead:
+
+```json
+{
+  "role": "system",
+  "content": [{
+    "type": "tool_addition",
+    "tool": {
+      "type": "tool_definition",
+      "definition": {
+        "name": "db_query",
+        "description": "Run a read-only SQL query against the analytics database.",
+        "input_schema": {"type": "object", "properties": {"sql": {"type": "string"}}, "required": ["sql"]}
+      }
+    }
+  }]
+}
+```
+
+Send a different definition under the **same name** and it replaces the earlier one from that point on — that is how you change a schema, or move a server tool to a newer version, without touching `tools` or the prompt cache (reusing the name of a different *type* of tool is a 400, `tool_name_conflict`). With the `mcp-client-2026-09-15` header as well, the definition can be an `mcp_toolset`; the response then opens with one `mcp_tool_listing` block per server it fetched — send it back to pin that tool list, and don't read `content[0]` blindly. It works on every model that supports mid-conversation tool changes, Opus 5.5 included.
+
+Rules of thumb: declare what you know up front (in `tools`, deferred if the model shouldn't see it yet) and define inline only what is unknown at the first request or changes later; keep at least one non-deferred tool in `tools`, or the first inline definition changes the start of the rendered prompt and costs a full cache miss; `cache_control` goes on the block or in the definition, not both, and a deferred definition can't carry one. Limits: 10,000 deferred or message-defined tools, and 4 MB of definitions sent after the first user message (`available_tools_limit_exceeded`). After an on-demand compaction, tool changes inside the summarized range carry over only when the compaction request also sent this header — the block then records their net effect in a `tool_changes` field (Domain 5 §5.7).
 
 ---
 
@@ -549,4 +576,4 @@ The `tools` array sits *earlier* in the cached prefix than `system`, so editing 
 - C) The request returns 400; use `tool_choice: "auto"` with an explicit instruction and `strict: true`, or structured outputs via `output_config.format`
 - D) The call silently falls back to text output
 
-**Answer: C** — Fable 5.1 and Mythos 5.1 reject both forced forms (`any` and `tool`) with a 400. `auto` plus an instruction keeps the tool call, `strict: true` keeps the arguments schema-valid, and structured outputs replace the pattern entirely when the tool only existed to return JSON. Opus 5 and Sonnet 5 still accept forced tool use, so this is a per-model check, not a global rule.
+**Answer: C** — Fable 5.1 and Mythos 5.1 reject both forced forms (`any` and `tool`) with a 400. `auto` plus an instruction keeps the tool call, `strict: true` keeps the arguments schema-valid, and structured outputs replace the pattern entirely when the tool only existed to return JSON. Sonnet 5 and Opus 5 still accept forced tool use, but Opus 5.5 rejects it exactly as Fable 5.1 does — so this is a per-model check, not a global rule, and neither current flagship supports it.

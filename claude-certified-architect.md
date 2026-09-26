@@ -1,8 +1,8 @@
 # Claude Certified Architect — Foundations
 
-Anthropic's technical certification for solution architects building production applications with Claude (exam code **CCAR-F**). 60 multiple-choice, scenario-based questions in 120 minutes, proctored and closed-book. Passing score: 720/1000. Candidates answer questions from 4 of 6 randomly selected scenarios. No penalty for guessing.
+Anthropic's technical certification for solution architects building production applications with Claude (exam code **CCAR-F**). 60 multiple-choice and multiple-response, scenario-based questions in 120 minutes, proctored and closed-book. Passing score: 720/1000. Candidates answer questions from 4 of 6 randomly selected scenarios. No penalty for guessing.
 
-Part of a four-credential family: [Claude Certified Associate — Foundations (CCAO-F)](certs/ccao-f-associate.md), **Architect — Foundations (CCAR-F)** — this guide, [Architect — Professional (CCAR-P)](certs/ccar-p-architect-professional.md), and [Developer — Foundations (CCDV-F)](certs/ccdv-f-developer.md). Delivered via Pearson VUE (OnVUE online or test center), registered through the Anthropic Partner Academy. Per Exam Guide v1.0 (effective July 2026): $125 per attempt, certification valid 12 months, up to 4 attempts per rolling 12 months (14/30/90-day waits after attempts 1–3). Renewal is free when done on time — review what changed since you certified and pass a non-proctored assessment; let it lapse and the full exam fee applies again. Access remains gated to the Claude Partner Network (registration needs a partner-domain email); the earlier "$99, first 5,000 partner employees free" beta terms are superseded.
+Part of a four-credential family: [Claude Certified Associate — Foundations (CCAO-F)](certs/ccao-f-associate.md), **Architect — Foundations (CCAR-F)** — this guide, [Architect — Professional (CCAR-P)](certs/ccar-p-architect-professional.md), and [Developer — Foundations (CCDV-F)](certs/ccdv-f-developer.md). Delivered via Pearson VUE (OnVUE online or test center), registered through the Anthropic Partner Academy. Per Exam Guide v1.0 (effective July 2026): $125 per attempt, certification valid 12 months, up to 4 attempts per rolling 12 months (14/30/90-day waits after attempts 1–3). Renewal is free when done on time — review what changed since you certified and pass a non-proctored assessment; let it lapse and the full exam fee applies again. Access remains gated to the Claude Partner Network (registration needs a partner-domain email); the earlier "$99, first 5,000 partner employees free" beta terms are superseded. Delivery moved to Pearson VUE and digital badging to Credly on 2026-06-30. Partner-tier discounts apply at checkout — 50% for Select, Preferred, and Global Premier partners, 100% for Global Premier partners through 2026-12-31 — and candidates must be at least 18.
 
 Target: Solution architect with 6+ months experience with Claude APIs, Agent SDK, Claude Code, and MCP.
 
@@ -10,26 +10,28 @@ Target: Solution architect with 6+ months experience with Claude APIs, Agent SDK
 
 ## Current Model Lineup (September 2026)
 
-The exam is model-agnostic, but scenario questions and code samples assume a current lineup. This guide's samples use **`claude-opus-5`**.
+The exam is model-agnostic, but scenario questions and code samples assume a current lineup. This guide's samples use **`claude-opus-5-5`**, the docs' current default for most workloads; the few samples that rely on forced `tool_choice` use `claude-sonnet-5`, because both current flagships reject it.
 
 | Model | ID | Context | Max output | Price (in / out per MTok) | Notes |
 |-------|-----|---------|-----------|---------------------------|-------|
-| Claude Fable 5.1 | `claude-fable-5-1` | 1M | 128k | $10 / $50 (cache reads $0.25) | Most capable widely released model (2026-09-01); thinking always on; **no forced `tool_choice`**; thinking blocks bound to model + history |
-| **Claude Opus 5** | `claude-opus-5` | 1M | 128k | $5 / $25 | **Default for complex agentic coding and enterprise work** |
-| Claude Sonnet 5 | `claude-sonnet-5` | 1M | 128k | $2 / $10 | Best speed/intelligence balance; no mid-conversation system messages, no task budgets |
-| Claude Haiku 4.5 | `claude-haiku-4-5` | 200k | 64k | $1 / $5 | Fastest; only current model still using `budget_tokens` thinking; no `effort` |
+| Claude Fable 5.1 | `claude-fable-5-1` | 1M | 128k | $10 / $50 (cache reads $0.25) | Most capable widely released model (2026-09-01) — for demanding reasoning and long-horizon agentic work, or when Opus 5.5 at higher effort still falls short; thinking always on; **no forced `tool_choice`**; thinking blocks bound to model + history |
+| **Claude Opus 5.5** | `claude-opus-5-5` | 1M | 128k | $4 / $20 (cache reads $0.20) | **Default for most workloads** (2026-09-22): long-running agentic coding and knowledge work; thinking always on and **can't be disabled**; default effort **`medium`**; no forced `tool_choice`; bound thinking blocks |
+| Claude Sonnet 5 | `claude-sonnet-5` | 1M | 128k | $2 / $10 | Best speed/intelligence balance; still accepts forced `tool_choice`; no mid-conversation system messages, no task budgets; $2 / $10 is now the permanent price (the scheduled rise to $3 / $15 was cancelled) |
+| Claude Haiku 4.5 | `claude-haiku-4-5` | 200k | 64k | $1 / $5 | Fastest; only current model still using `budget_tokens` thinking; no `effort`; nearest retirement floor in the lineup (2026-10-15) |
 
-Claude Mythos 5.1 (`claude-mythos-5-1`) shares Fable 5.1's specs and is invitation-only under Project Glasswing, for defensive cybersecurity work; unlike Mythos 5 it runs safety classifiers, so `refusal` handling applies there too. **Legacy but still available:** Fable 5, Opus 4.8, Opus 4.7, Opus 4.6, Opus 4.5, Sonnet 4.6, Sonnet 4.5. Opus 4.1 retired on 2026-08-05. Anthropic now publishes retirement floors: Fable 5.1 not before 2027-09-01, Opus 5 not before 2027-07-24, Sonnet 5 not before 2027-06-30, Haiku 4.5 not before 2026-10-15.
+Claude Mythos 5.1 (`claude-mythos-5-1`) shares Fable 5.1's specs and pricing and is invitation-only under Project Glasswing, for defensive cybersecurity work. It is the same underlying model served without the dual-use safety measures Fable 5.1 carries; its safeguards depend on the access program, so still handle `refusal` there. **Legacy but still available:** Opus 5, Fable 5, Opus 4.8, Opus 4.7, Opus 4.6, Opus 4.5, Sonnet 4.6, Sonnet 4.5. Opus 4.1 retired on 2026-08-05. Anthropic publishes retirement floors: Fable 5.1 not before 2027-09-01, Opus 5.5 not before 2027-09-22, Opus 5 not before 2027-07-24, Sonnet 5 not before 2027-06-30, Haiku 4.5 not before 2026-10-15 — the only floor inside the next year, with no successor announced, so check the deprecations page before committing new work to it.
 
 Model IDs from the 4.6 generation onward are **dateless but still pinned snapshots**, not evergreen pointers. Query `client.models.list()` / `.retrieve(id)` for live `max_input_tokens`, `max_tokens`, and `capabilities` rather than hardcoding a table like this one.
 
-**What Fable 5.1 changes for architects** (the same API surface as Fable 5, plus three breaking changes — details in Domain 2 §2.3, Domain 4 §4.7, Domain 5 §5.7):
+**What Fable 5.1 and Opus 5.5 change for architects** (Fable 5.1 introduced three breaking changes on 2026-09-01; Opus 5.5 inherited all three on 2026-09-22 — details in Domain 2 §2.3, Domain 4 §4.7, Domain 5 §5.7):
 
 1. `tool_choice: "any"` and `{"type": "tool", ...}` return **400**. Use `auto` plus an explicit instruction, `strict: true`, or structured outputs.
-2. Thinking blocks are readable only by the model that produced them or a newer one — a fallback or router switch to an older model silently drops them (unbilled) and that model re-plans.
-3. Editing, reordering, or removing earlier turns invalidates every later thinking block. Harnesses must be **append-only**: freeze `system` and `tools`, move mid-session changes into `role: "system"` messages, and trim context server-side (compaction / context editing) rather than on the client.
+2. Thinking blocks are readable only by some models. Fable 5.1 / Mythos 5.1 read everyone's; Opus 5.5 reads Opus 5 and earlier Opus / Sonnet / Haiku blocks but not Fable or Mythos ones; no older model reads Fable 5.1's or Opus 5.5's. A fallback or router switch to a model that can't read them silently drops them (unbilled) and that model re-plans.
+3. Editing, reordering, or removing earlier turns invalidates every later thinking block. Harnesses must be **append-only**: freeze `system` and `tools`, move mid-session changes into `role: "system"` messages (tool definitions included, via inline tools), and trim context server-side (compaction on demand / context editing) rather than on the client.
 
-Fable 5.1 also requires 30-day data retention (no zero-data-retention orgs unless authorized) and is excluded from Priority Tier, as are Opus 5 and Sonnet 5.
+Opus 5.5 adds three more of its own, none of which break Fable 5.1 code: **thinking can't be disabled** (`{"type": "disabled"}` and `budget_tokens` are a 400 at every effort — lower `effort` instead); the **default effort is `medium`**, one level below Opus 5, so a request that omits `effort` now runs cheaper and shallower than it did (set it explicitly and re-sweep); and on the Claude API and Google Cloud, computer use only through the `computer_toolset_20260801` toolset (`computer_20251124` returns 400). Two behaviour changes arrive with no error: the short text Claude writes between tool calls comes back as `thinking` blocks (empty at the default `display`), and a biology classifier plus a `reasoning_extraction` refusal category join the cybersecurity one.
+
+Fable 5.1 also requires 30-day data retention (no zero-data-retention orgs unless authorized). Priority Tier is not supported on Fable 5.1, Opus 5.5, Opus 5, or Sonnet 5 — and new Priority Tier commitments are no longer sold, so plan capacity around rate limits and the Batch tier instead.
 
 > **Docs (since 2026-07):** Anthropic split its documentation. API docs live at `platform.claude.com/docs/en/*`, Claude Code docs at `code.claude.com/docs/en/*`; the old `docs.anthropic.com` URLs still redirect. The SDK was renamed from "Claude Code SDK" to the **Claude Agent SDK** (`pip install claude-agent-sdk`, `npm install @anthropic-ai/claude-agent-sdk`).
 >
@@ -85,19 +87,20 @@ These show up as wrong answers on the exam:
 |----------|----------|----------|
 | Enforcement | **Programmatic hooks** — financial/safety | **Prompt-based** — best-effort |
 | Execution mode | **Plan mode** — multi-file, architectural | **Direct** — single-file, obvious |
-| tool_choice | **"any"** — guarantee tool call | **Forced** — specific tool first. *Both return 400 on Fable 5.1 / Mythos 5.1* — there, `auto` + instruction + `strict: true`, or `output_config.format` |
+| tool_choice | **"any"** — guarantee tool call | **Forced** — specific tool first. *Both return 400 on Fable 5.1 / Mythos 5.1 / Opus 5.5* — there, `auto` + instruction + `strict: true`, or `output_config.format` |
 | API type | **Synchronous** — blocking workflows | **Batch** — latency-tolerant |
 | Error handling | **Structured context** — category, retry, partial | Never generic or silent |
 | Escalation | **Immediate** — explicit customer request | **Resolve first** — within capability |
 | Code review | **Multi-pass** — large PRs | **Single-pass** — small, focused |
 | Context passing | **Always explicit** in subagent prompts | Never rely on auto-inheritance |
-| Thinking | **Adaptive** (`{"type": "adaptive"}`) on every current model | `budget_tokens` is removed — 400 on Fable 5.x / Opus 5 / Sonnet 5 / 4.7 / 4.8 |
-| Effort | **`high`** (default) then sweep — `xhigh` for the hardest coding/agentic work on Opus 5 / Fable 5.1, and the recommended start on Opus 4.8 / 4.7 | **`low` / `medium`** — subagents, mechanical and routine tasks |
+| Thinking | **Adaptive** (`{"type": "adaptive"}`) on every current model | `budget_tokens` is removed — 400 on Fable 5.x / Opus 5.5 / Opus 5 / Sonnet 5 / 4.7 / 4.8; `disabled` is also a 400 on Fable 5.x and Opus 5.5 (lower `effort` instead) |
+| Effort | **Start at the model's default and sweep** — `high` on Fable 5.1 / Opus 5 / Sonnet 5, **`medium` on Opus 5.5** (set it explicitly); `xhigh` for the hardest coding/agentic work, and the recommended start on Opus 4.8 / 4.7 | **`low` / `medium`** — subagents, mechanical and routine tasks |
 | Tool exposure | **Load upfront** — under ~10 tools | **Tool search + `defer_loading`** — 10+ tools or multi-server MCP |
-| Context reduction | **Clear** (context editing) — verbose tool results | **Compact** — long conversations that need their narrative |
+| Context reduction | **Clear** (context editing) — verbose tool results | **Compact** — long conversations that need their narrative; prefer **on-demand** compaction (you pick the moment, keep recent turns, run it in the background) over threshold compaction |
 | State that must persist | **Memory tool / files** | Never rely on the conversation surviving compaction |
 | Agent harness | **Tool Runner / Agent SDK** — you host | **Managed Agents** — Anthropic hosts loop + sandbox |
-| Conversation history | **Append-only** — freeze `system`/`tools`, changes via `role: "system"` messages | Never edit or snip earlier turns on Fable 5.1 — it invalidates thinking blocks |
+| Conversation history | **Append-only** — freeze `system`/`tools`, changes via `role: "system"` messages (inline `tool_addition` definitions for tools) | Never edit or snip earlier turns on Fable 5.1 / Opus 5.5 — it invalidates thinking blocks |
+| Progress UX between tool calls | **`thinking.display: "updates"`** (beta) or `"summarized"` — Fable 5.x / Opus 5.5 return those notes as `thinking` blocks | Default `"omitted"` — the UI goes quiet between tool calls, with no error |
 | Many-agent orchestration (Claude Code) | **Subagents / forks** — a few delegated tasks per turn | **Dynamic workflows** — a script the runtime executes for dozens to hundreds of agents |
 
 ---
@@ -133,13 +136,13 @@ Assumes daily study, 1.5–2 hours per day.
 - [Memory tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool)
 - [MCP connector](https://platform.claude.com/docs/en/agents-and-tools/mcp-connector)
 - [Thinking](https://platform.claude.com/docs/en/build-with-claude/thinking) · [Preserved thinking](https://platform.claude.com/docs/en/build-with-claude/preserved-thinking) · [Effort](https://platform.claude.com/docs/en/build-with-claude/effort) · [Task budgets](https://platform.claude.com/docs/en/build-with-claude/task-budgets)
-- [Mid-conversation system messages](https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages)
-- [Context editing](https://platform.claude.com/docs/en/build-with-claude/context-editing) · [Compaction](https://platform.claude.com/docs/en/build-with-claude/compaction)
+- [Mid-conversation system messages](https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages) (incl. tool changes and defining tools in a message)
+- [Context editing](https://platform.claude.com/docs/en/build-with-claude/context-editing) · [Compaction overview](https://platform.claude.com/docs/en/build-with-claude/compaction) · [Compaction on demand](https://platform.claude.com/docs/en/build-with-claude/compaction-on-demand) · [Keeping recent turns](https://platform.claude.com/docs/en/build-with-claude/compaction-keep-recent-turns) · [Compaction and preserved thinking](https://platform.claude.com/docs/en/build-with-claude/compaction-thinking-blocks)
 - [Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) · [Cache diagnostics](https://platform.claude.com/docs/en/build-with-claude/cache-diagnostics)
 - [Structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 - [Stop reasons and fallback](https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons) · [Refusals and fallback](https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback)
-- [Managed Agents overview](https://platform.claude.com/docs/en/managed-agents/overview) · [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) · [Admin API](https://platform.claude.com/docs/en/manage-claude/admin-api)
-- [Models overview](https://platform.claude.com/docs/en/models/overview) · [Claude Fable 5.1 migration guide](https://platform.claude.com/docs/en/models/fable-5-1/migration-guide) · [Model deprecations](https://platform.claude.com/docs/en/about-claude/model-deprecations) · [Pricing](https://platform.claude.com/docs/en/about-claude/pricing)
+- [Managed Agents overview](https://platform.claude.com/docs/en/managed-agents/overview) · [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) · [`ant apply`](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/apply) · [Admin API](https://platform.claude.com/docs/en/manage-claude/admin-api)
+- [Models overview](https://platform.claude.com/docs/en/models/overview) · [What's new in Claude Opus 5.5](https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5) · [Opus 5.5 migration guide](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide) · [Prompting Opus 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5) · [Claude Fable 5.1 migration guide](https://platform.claude.com/docs/en/models/fable-5-1/migration-guide) · [Model deprecations](https://platform.claude.com/docs/en/about-claude/model-deprecations) · [Pricing](https://platform.claude.com/docs/en/about-claude/pricing)
 
 **Claude Code (code.claude.com)**
 
