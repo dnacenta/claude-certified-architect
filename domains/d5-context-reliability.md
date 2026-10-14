@@ -14,14 +14,14 @@ Current sizes, because "1M tokens" changes the shape of the problem without elim
 
 | Model | Context window | Max output |
 |-------|----------------|-----------|
-| Claude Fable 5.1 / Fable 5 / Opus 5.5 / Opus 5 / Sonnet 5 | 1M tokens | 128k |
-| Claude Opus 4.8 / 4.7 / 4.6, Sonnet 4.6 | 1M tokens | 128k |
-| Claude Haiku 4.5 | 200k tokens | 64k |
+| Claude Fable 5.1 / Opus 5.5 / Sonnet 5.5 / Haiku 5.5 (current) | 1M tokens | 128k |
+| Claude Fable 5 / Opus 5 / Sonnet 5, Opus 4.8 / 4.7 / 4.6, Sonnet 4.6 (legacy) | 1M tokens | 128k |
+| Claude Haiku 4.5 (legacy) | 200k tokens | 64k |
 
 Two traps that come with a 1M window:
 
-1. **A bigger window is not free.** Every token in it is billed on every turn, and the "lost in the middle" effect below gets *worse* with length, not better. Filling a 1M window because you can is a cost and a quality regression.
-2. **Token counts changed.** Opus 4.7 introduced a new tokenizer, carried by Opus 4.8, Opus 5, Opus 5.5, Sonnet 5, and Fable 5 / 5.1: the same text produces roughly 30% more tokens than on pre-4.7 models (1M tokens ≈ 555k words now, versus ≈ 750k before). Any budget, chunk size, or threshold calibrated on an older model needs re-baselining with `messages.count_tokens` — never with `tiktoken`.
+1. **A bigger window is not free.** Every token in it is billed on every turn, and the "lost in the middle" effect below gets *worse* with length, not better. Filling a 1M window because you can is a cost and a quality regression. Haiku 5.5 makes the cost side explicit: it is the only model from the 4.6 generation on without flat 1M pricing — a request whose prompt (cache reads and writes included) exceeds 100k tokens pays five times the per-token rate for the whole request. It also keeps the thinking blocks of *every* earlier turn in context (Haiku 4.5 kept only the latest), and it no longer receives context-awareness tags, so give its agentic loops an explicit task budget (§5.8) instead.
+2. **Token counts changed.** Opus 4.7 introduced a new tokenizer, carried by Opus 4.8, Opus 5, Opus 5.5, Sonnet 5 / 5.5, Haiku 5.5, and Fable 5 / 5.1 (Sonnet 5 → 5.5 counts the same; Haiku 4.5 → 5.5 does not): the same text produces roughly 30% more tokens than on pre-4.7 models (1M tokens ≈ 555k words now, versus ≈ 750k before). Any budget, chunk size, or threshold calibrated on an older model needs re-baselining with `messages.count_tokens` — never with `tiktoken`.
 
 ### Progressive Summarization Risks
 
@@ -80,10 +80,13 @@ Tool results can be verbose. A customer order lookup might return 40 fields when
 
 | Survives | May Be Lost |
 |----------|-------------|
-| CLAUDE.md (re-read from disk) | Earlier conversation details |
+| Project-root CLAUDE.md and unscoped rules (re-injected from disk) | Earlier conversation details |
 | System prompts | Specific tool results |
 | Recent messages | Nuanced reasoning from earlier turns |
 | Auto-memory (MEMORY.md) | Exact quotes and numbers from early context |
+| The plan-mode plan, recently edited files (up to five), invoked skill bodies (capped) | Nested CLAUDE.md files and `paths:`-scoped rules — summarized away, reloaded only when Claude next touches a matching file |
+
+The nested-file row is the trap: an instruction that lives in `src/billing/CLAUDE.md` or a path-scoped rule is gone after `/compact` until Claude reads, writes, or edits a file there again. If a rule must survive compaction, put it in the project-root CLAUDE.md or drop its `paths:` frontmatter. Claude Code also compacts on its own: automatically near the limit, and — since v2.1.299 — when a 200k+ token conversation sits idle for about 54 minutes, just before its one-hour prompt cache would expire (`"idleCompaction": false` turns that off).
 
 ---
 
@@ -476,7 +479,7 @@ client.beta.messages.create(
 - `clear_thinking_20251015` — clears thinking blocks. When combining both, **`clear_thinking` must be listed first**.
 - `clear_at_least` exists to protect the prompt cache: clearing a trivial amount invalidates the cache for no benefit.
 - The response reports what happened in `context_management.applied_edits`.
-- On Fable 5.1 and Opus 5.5, server-side context editing **never invalidates thinking blocks**; deleting the same tool results client-side would (see below).
+- On Fable 5.1, Opus 5.5, Sonnet 5.5, and Haiku 5.5, server-side context editing **never invalidates thinking blocks**; deleting the same tool results client-side would (see below).
 
 ### Compaction: On Demand (beta `compact-2026-09-04`) vs At a Threshold (beta `compact-2026-01-12`)
 
@@ -489,8 +492,8 @@ Summarizes rather than clears. Two kinds exist since 2026-09-14, and the docs sa
 | What you send back | The block **first** in `messages`, in place of the messages it summarized, on every later request — exactly one block, unmodified, with the beta header | The whole `response.content`, appended as usual; the API drops what came before the block |
 | Recent turns word for word | Yes — leave them out of the compaction request and send them after the block | Only by pausing after compaction and re-inserting them |
 | Runs in the background | Yes — the conversation continues while the summary is written | No, it runs inside the request that hit the threshold |
-| Kept turns keep their thinking (Fable 5.1 / Opus 5.5) | Yes, when the API wrote the summary and `system` / `tools` didn't change | No — strip or drop it |
-| Availability | Fable 5.x, Mythos 5.x, Opus 5.5 / 5 / 4.8 / 4.7 / 4.6, Sonnet 5 / 4.6; Claude API, Claude Platform on AWS, Google Cloud, Foundry — **not Bedrock** | Same models |
+| Kept turns keep their thinking (Fable 5.1 / Opus 5.5 / Sonnet 5.5 / Haiku 5.5) | Yes, when the API wrote the summary and `system` / `tools` didn't change | No — strip or drop it |
+| Availability | Fable 5.x, Mythos 5.x, Opus 5.5 / 5 / 4.8 / 4.7 / 4.6, Sonnet 5.5 / 5 / 4.6, Haiku 5.5; Claude API, Claude Platform on AWS, Google Cloud, Foundry — **not Bedrock** | Same models |
 
 On-demand details worth carrying: `instructions` (up to 16,384 characters) *replaces* the default summarization prompt, so say what to retain and tell the model not to call tools; the summarization call is billed and reported under `usage.iterations` while the top-level token counts are zero; check `stop_reason` before looking for the block — `max_tokens`, `tool_use`, `refusal`, or `end_turn` mean no summary came back, and you simply continue and try again later; a request that ends in an unanswered tool call, or that carries `stop_sequences`, `output_config.format`, forced `tool_choice`, `context_management`, or a task budget's `remaining`, is rejected; and images, documents, and fetched URLs inside the summarized range are gone once the block replaces them. `role: "system"` messages in that range are summarized too — restate an instruction that still matters in a new `role: "system"` message right after your next `user` turn. The SDK tool runner does the swap for you via `compact_before_next_turn()`.
 
@@ -498,11 +501,11 @@ On-demand details worth carrying: `instructions` (up to 16,384 characters) *repl
 >
 > On-demand compaction has two silent mistakes of its own: leaving summarized messages *after* the block sends them to Claude twice, and leaving the block out of a later request means Claude gets no summary at all. Summarized messages left *in front of* the block are the one case that errors (`compaction_block_misplaced`).
 
-Client-side SDK compaction (`compaction_control` on the tool runner) is **deprecated** in favor of these.
+Client-side SDK compaction (`compaction_control` on the tool runner) is **gone** from the two main SDKs: Python removed it in v1.0, and TypeScript removed it in 0.129.0 (2026-09-28), so passing `compactionControl` now throws (the platform docs still call it deprecated in TypeScript and Ruby). Use the server-side mechanisms above — `compact_before_next_turn()` or a `compact_20260112` edit in the runner's request.
 
 ### Preserved Thinking: Compaction Shapes That Stay Valid
 
-Fable 5.1 and Opus 5.5 add a constraint the other mechanisms didn't have: their thinking blocks are valid only against the exact history that preceded them, so **editing earlier turns invalidates every later block** (Domain 4 §4.7). Server-side context editing and compaction don't count as edits — the check compares the conversation *as you sent it*, and it accepts the swap when the API wrote the summary — which is now the strongest argument for moving trimming to the server. The shapes, and whether the thinking in kept turns survives:
+Fable 5.1, Opus 5.5, Sonnet 5.5, and Haiku 5.5 add a constraint the other mechanisms didn't have: their thinking blocks are valid only against the exact history that preceded them, so **editing earlier turns invalidates every later block** (Domain 4 §4.7). Server-side context editing and compaction don't count as edits — the check compares the conversation *as you sent it*, and it accepts the swap when the API wrote the summary — which is now the strongest argument for moving trimming to the server. The shapes, and whether the thinking in kept turns survives:
 
 | Shape | Rule |
 |-------|------|
@@ -536,13 +539,13 @@ Its role in this domain: it's the persistence layer that makes clearing safe. Co
 
 ### Task Budgets vs `max_tokens`
 
-`max_tokens` is a ceiling the model can't see; hitting it truncates output mid-thought. A **task budget** (`output_config.task_budget`, beta `task-budgets-2026-03-13`, minimum 20,000) is a ceiling the model *can* see, so it paces itself and lands the work. Available on Claude Fable 5.1 / Mythos 5.1, Fable 5 / Mythos 5, Opus 5.5, Opus 5, and Opus 4.8/4.7 — **not** on Sonnet 5, Opus 4.6, or Haiku 4.5. The budget counts what Claude generates plus the tool results it reads this turn — not the full history you resend. Leave `remaining` unset in a normal loop; only pass it when you rewrite or compact history yourself and the server can no longer derive prior spend — and never on an on-demand compaction request or a request that carries its block (400). Two reliability footnotes: a budget that is obviously too small for the task makes Claude decline, scope down, or stop early with a partial result (raise the budget before debugging anything else), and the budget value is rendered into the prompt, so changing it mid-task is a cache miss.
+`max_tokens` is a ceiling the model can't see; hitting it truncates output mid-thought. A **task budget** (`output_config.task_budget`, beta `task-budgets-2026-03-13`, minimum 20,000) is a ceiling the model *can* see, so it paces itself and lands the work. Available on Claude Fable 5.1 / Mythos 5.1, Fable 5 / Mythos 5, Opus 5.5, Opus 5, Sonnet 5.5, Haiku 5.5, and Opus 4.8/4.7 — **not** on Sonnet 5, Opus 4.6, Sonnet 4.6, or Haiku 4.5. With the 5.5 generation every current model supports it. The budget counts what Claude generates plus the tool results it reads this turn — not the full history you resend. Leave `remaining` unset in a normal loop; only pass it when you rewrite or compact history yourself and the server can no longer derive prior spend — and never on an on-demand compaction request or a request that carries its block (400). Two reliability footnotes: a budget that is obviously too small for the task makes Claude decline, scope down, or stop early with a partial result (raise the budget before debugging anything else), and the budget value is rendered into the prompt, so changing it mid-task is a cache miss.
 
 Managed Agents **session budgets** are a different thing: hard, dollar-denominated, platform-enforced caps on one session. A task budget is advisory and token-denominated.
 
 ### Refusals Are a Reliability Concern, Not Just a Safety One
 
-A `refusal` arrives as HTTP 200 with `stop_reason: "refusal"` and a `stop_details.category`. Code that reads `content` without checking `stop_reason` treats a refusal as a successful empty answer — the same class of bug as treating a failed search as zero results (§5.3). For production paths, enable server-side fallback (`betas=["server-side-fallback-2026-07-01"]`, `fallbacks="default"`) so the request is re-routed by category rather than dropped. See Domain 1 §1.1. Opus 5.5 widened the classifier set — a biology classifier joins the cybersecurity one, and prompts that push the model to reproduce its internal reasoning can be declined as `reasoning_extraction` — so refusals are now a first-class path on the default model, not just the flagship. Since 2026-09-24 a refusal before any output is **billed** when its category is `bio`, `frontier_llm`, or `reasoning_extraction`, and every refusal counts against rate limits, so budget for them. Mythos 5.1's safeguards depend on its Project Glasswing access program, so handle `refusal` there as well. And a fallback *from* Fable 5.1 or Opus 5.5 usually lands on a model that can't read their thinking blocks (only Fable 5.1 / Mythos 5.1 read Opus 5.5's), so budget for a re-planning turn.
+A `refusal` arrives as HTTP 200 with `stop_reason: "refusal"` and a `stop_details.category`. Code that reads `content` without checking `stop_reason` treats a refusal as a successful empty answer — the same class of bug as treating a failed search as zero results (§5.3). For production paths, enable server-side fallback (`betas=["server-side-fallback-2026-07-01"]`, `fallbacks="default"`) so the request is re-routed by category rather than dropped. See Domain 1 §1.1. Opus 5.5 widened the classifier set — a biology classifier joins the cybersecurity one, and prompts that push the model to reproduce its internal reasoning can be declined as `reasoning_extraction` — so refusals are now a first-class path on the default model, not just the flagship. Sonnet 5.5 and Haiku 5.5 ship classifiers too (Sonnet 5.5 can decline as `cyber`, `bio`, `frontier_llm`, `reasoning_extraction`, or `general_harms`), so every current model can refuse. Haiku 5.5 has **no server-side fallback and no fallback credit**, so route its refusals through the SDK middleware or your own retry, and expect that retry to pay full price to write the fallback model's cache. A Sonnet 5.5 request using `between_tools` that falls back to Sonnet 5 runs there with thinking disabled. Since 2026-09-24 a refusal before any output is **billed** when its category is `bio`, `frontier_llm`, or `reasoning_extraction`, and every refusal counts against rate limits, so budget for them. Mythos 5.1's safeguards depend on its Project Glasswing access program, so handle `refusal` there as well. And a fallback *from* Fable 5.1, Opus 5.5, or Sonnet 5.5 usually lands on a model that can't read their thinking blocks (only Fable 5.1 / Mythos 5.1 read Opus 5.5's, on the Claude API; only Opus 5.5 reads Sonnet 5.5's), so budget for a re-planning turn.
 
 ---
 
