@@ -64,7 +64,7 @@ User sends prompt with tool definitions
 
 ### Server-Side Refusal Fallbacks
 
-A `refusal` arrives as **HTTP 200**, not an exception — code that reads `content` without checking `stop_reason` first will silently process an empty or partial response. For production agents on Claude Opus 5.5, Opus 5, and Fable 5 / 5.1 (all four ship safety classifiers; Mythos 5.1's safeguards depend on its access program, so handle `refusal` there too), don't just log the refusal: opt into server-side fallback so the request is re-routed automatically by refusal category.
+A `refusal` arrives as **HTTP 200**, not an exception — code that reads `content` without checking `stop_reason` first will silently process an empty or partial response. For production agents on Claude Fable 5.1, Fable 5, Opus 5.5, Opus 5, Sonnet 5.5, and Haiku 5.5 (all six ship safety classifiers; Mythos 5.1's safeguards depend on its access program, so handle `refusal` there too), don't just log the refusal: opt into server-side fallback so the request is re-routed automatically by refusal category.
 
 ```python
 response = client.messages.create(
@@ -78,9 +78,21 @@ response = client.messages.create(
 
 `fallbacks="default"` means you never maintain a model list. The older array form (`betas=["server-side-fallback-2026-06-01"]` + `fallbacks=[{"model": "claude-opus-4-8"}]`) still works. Server-side fallback is **Claude API only** — on Bedrock, Vertex, and Foundry use the SDKs' client-side `BetaRefusalFallbackMiddleware` instead.
 
-One consequence on Fable 5.1 and Opus 5.5: a fallback usually lands on a model that cannot read their thinking blocks. Fable 5.1 / Mythos 5.1 read everything (each other's, Opus 5.5's, and earlier models'); Opus 5.5 reads Opus 5 and earlier Opus / Sonnet / Haiku blocks but not Fable or Mythos ones; no older model reads Fable 5.1's or Opus 5.5's. The API drops unreadable blocks (unbilled), the request succeeds, and the fallback model re-plans without that reasoning — expect a slower, costlier first turn after the switch. Send the `thinking-binding-controls-2026-08-01` beta header to get an `input_transformations` list of what was dropped.
+Two model-specific exceptions. **Haiku 5.5 has no server-side fallback at all**, and its refusals carry no fallback credit — use the SDK middleware or your own retry, and expect to pay the full cache write on the fallback model. **Sonnet 5.5**'s default routing retries `cyber` and `frontier_llm` declines on Sonnet 5 (not `bio`, `reasoning_extraction`, or `general_harms`); a request that sent `thinking: {"type": "between_tools"}` (a value only Sonnet 5.5 accepts) runs its fallback attempt with thinking disabled, so in a manual retry change `thinking` before re-sending.
 
-**Loop rule:** always branch on `stop_reason` *before* reading `content`. `refusal` is a terminal stop reason for that request, not a retryable tool error. And on Fable 5.1 and Opus 5.5, keep the `messages` array **append-only** — editing or snipping earlier turns invalidates every later thinking block (Domain 5 §5.7).
+One consequence on the 5.1 / 5.5 models: a fallback usually lands on a model that cannot read their thinking blocks. The read matrix is now asymmetric:
+
+| Producing model | Read by (besides itself) |
+|---|---|
+| Fable 5.1 / Mythos 5.1 | Each other only |
+| Opus 5.5 | Fable 5.1 / Mythos 5.1, on the Claude API only |
+| Sonnet 5.5 | Opus 5.5, on the Claude API and Google Cloud |
+| Haiku 5.5 | Opus 5.5 and Sonnet 5.5, on the Claude API and Google Cloud |
+| Opus 5 and earlier, Sonnet 5, Haiku 4.5 | Fable 5.1 / Mythos 5.1 and Opus 5.5 (Sonnet 5.5 and Haiku 5.5 read Sonnet 5, Opus 4.8, Haiku 4.5, and older — not Opus 5) |
+
+The API drops unreadable blocks (unbilled), the request succeeds, and the fallback model re-plans without that reasoning — expect a slower, costlier first turn after the switch. Sonnet 5.5 and Haiku 5.5 blocks are also **bound to the account** that produced them: replayed through a different, unlinked account they are dropped the same way. Send the `thinking-binding-controls-2026-08-01` beta header to get an `input_transformations` list of what was dropped (`organization_binding_mismatch` for the account case).
+
+**Loop rule:** always branch on `stop_reason` *before* reading `content`. `refusal` is a terminal stop reason for that request, not a retryable tool error. And on Fable 5.1, Opus 5.5, Sonnet 5.5, and Haiku 5.5, keep the `messages` array **append-only** — editing or snipping earlier turns invalidates every later thinking block (Domain 5 §5.7).
 
 ### API Response Structure
 
@@ -168,7 +180,7 @@ This is fundamentally different from traditional workflow automation where steps
 >     response = stream.get_final_message()
 > ```
 >
-> Minimum `total` is 20,000. Available on Claude Fable 5.1 / Mythos 5.1, Fable 5 / Mythos 5, Opus 5.5, Opus 5, and Opus 4.8/4.7 — **not** on Sonnet 5, Opus 4.6, or Haiku 4.5, and not through Claude Code or Cowork (Messages API only). Stream it — a large `max_tokens` on a non-streaming request hits HTTP timeouts. Size the budget against your real task-length distribution: a budget that is obviously too small makes Claude decline, scope down, or stop early with a partial result, which looks like a refusal but isn't one. The exam's anti-pattern still holds: a budget paces the loop, `stop_reason` still terminates it.
+> Minimum `total` is 20,000. Available on Claude Fable 5.1 / Mythos 5.1, Fable 5 / Mythos 5, Opus 5.5, Opus 5, Sonnet 5.5, Haiku 5.5, and Opus 4.8/4.7 — **not** on Sonnet 5, Opus 4.6, Sonnet 4.6, or Haiku 4.5, and not through Claude Code or Cowork (Messages API only). On Haiku 5.5 it is the documented replacement for the context-awareness tags Haiku 4.5 injected, which the new model no longer receives. Stream it — a large `max_tokens` on a non-streaming request hits HTTP timeouts. Size the budget against your real task-length distribution: a budget that is obviously too small makes Claude decline, scope down, or stop early with a partial result, which looks like a refusal but isn't one. The exam's anti-pattern still holds: a budget paces the loop, `stop_reason` still terminates it.
 
 ### Who Runs the Loop: Four Ways to Build an Agent
 
@@ -178,12 +190,16 @@ Two independent questions separate the options: **who supplies the harness** (th
 |----------|-----------|----------------------|-----------------|
 | **Manual loop** (`client.messages.create`) | The `while stop_reason == "tool_use"` loop | You build the harness; you host | Only tools you define |
 | **Tool Runner** (`client.beta.messages.tool_runner`) | Just the tool functions | SDK supplies the loop; you host | Only tools you define |
-| **Managed Agents** (beta, `/v1/agents` + `/v1/sessions`) | Agent config + your tool results | Anthropic supplies the loop **and** hosts a per-session sandbox | Hosted bash / files / code execution, plus Skills, MCP, and your tools |
+| **Managed Agents** (beta, `/v1/agents` + `/v1/sessions`) | Agent config + your tool results | Anthropic supplies the loop **and** a per-session sandbox — Anthropic-hosted, or self-hosted on your own infrastructure | Hosted bash / files / code execution, plus Skills, MCP, and your tools |
 | **Claude Agent SDK** (`claude-agent-sdk`) | A prompt + options | Claude Code harness + built-in tools; you host | Read/Write/Edit/Bash/Glob/Grep/WebSearch/WebFetch + MCP + subagents |
 
-**Tool Runner ≠ Claude Agent SDK.** Tool Runner ships inside the regular Anthropic SDK (`anthropic` / `@anthropic-ai/sdk`) and only loops over tools *you* define — no built-in tools, no filesystem, no sandbox. It exposes per-turn hooks for approval gates, error interception, result modification (e.g. attaching `cache_control`), and retries. The Claude Agent SDK is Claude Code packaged as a library.
+**Tool Runner ≠ Claude Agent SDK.** Tool Runner ships inside the regular Anthropic SDK (`anthropic` / `@anthropic-ai/sdk`) and only loops over tools *you* define — no built-in tools, no filesystem, no sandbox. It exposes per-turn hooks for approval gates, error interception, result modification (e.g. attaching `cache_control`), and retries. With `stream=True` plus `run_tools_eagerly=True` (Python SDK 1.9.0, 2026-09-28) each tool runs as soon as the model finishes writing its call; `runner.defer_tool_call()` holds a call until your loop body ends. A call that already ran can't be taken back — if the reply is cut short the model never sees its result and may ask again — so defer anything that isn't safe to run twice. The Claude Agent SDK is Claude Code packaged as a library.
 
-**Managed Agents (beta)** is the newest surface and the only one that adds managed *deployment*. The mandatory flow is Agent (created once, versioned, persisted) → Session (one per run). `model`, `system`, and `tools` live on the **agent**, never the session. Each session provisions a container that acts as the agent's workspace and streams events back; you send messages and tool results in. It also adds scheduled deployments (cron-fired sessions), vault-stored credentials substituted at egress, dollar-denominated session budgets, and multiagent rosters. Beta header: `managed-agents-2026-04-01`. Not available on Bedrock / Vertex / Foundry — use Claude API + tool use there. The recommended control-plane flow is now the **`ant` CLI**: describe agents, environments, skills, memory stores, and deployments as files in your repository and run **`ant apply`** (v1.30.0, 2026-09-03), which prints a plan, applies it, and writes a `claude-lock.json` lockfile — commit it so later runs, locally or in CI, update the same resources instead of creating new ones (`ant beta:agents create < agent.yaml` still works for one-offs). Application code owns only the data plane (`sessions.create` with the stored agent ID). `ant auth login` also gives the SDKs an OAuth profile, so a bare `Anthropic()` client works with no API key in the environment. Two September additions: permission policies gained **`auto`** — the server evaluates each agent or MCP tool call and runs it, denies it as high-risk, or pauses for your approval, reporting the verdict in an `evaluation` field on `agent.tool_use` events — and **`ant beta:sessions connect`** attaches your terminal to a live session to follow it, send messages, and approve or deny waiting tool calls (`--web` serves the Console's session viewer locally).
+**Managed Agents (beta)** is the newest surface and the only one that adds managed *deployment*. The mandatory flow is Agent (created once, versioned, persisted) → Session (one per run). `model`, `system`, and `tools` live on the **agent**, never the session. Each session provisions a container that acts as the agent's workspace and streams events back; you send messages and tool results in. It also adds scheduled deployments (cron-fired sessions), vault-stored credentials substituted at egress, dollar-denominated session budgets, and multi-agent orchestration (below). Beta header: `managed-agents-2026-04-01`. Available on the Claude API and on Claude Platform on AWS (with some differences in features and session behavior); not on Bedrock / Vertex / Foundry — use Claude API + tool use there. The recommended control-plane flow is now the **`ant` CLI**: describe agents, environments, skills, memory stores, deployments, and vaults (CLI v1.34.0+) as files in your repository and run **`ant apply`** (v1.30.0, 2026-09-03), which prints a plan, applies it, and writes a `claude-lock.json` lockfile — commit it so later runs, locally or in CI, update the same resources instead of creating new ones (`ant beta:agents create < agent.yaml` still works for one-offs). Application code owns only the data plane (`sessions.create` with the stored agent ID). `ant auth login` also gives the SDKs an OAuth profile, so a bare `Anthropic()` client works with no API key in the environment. Two September additions: permission policies gained **`auto`** — the server evaluates each agent or MCP tool call and runs it, denies it as high-risk, or pauses for your approval, reporting the verdict in an `evaluation` field on `agent.tool_use` events — and **`ant beta:sessions connect`** attaches your terminal to a live session to follow it, send messages, and approve or deny waiting tool calls (`--web` serves the Console's session viewer locally).
+
+**Multi-agent Managed Agents (2026-10-09).** An agent's `multiagent: {"type": "multiagent_20261001"}` block switches on three things separately: **subagents** (the agent delegates and reads each report; each runs in its own session thread), **dynamic workflows** (the agent writes a program that runs many agents in phases in the background as a *workflow run*, reported through `workflow_run.*` events), and an **advisor** model the primary thread consults mid-turn. Subagents and workflows are on by default; the advisor is off. Both can use agents you list in `predefined_agents` (up to 20 per list) or *inline agents* the agent or workflow defines itself — set `inline_agents` to `{"type": "disabled"}` to restrict them to your list. Delegation is one level deep, a session holds at most 25 child threads, and a workflow run allows 64 threads at once, 1,000 agents over its life, a 24-hour default lifetime, and 10 open runs per session. A run can create more than one thread for the same piece of work, so Anthropic's guidance is to **make the tools your agents call safe to call twice**. The older `coordinator` type is still accepted but can't start workflow runs or define agents itself.
+
+**Web tools got exfiltration controls (2026-10-07).** In Managed Agents, `web_fetch` now fetches only URLs that already appeared in the session (a user message, a `web_search` result, a fetched page); a URL that appears only in Claude's own output, the system prompt, an attachment, or bash / MCP output returns `url_not_in_prior_context`. With `limited` networking, `allowed_hosts` now also restricts `web_search` and `web_fetch`, and a web tool's `allowed_domains` entry outside `allowed_hosts` fails session creation with a 400.
 
 **Choosing:** stay at the simplest tier that works. A single call or a code-controlled workflow handles most tasks; reach for an agent only when the task is genuinely open-ended and model-driven, the value justifies the latency and cost, and errors are catchable (tests, review, rollback).
 
@@ -309,7 +325,7 @@ To run subagents in parallel, emit multiple `Agent` tool calls in a **single coo
 }
 ```
 
-Claude Code caps concurrent subagents at 20 (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`) and spawn depth at 3 (`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`); at the depth limit the `Agent` tool is withheld from the subagent (a fork keeps it listed, but it errors instead of spawning).
+Claude Code caps concurrent subagents at 20 (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`) and spawn depth at 3 (`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`); at the depth limit the `Agent` tool is withheld from the subagent (a fork keeps it listed, but it errors instead of spawning). Since v2.1.292 the `Agent` tool also takes a per-call `effort` for non-fork subagents: it overrides the subagent's frontmatter `effort` and persists if the subagent is resumed, while the `CLAUDE_CODE_EFFORT_LEVEL` environment variable still beats both.
 
 > **Beyond the exam guide — when the fan-out outgrows a turn:** Claude Code now has four orchestration units, and the exam's hub-and-spoke reasoning maps onto the first one. The difference is *who holds the plan*.
 >
@@ -320,7 +336,7 @@ Claude Code caps concurrent subagents at 20 (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGEN
 > | Intermediate results live in | Claude's context | Claude's context | A shared task list | Script variables |
 > | Scale | A few delegated tasks per turn | Same | A handful of long-running peers | Dozens to hundreds of agents per run, resumable |
 >
-> A workflow moves the coordinator's plan out of the model and into code — the deterministic answer to "the coordinator forgot half the subtasks" (§1.2). Claude writes the script; `/workflows` watches it; `ultracode` (an effort setting) lets Claude decide when to reach for one. Agent teams need `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. The medium workflow-size guideline is now 10 agents (was 15), Pro plans default to small, and `CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS` (1–256) raises a run's concurrency cap for inference-bound fan-outs.
+> A workflow moves the coordinator's plan out of the model and into code — the deterministic answer to "the coordinator forgot half the subtasks" (§1.2). Claude writes the script; `/workflows` watches it; **ultracode** lets Claude decide when to reach for one — since v2.1.284 it is its own toggle (`/effort ultracode on|off`, or the `ultracode` setting) that stays on at any effort level rather than an effort setting that forced `xhigh`; including the keyword `ultracode` in a single prompt still opts that one task in. Workflows are no longer Claude Code-only: Managed Agents runs them server-side as workflow runs (§1.1). Agent teams need `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. The medium workflow-size guideline is now 10 agents (was 15), Pro plans default to small, and `CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS` (1–256) raises a run's concurrency cap for inference-bound fan-outs.
 
 ### AgentDefinition in the Claude Agent SDK
 
@@ -348,7 +364,9 @@ async for message in query(
     print(message)
 ```
 
-Messages emitted from inside a subagent's context carry a `parent_tool_use_id` field — use it to attribute messages to the right subagent execution.
+Messages emitted from inside a subagent's context carry a `parent_tool_use_id` field — use it to attribute messages to the right subagent execution. The TypeScript SDK's `AgentDefinition` gained `autoCompactWindow` (v0.3.296), so a subagent can auto-compact earlier than the main conversation.
+
+> **Permission-mode default changed (TypeScript Agent SDK v0.3.286):** omitting `permissionMode` no longer means `default`. Claude Code now picks the starting mode — a settings `permissions.defaultMode` if one applies, otherwise the built-in default, which can be **auto mode** (for example on third-party providers or with telemetry off). A session that starts in auto mode drops broad allow rules such as a bare `Bash`. If your app relies on manual approvals through `canUseTool`, pass `permissionMode: "default"` explicitly.
 
 ### Forks vs Fresh Subagents
 
@@ -361,7 +379,7 @@ A **fork** is the opposite trade-off from an isolated subagent: it inherits the 
 | Prompt cache | Cold | Shared with the parent (cheaper) |
 | Use for | Bounded, well-specified tasks; noisy exploration | Divergent branches off a shared baseline |
 
-In Claude Code, Claude requests a fork through the `Agent` tool with `subagent_type: "fork"` (fork mode is on by default in interactive sessions, and subagents it spawns then run in the background). You can start one yourself with `/subtask <prompt>`. Two neighbours are easy to confuse: `/fork` now *copies* the whole session into a separate background session (agent view), and `/branch` switches you into a copy of the conversation to try a different direction. The SDK/CLI also exposes `--fork-session` for resuming a session under a new ID; `fork_session` is the older API-level name for the same "branch from a shared baseline" idea.
+In Claude Code, Claude requests a fork through the `Agent` tool with `subagent_type: "fork"` (fork mode is on by default in interactive sessions, and subagents it spawns then run in the background). You can start one yourself with `/subtask <prompt>`. Two neighbors are easy to confuse: `/fork` now *copies* the whole session into a separate background session (agent view), and `/branch` switches you into a copy of the conversation to try a different direction. The SDK/CLI also exposes `--fork-session` for resuming a session under a new ID; `fork_session` is the older API-level name for the same "branch from a shared baseline" idea.
 
 ### Structured Context Passing
 
@@ -433,7 +451,7 @@ The hook system expanded substantially in 2026 — the current catalog is **33 e
 
 | Group | Events |
 |-------|--------|
-| **Setup** | `Setup` (runs once per session) |
+| **Setup** | `Setup` (fires only with `--init-only`, or with `--init` / `--maintenance` in `-p` mode — one-time preparation in CI or scripts, not every session) |
 | **Session & turn** | `SessionStart` ★, `SessionEnd` ★, `UserPromptSubmit` ★, `UserPromptExpansion`, `Stop` ★, `StopFailure` |
 | **Tool / agentic loop** | `PreToolUse` ★, `PostToolUse` ★, `PostToolUseFailure`, `PostToolBatch`, `PermissionRequest` ★, `PermissionDenied` |
 | **Agent & task** | `SubagentStart`, `SubagentStop` ★, `TaskCreated`, `TaskCompleted`, `TeammateIdle` |
@@ -471,7 +489,7 @@ Five types are supported. `mcp_tool` is new in 2026.
 | `prompt` | Single LLM call that returns a yes/no decision | Context-dependent approval |
 | `agent` | Multi-turn subagent with tool access | Complex compliance checks |
 
-Two constraints from recent releases: `PermissionRequest` no longer runs `agent`-type hooks — their answer could never allow or deny the request, so use `command` or `http` there (v2.1.280+) — and `mcp_tool` hooks on blocking events wait for their MCP server to finish connecting instead of being skipped.
+Two constraints from recent releases: `PermissionRequest` no longer runs `agent`-type hooks — their answer could never allow or deny the request, so use `command` or `http` there (v2.1.280+) — and `mcp_tool` hooks on blocking events wait for their MCP server to finish connecting instead of being skipped. Per the v2.1.299 changelog, `UserPromptSubmit` now runs *before* a skill or custom slash command expands, so a hook that blocks the prompt also stops the skill's embedded shell commands.
 
 ### PreToolUse Hooks (Current JSON Shape)
 
@@ -519,7 +537,9 @@ Each matcher holds an **array** of `hooks` (the old singular `hook` field is gon
 }
 ```
 
-`permissionDecision` values: `"allow"`, `"deny"`, `"ask"`.
+`permissionDecision` values: `"allow"`, `"deny"`, `"ask"`, and `"defer"` (only in `-p` mode: the tool doesn't run, the process exits with `stop_reason: "tool_deferred"`, and the calling app resumes the session later — ignored if Claude made several tool calls in the turn). When several PreToolUse hooks disagree, precedence is **`deny` > `defer` > `ask` > `allow`**. Deny and ask *permission rules* are still evaluated whatever a hook returns, so a hook's `"allow"` never overrides a matching deny rule, and an `updatedInput` rewrite is checked against those rules as rewritten (a gap where some rules and safety checks missed the rewritten input was closed in v2.1.290).
+
+**Fail closed when it matters.** By default a hook that can't start, times out, exits with a code other than 0 or 2, or prints invalid output is a *non-blocking* error — the action goes ahead, so a policy hook with a typo in its path silently lets everything through. Since v2.1.295, `"onFailure": "block"` on a `command` or `http` hook makes any such failure act like exit code 2 on that event (on `PermissionRequest` it denies the request); the default stays `"continue"`. Separately, since v2.1.288 a PreToolUse or PermissionRequest hook whose matching fails, or whose tool input can't be serialized, blocks the call instead of being skipped. For the exam's "refund must be verified" scenario, a deterministic gate is only deterministic if it also fails closed.
 
 ### PostToolUse Hooks
 

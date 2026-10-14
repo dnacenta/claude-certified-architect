@@ -6,7 +6,7 @@ This guide covers all 5 exam domains with detailed explanations, code examples, 
 
 Read it online as a **website** at https://dnacenta.github.io/claude-certified-architect/ or download the **PDF (English)** at https://dnacenta.github.io/claude-certified-architect/guide_en.pdf. Both are built and deployed automatically from this repo's markdown on every push to `main` (see [`.github/workflows/pages.yml`](.github/workflows/pages.yml)), so the PDF never drifts from the guide.
 
-It is actively maintained and updated regularly to track changes to Anthropic's models, APIs, and Claude Code. **Last refresh: 25 September 2026** — see [CHANGELOG.md](CHANGELOG.md) for what changed and when.
+It is actively maintained and updated regularly to track changes to Anthropic's models, APIs, and Claude Code. **Last refresh: 14 October 2026** — see [CHANGELOG.md](CHANGELOG.md) for what changed and when.
 
 ## The Claude Certification Family
 
@@ -19,7 +19,7 @@ Anthropic now runs **four** certifications. This repo's deep-dive guide covers C
 | CCAR-P | Architect — Professional | Senior architects owning the full solution lifecycle | $175 | [Overview](certs/ccar-p-architect-professional.md) |
 | CCDV-F | Developer — Foundations | Engineers shipping Claude apps, agents, and workflows | $125 | [Overview](certs/ccdv-f-developer.md) |
 
-All four are 120-minute proctored exams delivered via Pearson VUE, passing score 720/1,000, credentials valid 12 months (Exam Guides v1.0, effective July 2026). Renewal is free if done on time: review what changed and pass a non-proctored assessment; a lapsed credential means sitting the full exam again. Registration needs a partner-domain email — personal addresses are rejected. Delivery moved to Pearson VUE and digital badging to Credly on 2026-06-30. Partner-tier discounts apply at checkout (50% for Select, Preferred, and Global Premier partners; 100% for Global Premier through 2026-12-31), and candidates must be at least 18.
+All four are 120-minute proctored exams delivered via Pearson VUE, passing score 720/1,000, credentials valid 12 months (Exam Guides v1.0, effective July 2026). Renewal is free if done on time: review what changed and pass a non-proctored, open-book assessment; a lapsed credential means sitting the full exam again. Registration needs a partner-domain email — personal addresses are rejected. Delivery moved to Pearson VUE and digital badging to Credly on 2026-06-30. Partner-tier discounts apply at checkout (50% for Select, Preferred, and Global Premier partners; 100% for Global Premier through 2026-12-31), and candidates must be at least 18. Cancelling or rescheduling is free up to 48 hours before the appointment. The Partner Academy FAQ lists the exams and prep content in English and Japanese, and Japanese translations of all four v1.0 exam guides were published on 2026-10-08.
 
 ## Exam Overview
 
@@ -46,16 +46,16 @@ See [claude-certified-architect.md](claude-certified-architect.md) for the full 
 
 ## Model Lineup Used in This Guide
 
-Code samples use **`claude-opus-5-5`** — Anthropic's current default for most workloads (Claude Opus 5.5 launched 2026-09-22). Samples that rely on forced `tool_choice` use `claude-sonnet-5`, because Opus 5.5 and Fable 5.1 reject it.
+Code samples use **`claude-opus-5-5`** — Anthropic's current default for most workloads (Claude Opus 5.5 launched 2026-09-22). Samples that rely on forced `tool_choice` use `claude-haiku-5-5`, the only current model that still accepts it (Fable 5.1, Opus 5.5, and Sonnet 5.5 return 400).
 
 | Model | ID | Context | Max output | Price (in / out per MTok) |
 |-------|-----|---------|-----------|---------------------------|
 | Claude Fable 5.1 | `claude-fable-5-1` | 1M | 128k | $10 / $50 (cache reads $0.25) |
 | **Claude Opus 5.5** | `claude-opus-5-5` | 1M | 128k | $4 / $20 (cache reads $0.20) |
-| Claude Sonnet 5 | `claude-sonnet-5` | 1M | 128k | $2 / $10 |
-| Claude Haiku 4.5 | `claude-haiku-4-5` | 200k | 64k | $1 / $5 |
+| Claude Sonnet 5.5 | `claude-sonnet-5-5` | 1M | 128k | $2 / $10 (cache reads $0.10) |
+| Claude Haiku 5.5 | `claude-haiku-5-5` | 1M | 128k | $0.10 / $0.50 for prompts up to 100k tokens; $0.50 / $2.50 above |
 
-Opus 5, Fable 5, Opus 4.8, 4.7, 4.6, 4.5, Sonnet 4.6, and Sonnet 4.5 are legacy but still available (Opus 4.1 retired 2026-08-05; Haiku 4.5's retirement floor is 2026-10-15). Opus 5.5 inherits Fable 5.1's three breaking changes — no forced `tool_choice`, thinking blocks bound to the model and history that produced them, append-only history — and adds two of its own: thinking can't be disabled, and its default effort is `medium`. See the [main guide](claude-certified-architect.md#current-model-lineup-september-2026).
+Fable 5, Opus 5, Opus 4.8, 4.7, 4.6, 4.5, Sonnet 5, Sonnet 4.6, and Haiku 4.5 are legacy but still available. Sonnet 4.5 is deprecated and retires on 2026-11-30, with Sonnet 5.5 as its replacement; Opus 4.1 retired on 2026-08-05. Sonnet 5.5 (2026-09-28) and Haiku 5.5 (2026-10-07) completed the 5.5 generation. Fable 5.1, Opus 5.5, and Sonnet 5.5 all reject forced `tool_choice`, bind thinking blocks to the model and history that produced them, and need append-only history; Opus 5.5's thinking can't be disabled, and Sonnet 5.5 replaces `disabled` with `between_tools`. Haiku 5.5 is the odd one out: it still accepts forced `tool_choice` and `disabled`, and it is the only current model whose price rises above a 100k-token prompt. See the [main guide](claude-certified-architect.md#current-model-lineup-october-2026).
 
 ## Resources
 
@@ -64,8 +64,8 @@ Opus 5, Fable 5, Opus 4.8, 4.7, 4.6, 4.5, Sonnet 4.6, and Sonnet 4.5 are legacy 
 - [Pearson VUE — Anthropic certification program](https://www.pearsonvue.com/us/en/anthropic.html)
 - [Anthropic Skilljar — Building with Claude API](https://anthropic.skilljar.com/claude-with-the-anthropic-api)
 - [12-Week Training Program (GitHub)](https://github.com/SGridworks/claude-certified-architect-training)
-- [Building Effective Agents (Anthropic Research)](https://www.anthropic.com/research/building-effective-agents)
-- [Claude API docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview) · [Models overview](https://platform.claude.com/docs/en/models/overview) · [Claude Code docs](https://code.claude.com/docs/en/overview) · [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) · [MCP](https://modelcontextprotocol.io/introduction)
+- [Building Effective Agents (Anthropic Engineering)](https://www.anthropic.com/engineering/building-effective-agents)
+- [Claude API docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview) · [Models overview](https://platform.claude.com/docs/en/models/overview) · [Claude Code docs](https://code.claude.com/docs/en/overview) · [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) · [MCP](https://modelcontextprotocol.io/docs/getting-started/intro)
 
 The [main guide's Resources section](claude-certified-architect.md#resources) has the full, categorised link list.
 

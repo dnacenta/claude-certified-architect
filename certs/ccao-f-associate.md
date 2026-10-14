@@ -73,10 +73,11 @@ Much of this repo's [Domain 4 (explicit criteria, few-shot)](../domains/d4-promp
 ## Registration and Policies
 
 1. Register via the exam's page on the **Anthropic Partner Academy** (partner-tier discounts apply at checkout), then schedule through **Pearson VUE** — online proctoring or a test center.
-2. Cancel/reschedule up to 24 hours before the appointment; changes within 24 hours forfeit the fee.
+2. Cancel or reschedule free of charge up to 48 hours before the appointment (a cancellation in that window is fully refunded — email Anthropic certification support, since cancelling in Pearson VUE alone doesn't trigger the refund); changes within 48 hours forfeit the fee. The v1.0 Exam Guide still says 24 hours; the live Partner Academy policies page is newer.
 3. Retakes: up to 4 attempts per rolling 12 months, with waiting periods after each failed attempt (14 / 30 / 90 days), per Pearson VUE program policy.
 4. Government-issued photo ID required; the name must exactly match your registration.
-5. Renewal: the credential is valid 12 months; renewing on time is free — review what changed since you certified and pass a non-proctored assessment. If it lapses, the full exam fee applies again. Registration requires a partner-domain email address. Delivery moved to Pearson VUE and digital badging to Credly on 2026-06-30; candidates must be at least 18. Partner-tier discounts apply at checkout — 50% for Select, Preferred, and Global Premier partners, 100% for Global Premier partners through 2026-12-31.
+5. Renewal: the credential is valid 12 months; renewing on time is free — review what changed since you certified and pass a non-proctored, open-book assessment (retakes allowed; the new 12 months run from your current expiry). If it lapses, the full exam fee applies again. Registration requires a partner-domain email address. Delivery moved to Pearson VUE and digital badging to Credly on 2026-06-30; candidates must be at least 18. Partner-tier discounts apply at checkout — 50% for Select, Preferred, and Global Premier partners, 100% for Global Premier partners through 2026-12-31. The FAQ lists the exam and its prep content in English and Japanese (one registration; you pick the language when scheduling), and a Japanese translation of the v1.0 exam guide was published on 2026-10-08.
+6. **Partner Network credit:** CCAO-F does **not** count towards Claude Partner Network tier eligibility — only CCDV-F, CCAR-F, and CCAR-P do.
 
 ---
 

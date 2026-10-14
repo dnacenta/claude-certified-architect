@@ -50,7 +50,7 @@ CLAUDE.md files are instruction files that tell Claude Code how to behave in a s
 
 ### Loading Order (Broader → More Specific)
 
-Claude Code loads CLAUDE.md files in a hierarchy. More specific files override broader ones:
+Claude Code loads CLAUDE.md files in a hierarchy. Every file it finds is **concatenated** into context, not overridden: content runs from the filesystem root down to the working directory, so instructions closer to where you launched Claude are read last, and `CLAUDE.local.md` follows `CLAUDE.md` within each directory. Two files that contradict each other leave Claude to pick one, so resolve conflicts rather than relying on precedence:
 
 ```
 1. Managed Policy (org-wide, admin-controlled)
@@ -68,15 +68,15 @@ Claude Code loads CLAUDE.md files in a hierarchy. More specific files override b
    └── ./CLAUDE.local.md
 
 5. Directory-Level (loaded on demand)
-   └── ./src/api/CLAUDE.md (loaded when Claude reads files in src/api/)
-   └── ./tests/CLAUDE.md (loaded when Claude reads files in tests/)
+   └── ./src/api/CLAUDE.md (loaded when Claude reads, writes, or edits a file in src/api/)
+   └── ./tests/CLAUDE.md (loaded when Claude reads, writes, or edits a file in tests/)
 ```
 
-**Key distinction:** Project-level CLAUDE.md is committed to git and shared with the team. User-level is personal and local. `CLAUDE.local.md` is personal per project (gitignore it). Directory-level loads dynamically when Claude works in that directory.
+**Key distinction:** Project-level CLAUDE.md is committed to git and shared with the team. User-level is personal and local. `CLAUDE.local.md` is personal per project (gitignore it). Directory-level loads dynamically when Claude works in that directory — since v2.1.288 on Write and Edit as well as Read, and since v2.1.293 also when Claude views a single file there with a Bash read such as `cat` or `head`.
 
 ### AGENTS.md Interop
 
-Since v2.1.277, a project with **no** `CLAUDE.md` falls back to reading `AGENTS.md` (on every provider since v2.1.281; toggle under "Project instructions" in `/config`). When both exist, `CLAUDE.md` wins and `AGENTS.md` is ignored during normal sessions — `/init` still reads it when scaffolding. If your repo already uses `AGENTS.md` for other coding agents and you also need Claude-specific rules, keep one source of truth by importing it:
+Since v2.1.277, a project with **no** `CLAUDE.md` falls back to reading `AGENTS.md` (on every provider since v2.1.281). A `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` in the working directory or above it counts as having one — so adding a personal `CLAUDE.local.md` silently stops `AGENTS.md` loading; `~/.claude/CLAUDE.md`, managed policy, and `.claude/rules/` don't count. The "Project instructions" setting in `/config` takes four values: `claude-md-or-agents-md` (the default), `claude-md-and-agents-md` (both, each directory's `CLAUDE.md` first), `claude-md`, and `managed-only`. In a settings file it lives under `pluginConfigs` → `cc-plugin-agents-md@builtin` (renamed from `agents-md@builtin` in v2.1.285), read from user, `--settings`, or managed settings only. `/init` still reads `AGENTS.md` when scaffolding. If your repo already uses `AGENTS.md` for other coding agents and you also need Claude-specific rules, keep one source of truth by importing it:
 
 ```markdown
 # CLAUDE.md
@@ -103,7 +103,7 @@ See @README.md for project overview.
 **Resolution rules:**
 - Relative paths resolve relative to the file containing the import
 - `@~/` resolves to the user's home directory
-- Maximum import depth: 5 hops (to prevent circular imports)
+- Maximum import depth: four hops (to prevent circular imports)
 - Imported files can themselves contain @imports (up to depth limit)
 
 ### .claude/rules/ Directory
@@ -120,7 +120,7 @@ For topic-specific rules organized as separate files:
 ```
 
 **Without frontmatter:** Rules load unconditionally at session start.
-**With frontmatter:** Rules load conditionally based on file paths.
+**With frontmatter:** Rules load conditionally based on file paths — when Claude uses Read, Write, or Edit on a matching file (Write/Edit since v2.1.288), or views one with a single-file Bash read such as `cat` or `head` (v2.1.293).
 
 ### Auto Memory
 
@@ -147,6 +147,7 @@ Claude Code maintains automatic memory at:
 | `--add-dir <path>` | Grant Claude access to additional working directories |
 | `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` | Also load CLAUDE.md / rules from `--add-dir` paths |
 | `CLAUDE_CODE_NEW_INIT=1` | Interactive multi-phase `/init` that scaffolds CLAUDE.md, skills, and hooks |
+| `/doctor prompt-audit [path]` (alias `/checkup`) | Audit CLAUDE.md, CLAUDE.local.md, AGENTS.md, rules, skills, commands, subagents, and output styles for instructions written for older models, dead references, and contradictions; proposes edits and changes nothing until you agree (v2.1.283+) |
 
 ---
 
@@ -199,7 +200,7 @@ Deploy the application to $ARGUMENTS.
 | `arguments` | Named positional arguments for `$name` substitution |
 | `disable-model-invocation` | `true` → only the user can invoke via `/name`; Claude can't auto-trigger |
 | `user-invocable` | `false` → hidden from `/` menu; Claude can still invoke (background knowledge) |
-| `allowed-tools` | Tools pre-approved while this skill is active |
+| `allowed-tools` | Tools pre-approved for the turn that invokes the skill — the grant clears when you send your next message, and it still goes through the normal permission flow |
 | `model` | Model override for this skill's turn |
 | `effort` | `low` / `medium` / `high` / `xhigh` / `max` — effort-level override |
 | `context` | `fork` runs the skill in an isolated subagent |
@@ -265,28 +266,44 @@ Claude Code ships with a set of bundled skills that varies by release. Recent ve
 - `/design` — Multi-artboard visual design canvas
 - `/init` — Scaffold a CLAUDE.md for the codebase
 - `/run` — Launch the project's app to confirm a change works
+- `/verify` — Build and run the app to confirm a change does what it should, rather than trusting tests or type checks; runs only when invoked, and records its recipe as a project skill at `.claude/skills/verify/`
+- `/run-skill-generator` — Record how to build and launch the project as a per-project skill that `/run` and `/verify` then follow
 - `/loop` — Run a prompt or slash command on a recurring interval
 - `/schedule` — Create and manage cloud routines
 - `/deep-research` — A bundled dynamic *workflow*: fan out web searches, cross-check sources, synthesize a cited report
 - `/workflows` / `/workflow-authoring` — Watch running workflows; load the script-writing reference (when dynamic workflows are enabled)
 - `/advisor` — Consult a second model (`fable`, `opus`, `sonnet`) at key moments of a task
-- `/fast` — Toggle fast mode (Opus 5.5 / Opus 5 / Opus 4.8; premium pricing — $8 / $40 on Opus 5.5, $10 / $50 on Opus 5 and 4.8 — same model, faster output; also honoured in cloud and self-hosted remote sessions)
+- `/fast` — Toggle fast mode (Opus 5.5 / Opus 5 / Opus 4.8; premium pricing — $8 / $40 on Opus 5.5, $10 / $50 on Opus 5 and 4.8 — same model, faster output; also honored in cloud and self-hosted remote sessions)
 - `/update-config` — Configure settings.json, hooks, and permissions
 - `/fewer-permission-prompts` — Build a permission allowlist from your usage
 - `/output-style [name]` — List and switch output styles, including in headless and Remote Control sessions (v2.1.269+)
 - `/insights` — Usage report; now estimates how many recent permission prompts auto mode could have handled
 - `/skill-doctor` — Show what each skill costs in context and how often it is used (v2.1.252+); every listed skill costs tokens on every turn
-- `/doctor` — Diagnose Claude Code setup problems; `/feedback` sends a report with session context
+- `/doctor` (alias `/checkup`) — Diagnose Claude Code setup problems; `/doctor prompt-audit` audits your instruction files instead (§3.1); `/feedback` sends a report with session context
 
 Check `/help` in your installed version (or the commands page in the docs) for the current list — the set changes release to release.
 
+**Pre-commit checks (v2.1.286+):** when a session starts with a project, personal, or enterprise skill named `verify` or `simplify` that Claude may invoke, Claude Code's commit instructions tell Claude to run it right before each commit (docs- and tests-only changes excepted). The bundled `/verify` and `/simplify` and plugin skills don't trigger it, and turning off `includeGitInstructions` removes it. It is the skill-level answer to "how do we make Claude check its work before every commit without a hook?"
+
+**Inside workflows:** when an agent in a dynamic workflow invokes a forked skill, that agent waits for and receives the result (v2.1.295+); earlier releases could deliver it to the main conversation instead.
+
 ### Plugins
 
-A **plugin** is a distributable bundle of skills, subagents, hooks, and MCP servers, installed from a marketplace and enabled per project. Plugin-provided items are namespaced (`plugin-name:skill-name` for skills, `plugin:<plugin>:<server>` for MCP servers) so they can't collide with your own. Plugins sit at the lowest priority in the skill resolution order (Enterprise > Personal > Project > Plugin).
+A **plugin** is a distributable bundle — skills and commands, subagents, hooks, MCP and LSP servers, monitors, output styles and themes, default settings, and (since v2.1.287) **mods** — installed from a marketplace and enabled per project. Plugin-provided items are namespaced (`plugin-name:skill-name` for skills, `plugin:<plugin>:<server>` for MCP servers) so they can't collide with your own. Plugins sit at the lowest priority in the skill resolution order (Enterprise > Personal > Project > Plugin).
 
 Plugins are also the unit that `claude plugin eval` tests: you write an eval suite against the plugin's skills and run it in a sandbox or in CI, and it emits a JSON report. That is the packaging answer to "how does a team ship and regression-test its Claude Code conventions?"
 
-Recent plugin tooling: `claude plugin validate` also checks a plugin's `.mcp.json` entries (servers that would be silently dropped, undeclared `${user_config.*}` references, insecure URLs); `--plugin-dir` can point at a folder of plugins and picks up children added while running; `claude plugin install <plugin> --marketplace <source>` offers to add the marketplace on the way in; and skills and plugins enabled on your claude.ai account sync into terminal sessions signed in with it (`syncClaudeAiSkills` / `syncClaudeAiPlugins: false` opt out).
+**Mods** are plugins whose JavaScript or TypeScript handlers Claude Code calls *in its own process*: they can watch, rewrite, or answer tool calls, prompts, turns, and commands, and draw panes in the interface. The docs now call the settings-file kind of hook a "settings hook" to tell the two apart. The exam-style choice:
+
+| | Mod | Settings hook | Skill | MCP server |
+|---|---|---|---|---|
+| What it is | Functions in a plugin, run inside Claude Code | A shell command, HTTP request, or prompt run on a lifecycle event | A `SKILL.md` of instructions | An external process that gives Claude tools |
+| What it can change | Tool calls, prompts, commands, turns, and the interface | Whether a call or prompt goes ahead, its arguments and result, added context | What Claude knows and does | Which tools Claude has |
+| Pick it when | You need a pane, a custom command, or to rewrite an event | You want to block, allow, or log an event with a script | You keep pasting the same instructions | Claude needs to reach an external system |
+
+Mods are on by default and **aren't sandboxed** — they run with the user's permissions, and processes they start run outside the Bash sandbox. `disableAllHooks` and `--safe-mode` turn off installed mods (not built-in ones); admins set `allowManagedModsOnly` under `pluginConfigs` → `cc-plugin-sec-default@builtin` in managed settings to stop user-installed mods running, and a mod can't approve a call a `deny` rule refuses unless `allowModsToOverrideDenyRules` is set.
+
+Recent plugin tooling: `claude plugin validate` also checks a plugin's `.mcp.json` entries (servers that would be silently dropped, undeclared `${user_config.*}` references, insecure URLs); `--plugin-dir` can point at a folder of plugins and picks up children added while running; `claude plugin install <plugin> --marketplace <source>` offers to add the marketplace on the way in; and skills and plugins enabled on your claude.ai account sync into terminal sessions signed in with it (`syncClaudeAiSkills` / `syncClaudeAiPlugins: false` opt out). Since v2.1.285, `claude plugin install --config <server>.<key>=<value>` sets a bundled server's options from the shell (install never prompts for `userConfig`), and `/plugin configure <plugin>@<marketplace>` reopens the configuration dialog.
 
 ---
 
@@ -364,15 +381,17 @@ The rules approach is superior because:
 
 ### Permission Modes (Current)
 
-Plan mode is now one entry in a broader permission-mode system. Start in a specific mode with `--permission-mode <mode>`, or cycle modes with **Shift+Tab** in an interactive session.
+Plan mode is now one entry in a broader permission-mode system. Start in a specific mode with `--permission-mode <mode>` or `permissions.defaultMode`, or cycle modes with **Shift+Tab** in an interactive session.
+
+**Which mode a session starts in (v2.1.283+):** with nothing configured, interactive terminal and VS Code sessions start in **`auto`** on every plan and provider. `claude -p` and the Agent SDK start in `default` in sessions that fetch feature flags — but on a third-party provider or with telemetry off they start in `auto` (v2.1.285+), so pass `--permission-mode default` (SDK: `permissionMode: 'default'`) when a script must get manual approvals. HIPAA-configured organizations and any settings file with `disableAutoMode: "disable"` start in `default`. If auto mode isn't available to the session, it falls back to `default`.
 
 | Mode | Behavior |
 |------|----------|
-| `default` | Standard permission prompts |
+| `default` | Shown as **Manual** in the CLI and apps (`manual` is accepted as an alias): reads run without asking; edits, shell commands, and network access prompt |
 | `acceptEdits` | Auto-accept file edits; still prompt for other tools |
 | `plan` | Exploration-only: Claude designs an approach and presents it before touching files |
 | `auto` | A classifier decides per-tool whether to prompt — see `claude auto-mode defaults`. Since v2.1.278–282 the classifier runs **server-side by default** on the Claude API, Bedrock, Vertex, Foundry, and gateways (no classifier overhead billed; `CLAUDE_CODE_AUTO_MODE_SERVER=0` opts out; `/status` shows which is active), and read-only or sandboxed commands also wait for its review |
-| `dontAsk` | Never prompt for the pre-approved list |
+| `dontAsk` | Only file reads inside the working directories and pre-approved tools run; anything that would prompt is **denied** — locked-down CI with an exact `--allowedTools` list |
 | `bypassPermissions` | Skip all prompts (dangerous; use only for short, contained tasks) |
 
 ### When to Use Plan Mode
@@ -440,7 +459,7 @@ model: sonnet                                          # inherit | sonnet | opus
 effort: low                                            # low | medium | high | xhigh | max
 permissionMode: plan                                   # default | acceptEdits | auto | dontAsk | bypassPermissions | plan
 maxTurns: 10
-skills: [api-conventions]                              # preloaded skill content
+skills: [api-conventions]                              # preloaded skill content (first 32 distinct names)
 mcpServers: [github]
 memory: project                                        # user | project | local — persistent across sessions
 isolation: worktree                                    # run in its own git worktree
@@ -459,13 +478,13 @@ hooks:
 Execute SELECT queries only. Never issue writes.
 ```
 
-**Three ways to invoke:** name it in natural language ("use the db-reader to…"), `@`-mention it to guarantee that specific agent runs, or start a whole session as it with `claude --agent db-reader`.
+**Three ways to invoke:** name it in natural language ("use the db-reader to…"), `@`-mention it to guarantee that specific agent runs, or start a whole session as it with `claude --agent db-reader`. Since v2.1.292 Claude can also pass a per-invocation `effort` to a non-fork subagent; it overrides the frontmatter `effort` and survives a resume, and `CLAUDE_CODE_EFFORT_LEVEL` still beats both.
 
 **What a fresh subagent loads:** its own system prompt, the delegation prompt, the CLAUDE.md hierarchy (unless `omitClaudeMd: true`), a git status snapshot, preloaded skills, and environment details. **What stays out:** your conversation history, the main session's auto memory, and other subagents' results — which is exactly the "context does not inherit" rule from Domain 1 §1.3.
 
 **Constraints worth remembering:** permission modes flow *down* — if the parent runs `bypassPermissions`, `acceptEdits`, or `auto`, the subagent inherits it and cannot override. Subagents nest 3 deep by default and 20 can run concurrently. Completed subagents can be resumed by ID or name via `SendMessage`, retaining their prior context; one-shot agents (Explore, Plan) cannot be resumed.
 
-**Prompt-injection note:** since v2.1.277 a subagent's result reaches the main agent under a header marking it as subagent output, with the result indented, so text inside it can't pass as the session's own instructions (earlier releases scanned reports for instruction-shaped patterns and escaped them). It's a mitigation, not a permission boundary — every tool call still goes through the session's permission checks.
+**Prompt-injection note:** two layers protect the main agent. Subagent output scanning (v2.1.210+) escapes tags that imitate harness markup and prepends a marker line when a report imitates a tag such as `<system-reminder>` or mentions permission settings like `bypassPermissions`; and since v2.1.277 the result also arrives under a header marking it as subagent output, stating that instructions or approval claims inside it carry no authority from the user. Both are mitigations, not a permission boundary — every tool call still goes through the session's permission checks.
 
 ### Beyond Subagents: Agent Teams and Dynamic Workflows
 
@@ -478,7 +497,7 @@ Subagents are one worker per delegation, decided turn by turn. Two larger units 
 | Scale | A few delegated tasks per turn | A handful of long-running peers | Dozens to hundreds of agents per run; resumable in-session |
 | Enable | Built in | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | Paid plans and API access; Pro turns it on in `/config`; `workflowSizeGuideline` sets the advisory agent count (medium is now 10 agents, Pro defaults to small); `CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS` (1–256) raises the per-run concurrency cap |
 
-A workflow only runs when the user opts in — the `ultracode` effort level, an explicit "use a workflow", or a bundled workflow skill such as `/deep-research`. `/workflows` watches, pauses, resumes, or saves a run. Codifying the orchestration is the point: the plan becomes a reviewable, rerunnable script instead of a coordinator's memory (Domain 1 §1.2).
+A workflow only runs when the user opts in — the `ultracode` keyword in a prompt, an explicit "use a workflow", a bundled workflow skill such as `/deep-research`, or the **ultracode** toggle. Since v2.1.284 ultracode is a session setting, not an effort level: `/effort ultracode [on|off]` or the `ultracode` settings key has Claude plan a workflow for every substantive task *at whatever effort the session runs*; only `claude --effort ultracode` (and the Agent SDK's `effortLevel: "ultracode"`) also sets `xhigh`. `/workflows` watches, pauses, resumes, or saves a run. Codifying the orchestration is the point: the plan becomes a reviewable, rerunnable script instead of a coordinator's memory (Domain 1 §1.2).
 
 ### Combining Modes
 
@@ -564,7 +583,7 @@ Fix both together."
 | `--json-schema '{...}'` | Validate final output against a JSON Schema (print mode only) | Enforces CI output shape |
 | `--max-turns N` | Hard cap on agentic turns; exits with error if hit | Guardrail |
 | `--max-budget-usd X` | Stop once API spend hits $X (print mode only) | Cost guardrail |
-| `--bare` | Skip auto-discovery (hooks, skills, plugins, MCP, auto memory, CLAUDE.md) — fast scripted starts | Low-overhead scripted calls |
+| `--bare` | Skip auto-discovery (hooks, skills, custom commands, subagents, plugins, MCP, auto memory, CLAUDE.md) — fast, reproducible scripted starts. Since v2.1.286 it also connects only MCP servers given on the command line, sends no system reminders, and runs no background tasks; it never reads OAuth or the keychain, so set `ANTHROPIC_API_KEY`. Recommended for scripts and slated to become the `-p` default | Low-overhead scripted calls |
 | `--no-session-persistence` | Don't save the session to disk | Ephemeral CI runs |
 | `--fallback-model sonnet` | Auto-fall back when the primary model is overloaded | Reliability |
 | `--include-hook-events` | Emit all hook lifecycle events into the stream | Observability |
@@ -576,17 +595,19 @@ Fix both together."
 | `--safe-mode` | Start with every customization disabled (CLAUDE.md, skills, hooks, MCP, plugins, workflows, auto memory) — unlike `--bare`, permissions still apply | Troubleshooting a broken config |
 | `--session-id`, `--resume`, `--continue`, `--fork-session` | Session lifecycle control | Multi-step pipelines |
 | `--setting-sources user,project,local` | Restrict which settings layers are loaded | Reproducible runs |
-| `--effort <level>` | `low` / `medium` / `high` / `xhigh` / `max` / `ultracode` | Tune cost vs quality per run |
+| `--effort <level>` | `low` / `medium` / `high` / `xhigh` / `max`; `ultracode` turns the ultracode toggle on and sets `xhigh` | Tune cost vs quality per run |
 | `--agent <name>` / `--agents '<json>'` | Run the session as a named subagent, or define subagents inline | Specialized CI jobs |
 | `--append-subagent-system-prompt` / `-file` | Append text (or a file, v2.1.261+) to every subagent's prompt except forks (non-interactive only) | Consistent citation/format rules |
 | `--forward-subagent-text` | Emit subagent messages into the stream | Observability across delegated work |
-| `--system-prompt` / `--system-prompt-file` / `--append-system-prompt` | Replace or extend the system prompt (use the `-file` forms for large prompts — self-hosted runners now pass prompts as files; `--system-prompt-snapshot off` re-renders it every request while you iterate on the text) | Purpose-built CI personas |
+| `--system-prompt` / `--system-prompt-file` / `--append-system-prompt` | Replace or extend the system prompt (use the `-file` forms for large prompts — self-hosted runners now pass prompts as files; since v2.1.283 a flag can be combined with its own `-file` form; `--system-prompt-snapshot off` re-renders it every request while you iterate on the text) | Purpose-built CI personas |
 | `--exclude-dynamic-system-prompt-sections` | Move per-machine sections out of the system prompt | Prompt-cache reuse across runners |
 | `--strict-mcp-config` | Use only the servers from `--mcp-config` | Hermetic MCP surface |
 | `--init` / `--init-only` | Run Setup / SessionStart hooks (and exit) | Warm a CI workspace before the real run |
 | `--bg` / `--background` + `--exec` | Start as a background agent; run a shell command as a background job | Long tasks that shouldn't block |
 | `--environment ccpool_*` / `--ref` | Target a self-hosted environment; check out a named ref | Fleet / remote execution |
 | `--betas` | Send beta headers with API requests | Opt into preview features |
+
+Unattended sessions (`-p`, SDK, CI, cloud) also get a time limit on background shell commands — 30 minutes by default, up to 2 hours when Claude passes a `timeout` — while interactive sessions keep none. Env vars added in this range for locked-down runners: `CLAUDE_CODE_DISABLE_WEB_FETCH` (v2.1.285), `CLAUDE_CODE_DISABLE_STRUCTURED_OUTPUTS` (for gateways that reject `output_config.format`), `CLAUDE_CODE_DISABLE_FILE_MENTIONS`, and `CLAUDE_CODE_OVERLOADED_RETRY_BASE_DELAY_MS` / `_MAX_DELAY_MS` for 529 backoff. `claude project purge` is now `claude purge`, and `claude --desktop` opens the desktop app on the current directory.
 
 ### Example CI Usage
 
@@ -624,7 +645,9 @@ A few settings that turn up in "how does the platform team keep 200 developers' 
 | `bashOutputMaxChars` | Cap inline Bash output (up to 128K chars) before it floods the context. `taskOutputMaxChars` no longer does anything — the TaskOutput tool was removed in v2.1.277 and Claude reads a background task's output file with Read |
 | `permissions.blockReadsOutsideWorkingDirectories` | Keep file reads inside the working directories |
 | `workflowSizeGuideline` | Advisory agent-count ceiling for dynamic workflows |
-| `effortLevel` / `maxEffortLevel` | Effort is now **per model**: a level saved for one model doesn't carry to a newly released one (Opus 5.5 starts at its own default until you pick one with `/effort`), and `maxEffortLevel` (top-level or per model under `modelSettings`) caps it on every provider. Claude Code's default Opus is 5.5, and Pro / Team Standard plans now default to Opus rather than Sonnet |
+| `effortLevel` / `maxEffortLevel` | Effort is now **per model**: a level saved for one model doesn't carry to a newly released one (a new model starts at its own default until you pick one with `/effort`), and `maxEffortLevel` (top-level or per model under `modelSettings`) caps it on every provider. On the Anthropic API the aliases resolve to Opus 5.5, **Sonnet 5.5** (`sonnet`, v2.1.284+), and **Haiku 5.5** (`haiku`, v2.1.293+) — all three default to `medium` effort in Claude Code — and Pro / Team Standard plans default to Opus rather than Sonnet. Bedrock, Google Cloud, and Foundry still resolve `sonnet` / `haiku` to older versions |
+| `availableModels` + `availableModelsMatch: "exact"` / `deniedModels` / `allowedProviders` (managed) | Restrict the model list: by default an `availableModels` entry such as `claude-opus-5` also permits later versions (Opus 5.5); `"exact"` holds each entry to the version it names (v2.1.283+), `deniedModels` blocks specific models even when allowed, and `allowedProviders` refuses sessions on an unlisted API provider or gateway |
+| `autoCompactWindow` / `idleCompaction` | `/autocompact` now saves the window per model under `modelSettings` (v2.1.288+). Idle compaction (v2.1.299) compacts an interactive conversation on the 1-hour cache that is past `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS` (default 200K) shortly before the cache expires, so your next message sends a summary instead of the whole conversation; `"idleCompaction": false` turns it off |
 | `"attribution": false` | Hide all commit and PR attribution (v2.1.281+; older CLIs skip a settings file that holds it, so keep the object form in files shared across versions) |
 | `syncClaudeAiSkills` / `syncClaudeAiPlugins` | Opt out of syncing claude.ai-enabled skills and plugins into terminal sessions |
 
@@ -640,7 +663,7 @@ For non-blocking, cost-optimized batch operations:
 | Processing window | Up to 24 hours, no latency SLA |
 | Correlation | `custom_id` per request for matching responses — results arrive in **any order**, so key by `custom_id`, never by position |
 | Multi-turn | NOT supported within a single batch request |
-| Extended output | Up to 300k output tokens on Opus 5.5 / 5 / 4.8 / 4.7 / 4.6 and Sonnet 5 / 4.6 (not Fable 5.1) with beta header `output-300k-2026-03-24` (vs 128k synchronous) |
+| Extended output | Up to 300k output tokens on Opus 5.5 / 5 / 4.8 / 4.7 / 4.6, Sonnet 5.5 / 5 / 4.6, and Haiku 5.5 (not Fable 5.1) with beta header `output-300k-2026-03-24` (vs 128k synchronous) |
 
 **Good for:**
 - Overnight code analysis reports
