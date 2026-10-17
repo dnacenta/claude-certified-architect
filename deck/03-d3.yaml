@@ -1,0 +1,343 @@
+# Domain 3 — Claude Code Configuration & Workflows. Source: domains/d3-claude-code-config.md
+label: Domain 3
+domain: 3
+sections:
+  "3.0": Surfaces & scheduling
+  "3.1": CLAUDE.md hierarchy
+  "3.2": Skills & commands
+  "3.3": Path-specific rules
+  "3.4": Plan mode vs direct execution
+  "3.5": Iterative refinement
+  "3.6": CI/CD integration
+
+slides:
+  - type: divider
+    eyebrow: Domain 3 of 5
+    blurb: "How Claude Code is configured and driven: instruction files, skills, rules, plan mode, refinement and CI/CD. Seven task statements:"
+    chips:
+      - { ref: "3.0", title: Surfaces & scheduling }
+      - { ref: "3.1", title: CLAUDE.md hierarchy }
+      - { ref: "3.2", title: Skills & commands }
+      - { ref: "3.3", title: Path-specific rules }
+      - { ref: "3.4", title: Plan mode vs direct execution }
+      - { ref: "3.5", title: Iterative refinement }
+      - { ref: "3.6", title: CI/CD integration }
+
+  # ---- 3.0 Surfaces ----
+  - type: compare
+    ref: "3.0"
+    title: "Schedulers differ by where they run: the cloud, your machine, or this session."
+    columns:
+      - tag: in the cloud
+        title: Routines
+        points:
+          - Keep running with your machine off.
+          - Can also trigger on API calls or GitHub events.
+          - Morning PR reviews, overnight CI failure analysis, weekly dependency audits.
+      - tag: on your machine
+        title: Desktop scheduled tasks
+        points:
+          - Run locally, with local file and tool access.
+          - For anything that needs the local filesystem or a private network.
+      - tag: in this session
+        title: "`/loop`"
+        points:
+          - Runs inside the current CLI session.
+          - Quick polling within one sitting.
+          - Omit the interval and Claude self-paces between iterations.
+    note: "Every surface (terminal, IDE, desktop, web, mobile) runs the same engine, so CLAUDE.md, settings, skills and MCP servers work identically everywhere."
+
+  # ---- 3.1 CLAUDE.md hierarchy ----
+  - type: concept
+    ref: "3.1"
+    title: CLAUDE.md files stack up; none of them overrides another.
+    diagram: claude-md-hierarchy
+    points:
+      - Every file found is concatenated into context, broadest first.
+      - "Files nearer the launch directory come last; `CLAUDE.local.md` follows `CLAUDE.md`."
+      - Directory files load on demand, when Claude works on a file there.
+      - Contradictions leave Claude to pick one. Resolve them; don't rely on precedence.
+    note: "Monorepo with another team's nested CLAUDE.md? Skip it with `claudeMdExcludes` in settings."
+
+  - type: compare
+    ref: "3.1"
+    title: Only the project CLAUDE.md is shared; every other layer stays with you.
+    columns:
+      - tag: shared · in git
+        title: Project CLAUDE.md
+        tone: gold
+        points:
+          - "`./CLAUDE.md` or `./.claude/CLAUDE.md`, committed to version control."
+          - The team's coding standards, conventions and workflow rules.
+      - tag: personal
+        title: User & local files
+        points:
+          - "`~/.claude/CLAUDE.md` applies to all your projects and is never version-controlled."
+          - "`CLAUDE.local.md` is personal per project: gitignore it."
+      - tag: machine-local
+        title: Auto memory
+        points:
+          - "Notes Claude writes itself: project patterns, decisions, preferences."
+          - "The start of `MEMORY.md` loads each session; topic files load on demand."
+          - All worktrees of one repo share it.
+
+  - type: code
+    ref: "3.1"
+    title: Imports keep CLAUDE.md modular, with one source of truth.
+    lang: markdown
+    code: |
+      # CLAUDE.md
+      @AGENTS.md
+      @docs/coding-standards.md
+      @~/.claude/my-personal-preferences.md
+
+      See @README.md for project overview.
+
+      ## Claude-specific overrides
+      Use plan mode for changes under `src/billing/`.
+    notes:
+      - "Relative paths resolve from the file that holds the import; `@~/` is your home directory."
+      - Imported files can import too, up to a depth limit that stops circular imports.
+      - "No CLAUDE.md in the project? Claude Code falls back to reading `AGENTS.md`."
+      - "A personal `CLAUDE.local.md` counts as having one and silently stops `AGENTS.md` loading. Import it with `@AGENTS.md`."
+
+  # ---- 3.2 Skills ----
+  - type: concept
+    ref: "3.2"
+    title: "Custom commands are now skills: same `/name`, more power."
+    points:
+      - "`.claude/commands/deploy.md` and `.claude/skills/deploy/SKILL.md` both create `/deploy` and behave the same."
+      - "On a name clash, Enterprise > Personal > Project > Plugin, and a skill beats a same-named command."
+      - Skills add a folder for supporting files, dynamic context injection, and subagent execution.
+      - The body enters the conversation once and is never re-read, so write standing instructions.
+    note: "The old `/project:name` and `/user:name` namespacing is gone. Plugin skills are namespaced `plugin-name:skill-name`."
+
+  - type: code
+    ref: "3.2"
+    title: Frontmatter decides who can run a skill and where it runs.
+    lang: yaml
+    code: |
+      ---
+      name: deploy
+      description: Deploy the application to a specified environment
+      context: fork
+      agent: Explore
+      allowed-tools: Bash(git *) Bash(npm run deploy *)
+      argument-hint: [environment]
+      disable-model-invocation: true
+      ---
+
+      Deploy the application to $ARGUMENTS.
+    notes:
+      - "`description` is how Claude decides whether to auto-load the skill."
+      - "`disable-model-invocation: true` means only the user can run it. `user-invocable: false` hides it from the menu instead."
+      - "`context: fork` runs it in an isolated subagent, chosen by `agent`. CLAUDE.md loads; chat history doesn't."
+      - "`allowed-tools` pre-approves tools for the invoking turn only. `$ARGUMENTS` is what the user typed."
+
+  - type: cards
+    ref: "3.2"
+    title: Pick the extension by what it has to change.
+    columns: 2
+    cards:
+      - tag: Skill
+        title: What Claude knows and does
+        text: "A `SKILL.md` of instructions. Pick it when you keep pasting the same instructions."
+      - tag: MCP server
+        title: Which tools Claude has
+        text: An external process that gives Claude tools. Pick it when Claude needs to reach an external system.
+      - tag: Settings hook
+        title: Whether an event goes ahead
+        text: A shell command, HTTP request or prompt run on a lifecycle event. Pick it to block, allow or log with a script.
+      - tag: Mod
+        title: Events and the interface
+        text: Plugin functions run inside Claude Code, unsandboxed. Pick it for a pane, a custom command, or rewriting an event.
+    note: "A plugin bundles these and more, namespaced so they can't collide with yours. Plugins sit lowest in skill priority."
+
+  # ---- 3.3 Path-specific rules ----
+  - type: compare
+    ref: "3.3"
+    title: Conventions that span many directories belong in one path-scoped rule.
+    columns:
+      - tag: directory CLAUDE.md
+        title: A copy in every folder
+        tone: rust
+        points:
+          - "Testing rules repeated in `components/`, `api/`, `utils/`…"
+          - Every copy has to be kept in sync by hand.
+          - A new test directory gets nothing until someone adds another copy.
+      - tag: path-specific rule
+        title: "One file in `.claude/rules/`"
+        tone: moss
+        points:
+          - '`testing.md` with `paths: ["**/*.test.*"]` in its frontmatter.'
+          - A single source of truth for testing conventions.
+          - Applies wherever test files exist, even in new directories.
+
+  - type: code
+    ref: "3.3"
+    title: A `paths` glob turns a rule from always-on into on-demand.
+    lang: yaml
+    code: |
+      ---
+      paths:
+        - "src/api/**/*.ts"
+        - "src/api/**/*.test.ts"
+      ---
+
+      # API Development Rules
+
+      All API endpoints must:
+      - Use Zod for request validation
+      - Return standardized error responses
+      - Include rate limiting middleware
+    notes:
+      - "Rules live in `.claude/rules/`, one topic per file: testing, API design, security."
+      - No frontmatter means the rule loads unconditionally at session start.
+      - "With `paths`, it loads when Claude reads, writes or edits a matching file."
+      - "Skills take the same `paths` field to auto-load only for matching files."
+
+  # ---- 3.4 Plan mode vs direct execution ----
+  - type: compare
+    ref: "3.4"
+    title: Plan when the scope or approach is open; execute directly when it's obvious.
+    columns:
+      - tag: plan mode
+        title: Explore, design, then ask
+        tone: gold
+        points:
+          - Multi-file changes, like refactoring auth across 15 files.
+          - Architectural decisions, or several valid approaches.
+          - Large scope, like a library migration touching 45+ files.
+          - Unclear requirements, like “make the app faster”.
+      - tag: direct execution
+        title: Just make the change
+        points:
+          - A single-file fix with a clear stack trace.
+          - Obvious scope, like adding a null check.
+          - "Clear instructions: “Add a `createdAt` field to the User model”."
+          - Small and contained, like a typo or a constant.
+    note: "Combine them: plan mode explores and designs, you approve, then Claude exits plan mode and implements file by file."
+
+  - type: table
+    ref: "3.4"
+    title: Plan mode is one permission mode among several.
+    head: [Mode, Behavior]
+    rows:
+      - ["`default`", "Shown as Manual. Reads run; edits, shell commands and network access prompt."]
+      - ["`acceptEdits`", "Auto-accepts file edits; other tools still prompt."]
+      - ["`plan`", "Exploration only: designs an approach and presents it before touching files."]
+      - ["`auto`", "A classifier decides per tool call whether to prompt."]
+      - ["`dontAsk`", "Only in-directory reads and pre-approved tools run; anything else is denied."]
+      - ["`bypassPermissions`", "Skips all prompts. Dangerous: short, contained tasks only."]
+    highlight: [3]
+    note: "Set one with `--permission-mode` or `permissions.defaultMode`, or cycle with Shift+Tab. `dontAsk` suits locked-down CI."
+
+  - type: concept
+    ref: "3.4"
+    title: Hand noisy exploration to an Explore subagent and keep only its summary.
+    diagram: explore-subagent
+    points:
+      - Explore runs Glob, Grep and Read in its own context, then returns a concise summary.
+      - Without it, raw file contents and search results fill the main context window.
+      - Explore and Plan are read-only built-ins; general-purpose can explore *and* act.
+      - Every subagent starts without your conversation history; Explore and Plan even skip CLAUDE.md.
+    note: "Define your own in `.claude/agents/`: markdown plus frontmatter such as `tools`, `model` and `permissionMode`."
+
+  # ---- 3.5 Iterative refinement ----
+  - type: cards
+    ref: "3.5"
+    title: Refinement works on concrete evidence, not more prose.
+    columns: 2
+    cards:
+      - tag: inconsistent output
+        title: Concrete examples
+        text: "Prose like “format dates consistently” keeps drifting. Give 2–3 input/output examples instead."
+      - tag: correctness
+        title: TDD iteration
+        text: Write the test first, run it, share the failure. Claude fixes the code; rerun and repeat until green.
+      - tag: vague request
+        title: Interview pattern
+        text: "Claude asks clarifying questions before implementing: JWT or sessions? Refresh tokens? Role-based access?"
+      - tag: several issues
+        title: Interacting vs independent
+        text: Interacting issues go in one message, since fixes may conflict. Independent ones go one at a time, each reviewable.
+
+  # ---- 3.6 CI/CD ----
+  - type: rightwrong
+    ref: "3.6"
+    eyebrow: 3.6 · Exam traps
+    title: Three CI/CD answers that look right.
+    right:
+      title: "`claude -p`, parseable output, hard limits."
+      points:
+        - "`-p` / `--print` runs non-interactively. Mandatory in CI."
+        - "`--output-format json` makes the output parseable."
+        - "`--json-schema` enforces its shape."
+        - "`--max-turns` and `--max-budget-usd` as guardrails."
+      note: "`--permission-prompts none` when nobody can answer a prompt."
+    wrong:
+      - title: "Running Claude Code without `-p`"
+        text: The process hangs, waiting for input that never comes.
+      - title: The Batch API for pre-merge checks
+        text: A blocking check needs an immediate response. Batches have no latency SLA.
+      - title: Reviewing in the session that wrote the code
+        text: It keeps its reasoning context, so it is less likely to question its own decisions.
+
+  - type: compare
+    ref: "3.6"
+    title: The Batch API is for work nobody is waiting on.
+    columns:
+      - tag: good for
+        title: Overnight, non-blocking jobs
+        tone: moss
+        points:
+          - Overnight code analysis reports and weekly audit summaries.
+          - Nightly test generation and batch document processing.
+          - 50% cheaper than synchronous calls; results within 24 hours.
+      - tag: not good for
+        title: Anything that blocks
+        tone: rust
+        points:
+          - Pre-merge checks that need an immediate response.
+          - Real-time user interactions.
+          - Tool-calling loops. Multi-turn isn't supported inside one request.
+    note: "Results arrive in any order: match them by `custom_id`, never by position, and resubmit only the failures."
+
+  - type: diagram
+    ref: "3.6"
+    title: Review code in a fresh session, not the one that wrote it.
+    diagram: independent-review
+    caption: The writing session already “knows” why it made each choice, so it rarely questions them. A new session with no shared context reviews the code fresh.
+
+  - type: quiz
+    why_not:
+      1:
+        letter: A
+        text: A CLAUDE.md in every test directory duplicates the rules, and a new test directory gets nothing until someone adds another copy.
+      2:
+        letter: A
+        text: A single bug with a clear stack trace is small, obvious scope, the textbook case for direct execution.
+
+  - type: cheatsheet
+    cells:
+      - ref: "3.0"
+        title: Surfaces
+        text: "One engine everywhere, so config travels. Routines run in the cloud, desktop tasks locally, `/loop` in the session."
+      - ref: "3.1"
+        title: CLAUDE.md
+        text: "Managed → user → project → local → directory, all concatenated. Only project is shared. `@import` to split."
+      - ref: "3.2"
+        title: Skills
+        text: "Commands merged into skills. `disable-model-invocation` = user-only. `context: fork` = isolated subagent."
+      - ref: "3.3"
+        title: Path rules
+        text: "`.claude/rules/` with a `paths` glob: one file for conventions spread across directories."
+      - ref: "3.4"
+        title: Plan mode
+        text: Multi-file, architectural or unclear → plan. Small and obvious → direct. Explore keeps the main context clean.
+      - ref: "3.5"
+        title: Refinement
+        text: Examples beat prose. Share test failures. Interview first. Fix interacting issues together.
+      - ref: "3.6"
+        title: CI/CD
+        text: "`-p` or it hangs. JSON output plus a schema. Batch only for non-blocking work. Review in a fresh session."

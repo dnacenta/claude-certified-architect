@@ -2,14 +2,18 @@
   "name": "claude-certified-architect-site",
   "private": true,
   "type": "module",
-  "description": "Builds the study guide website from the repo's markdown.",
+  "description": "Builds the study guide website, deck and PDFs from the repo's markdown.",
   "scripts": {
-    "build": "node scripts/build-site.mjs"
+    "build": "node scripts/build-site.mjs",
+    "deck": "node scripts/build-deck.mjs --check --pdf",
+    "pdf": "node scripts/build-pdf.mjs"
   },
   "dependencies": {
     "github-slugger": "2.0.0",
     "highlight.js": "11.12.0",
     "markdown-it": "14.3.3",
-    "markdown-it-anchor": "9.2.1"
+    "markdown-it-anchor": "9.2.1",
+    "puppeteer": "24.43.1",
+    "yaml": "2.9.1"
   }
 }

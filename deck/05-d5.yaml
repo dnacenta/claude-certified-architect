@@ -1,0 +1,278 @@
+# Domain 5 — Context Management & Reliability. Source: domains/d5-context-reliability.md
+label: Domain 5
+domain: 5
+sections:
+  "5.1": Conversation context
+  "5.2": Escalation patterns
+  "5.3": Error propagation
+  "5.4": Large codebase context
+  "5.5": Human review workflows
+  "5.6": Information provenance
+  "5.7": Server-side context
+  "5.8": Bounding long runs
+
+slides:
+  - type: divider
+    eyebrow: Domain 5 of 5 · the last
+    blurb: "How long conversations keep their facts, when an agent hands off to a human, how errors travel, and how outputs stay checkable. Eight task statements:"
+    chips: [Conversation context, Escalation patterns, Error propagation, Large codebase context, Human review workflows, Information provenance, Server-side context, Bounding long runs]
+
+  # ---- 5.1 ----
+  - type: concept
+    ref: "5.1"
+    title: Long context costs more and loses the middle, so keep it lean and ordered.
+    points:
+      - Every token is billed on every turn. Filling a big window just because you can costs money and quality.
+      - Models read the beginning and end of long inputs best, and the middle gets worse with length.
+      - Put key-findings summaries first, add explicit section headers, and bookend the important parts.
+      - "Trim tool results before returning them: an order lookup may send 40 fields when you need 5."
+
+  - type: code
+    ref: "5.1"
+    title: Exact numbers survive summarization only in a case-facts block.
+    lang: text
+    code: |
+      CASE FACTS (do not summarize):
+      - Customer ID: #12345
+      - Order: #67890
+      - Order date: 2024-01-15
+      - Total: $149.99
+      - Issue: Damaged product on arrival
+      - Refund requested: Full refund ($149.99)
+    notes:
+      - "Summaries round things off: `$149.99` becomes “approximately $150”, `2024-01-15` becomes “mid-January”."
+      - Order numbers, customer IDs, reference codes and exact error messages get lost too.
+      - Extract them into a persistent structured block that survives summarization.
+      - No compaction mechanism protects exact numbers better than restating them.
+
+  - type: table
+    ref: "5.1"
+    title: "Nested CLAUDE.md files and path-scoped rules don't survive `/compact`."
+    head: ["Survives `/compact`", May be lost]
+    rows:
+      - ["Project-root CLAUDE.md and unscoped rules, re-injected from disk", Earlier conversation details]
+      - [System prompts, Specific tool results]
+      - [Recent messages, Nuanced reasoning from earlier turns]
+      - ["Auto-memory (MEMORY.md)", Exact quotes and numbers from early context]
+      - ["The plan-mode plan, recently edited files, invoked skill bodies (capped)", "Nested CLAUDE.md files and `paths:`-scoped rules, until Claude next touches a matching file"]
+    highlight: [5]
+    note: "Put a rule that must survive compaction in the project-root CLAUDE.md, or drop its `paths:` frontmatter."
+
+  # ---- 5.2 ----
+  - type: diagram
+    ref: "5.2"
+    title: Escalate on issue complexity, never on emotional tone.
+    diagram: sentiment-vs-complexity
+    caption: "Caps and exclamation marks over a simple billing error: resolve it. A calm question about how policies interact: it may need a human."
+
+  - type: rightwrong
+    ref: "5.2"
+    eyebrow: 5.2 · Exam traps
+    title: Mood, confidence and length are not reasons to escalate.
+    right:
+      title: Escalate on these three triggers.
+      points:
+        - "The customer explicitly asks for a human: escalate immediately, no further investigation."
+        - "A policy gap or exception: the agent can't make policy decisions."
+        - "No progress after reasonable attempts: hand off a summary of what was tried."
+    wrong:
+      - title: High sentiment
+        text: An angry customer may have a simple issue. Sentiment ≠ complexity.
+      - title: Self-reported low confidence
+        text: "Claude's confidence scores are poorly calibrated: a “low confidence” answer may be right, a “high confidence” one wrong."
+      - title: A long conversation
+        text: Length doesn't signal a need to escalate. Some issues legitimately take multiple turns.
+
+  - type: cards
+    ref: "5.2"
+    title: Ask instead of guessing, and hand off a summary that stands on its own.
+    columns: 2
+    cards:
+      - tag: Multiple customer matches
+        title: Ask, don't pick by heuristics
+        text: "“I found multiple accounts matching that name. Could you provide your email address or the last four digits of your phone number?”"
+      - tag: Escalation handoff
+        title: Send a structured summary
+        points:
+          - Customer, contact details, issue type and order.
+          - Every action the agent already took.
+          - Recommended action and urgency.
+    note: The human agent typically can't see the conversation transcript.
+
+  # ---- 5.3 ----
+  - type: rightwrong
+    ref: "5.3"
+    eyebrow: 5.3 · Exam traps
+    title: An error Claude can't read is an error Claude can't recover from.
+    right:
+      title: Propagate structured context, then keep going.
+      points:
+        - Say what failed, the service, the attempted query, partial results, alternatives, and whether it's retryable.
+        - "Service down (503 or timeout) → “I wasn't able to search right now.”"
+        - "Valid search, no matches (200 + empty array) → “I didn't find any matching articles.”"
+        - One step times out → continue with partial results, note the gap, offer alternatives.
+    wrong:
+      - title: Generic error messages
+        text: "`{ \"error\": \"Operation failed\" }` hides what failed and why, so Claude can't recover intelligently."
+      - title: Silent suppression
+        text: "Returning `{ \"results\": [] }` while search is down makes Claude say “nothing found” when the truth is “I couldn't search.”"
+      - title: Aborting the whole workflow
+        text: One timeout in step 2 throws away a run whose step 1 already succeeded.
+
+  - type: diagram
+    ref: "5.3"
+    title: Subagents recover locally from transient failures and propagate only what they can't fix.
+    diagram: error-recovery
+    caption: A propagated error says what was attempted, what partial results exist, what failed, and whether it's retryable.
+
+  # ---- 5.4 ----
+  - type: cards
+    ref: "5.4"
+    title: Long sessions drift, so persist what you learn before compression takes it.
+    lead: "Signs of drift: Claude cites “typical patterns” instead of code it found, gives inconsistent answers, forgets discoveries, and assumes instead of checking."
+    columns: 3
+    cards:
+      - tag: Scratchpad files
+        title: Write findings down
+        text: Persist findings such as entry points, key facts and known issues to a file. After compression, Claude re-reads it to recover them.
+      - tag: Proactive /compact
+        title: Compact on your terms
+        text: Compact with a structured summary before context degrades, rather than letting automatic compression lose information unpredictably.
+      - tag: Crash recovery
+        title: Resume from a manifest
+        text: In long multi-agent runs, each agent exports its state to a known location. The coordinator keeps a manifest and picks up where it left off.
+
+  - type: diagram
+    ref: "5.4"
+    title: An Explore subagent reads widely so the main context gets only the summary.
+    diagram: explore-subagent
+    caption: A mitigation for drift in long sessions. Verbose exploration stays in the subagent, and the main context stays focused on the task.
+
+  # ---- 5.5 ----
+  - type: diagram
+    ref: "5.5"
+    title: A strong overall accuracy can hide the document types that fail.
+    diagram: accuracy-breakdown
+    caption: Report accuracy for each document type and each field within it before calling a system production-ready.
+
+  - type: compare
+    ref: "5.5"
+    title: Aim human review by risk, and trust only calibrated per-field confidence.
+    columns:
+      - tag: Sampling
+        title: Stratify by risk or category
+        points:
+          - Don't just sample randomly from all outputs.
+          - "For example: 20% of high-risk, 10% of medium-risk and 5% of low-risk outputs."
+          - Review effort lands where errors are most likely.
+      - tag: Confidence
+        title: Score each field, then calibrate
+        tone: gold
+        points:
+          - One confidence score per field, not one for the whole extraction.
+          - "Calibrate against labeled validation sets: 0.9 should mean correct about 90% of the time."
+          - Without calibration, confidence scores are meaningless.
+
+  # ---- 5.6 ----
+  - type: rightwrong
+    ref: "5.6"
+    title: When sources disagree, show the disagreement instead of resolving it silently.
+    right:
+      title: Keep provenance and annotate conflicts.
+      points:
+        - Every claim carries its evidence, source, document name, publication date and source type.
+        - Conflicting values stay side by side, each with its source and a note.
+        - "State the resolution and why: an audited filing outranks preliminary figures."
+        - Label claims as well-established, contested or single-source.
+    wrong:
+      - title: Silently picking one value
+        text: Hides potential data quality issues. Nobody downstream can evaluate the discrepancy.
+      - title: Leaving out dates
+        text: Two figures from different months look like a contradiction when both are correct for their period.
+      - title: Merging or reinterpreting sources
+        text: Quote or closely paraphrase the original claim, and keep the source's own caveats.
+
+  # ---- 5.7 ----
+  - type: table
+    ref: "5.7"
+    title: Context editing clears, compaction summarizes, the memory tool persists.
+    head: [Mechanism, What happens to old context, Reach for it when]
+    rows:
+      - ["**Context editing**", "Cleared: old tool results or thinking blocks are deleted", "Dozens of verbose tool results, or thinking that must keep cache hits high"]
+      - ["**Compaction**", Summarized into a signed block that replaces it, A long conversation must keep its narrative]
+      - ["**Memory tool**", Written to files outside the conversation, "Findings must survive across sessions, not just turns"]
+      - [Case-facts block, Restated word for word, Facts must never be paraphrased]
+    note: "Complementary, not alternatives. Paired with context editing, the memory tool is what makes clearing safe."
+
+  - type: rightwrong
+    ref: "5.7"
+    eyebrow: 5.7 · Exam traps
+    title: Compaction and trimming fail silently when the client mangles history.
+    right:
+      title: Send compaction state back intact, and trim on the server.
+      points:
+        - "Threshold compaction: append the whole `response.content` every turn, not the extracted text."
+        - "On demand: the block goes first, in place of the messages it summarized, on every later request."
+        - Keep history append-only. Server-side editing and compaction don't count as edits.
+    wrong:
+      - title: Appending only the text
+        text: Destroys the compaction state without an error, so you notice only deep into a long run.
+      - title: Leaving summarized messages after the block
+        text: Claude gets them twice, and every request still returns 200.
+      - title: Deleting old tool results client-side
+        text: On models with preserved thinking, it invalidates every later thinking block (a 400 by default).
+
+  # ---- 5.8 ----
+  - type: compare
+    ref: "5.8"
+    title: "`max_tokens` truncates blindly; a task budget lets the model pace itself."
+    columns:
+      - tag: "`max_tokens`"
+        title: A ceiling the model can't see
+        tone: rust
+        points:
+          - Enforced, but the model is unaware of it.
+          - Hitting it truncates output mid-thought.
+      - tag: Task budget
+        title: A ceiling the model can see
+        tone: gold
+        points:
+          - The model paces itself and lands the work.
+          - Counts what Claude generates plus tool results it reads this turn, not resent history.
+          - "Too small, and Claude declines, scopes down or stops early: raise it first."
+      - tag: Session budget
+        title: A hard cap on one session
+        points:
+          - A Managed Agents feature.
+          - Dollar-denominated and platform-enforced, where a task budget is advisory and counts tokens.
+
+  - type: concept
+    ref: "5.8"
+    title: "A refusal arrives as HTTP 200, so check `stop_reason` before reading content."
+    points:
+      - "It carries `stop_reason: \"refusal\"` and a `stop_details.category`."
+      - "Reading `content` blindly turns a refusal into a successful empty answer, like a failed search read as zero results."
+      - In production, enable server-side fallback so the request is re-routed by category, not dropped.
+      - Refusals are a first-class path, not just a flagship issue, and they count against rate limits.
+
+  - type: quiz
+
+  - type: cheatsheet
+    cells:
+      - title: Context
+        text: Exact numbers go in a case-facts block. Key facts at the edges, not the middle.
+      - title: Escalation
+        text: Escalate on a human request, a policy gap or a stall. Hand off a structured summary.
+      - title: Errors
+        text: "Say what failed and if it's retryable. “Couldn't search” ≠ “found nothing.”"
+      - title: Codebases
+        text: Scratchpad files survive compression. Subagents return summaries.
+      - title: Human review
+        text: Stratify by risk. Calibrate per-field confidence. Break accuracy down by type.
+      - title: Provenance
+        text: Every claim keeps its source and date. Annotate conflicts; never pick silently.
+      - title: Server-side
+        text: "Editing clears, compaction summarizes. Append the whole `response.content`."
+      - title: Long runs
+        text: "A task budget is visible, `max_tokens` isn't. A refusal is a 200: check `stop_reason`."
+    most_tested: Sentiment ≠ complexity. Escalate on policy complexity, not an angry tone.

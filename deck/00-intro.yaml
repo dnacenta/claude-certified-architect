@@ -1,0 +1,245 @@
+# Overview — exam format, domains, scenarios, anti-patterns, frameworks, study plan.
+# Source: claude-certified-architect.md and README.md
+label: Overview
+
+slides:
+  - type: cover
+
+  - type: glance
+    eyebrow: The exam at a glance
+    title: Sixty questions, two hours, 720 to pass.
+    stats:
+      - value: "60"
+        label: multiple-choice and multiple-response questions, all scenario-based
+      - value: "120"
+        unit: min
+        label: proctored and closed-book
+      - value: "720"
+        unit: /1000
+        label: passing score
+      - value: "4"
+        unit: of 6
+        label: scenarios, randomly selected for each exam
+    note: "No penalty for guessing. Delivered by Pearson VUE, online through OnVUE or at a test center, and registered through the Anthropic Partner Academy."
+
+  - type: domains
+    eyebrow: Five domains
+    title: Agentic architecture carries the most weight.
+    blurbs:
+      1: "Agentic loops, `stop_reason`, multi-agent orchestration, hooks and session management."
+      2: Tool design, structured error responses, tools per agent and MCP configuration.
+      3: CLAUDE.md hierarchy, plan mode vs direct execution, and Claude Code in CI/CD.
+      4: Explicit criteria, few-shot, structured output, validation-retry and batch.
+      5: Context management, escalation, error propagation and provenance.
+
+  - type: cards
+    eyebrow: How to use this deck
+    title: Every domain follows the same five steps.
+    columns: 5
+    cards:
+      - tag: Step 1
+        title: Divider
+        text: The domain's weight and the task statements it covers.
+      - tag: Step 2
+        title: Concepts
+        text: One idea per slide, with a diagram where the mechanism matters.
+      - tag: Step 3
+        title: Traps
+        text: The wrong answers that look right, set against the pattern the exam rewards.
+      - tag: Step 4
+        title: Practice
+        text: "One question per slide. Commit to an answer first: the answer and the why are on the next slide."
+      - tag: Step 5
+        title: Cheat sheet
+        text: The whole domain on one page, plus what it tests most.
+    note: "Before the domains: the six scenarios, the ten anti-patterns, the decision frameworks and a four-week study plan."
+
+  - type: cards
+    eyebrow: The 6 exam scenarios
+    title: Each exam draws 4 of these 6 scenarios at random.
+    columns: 3
+    cards:
+      - tag: Scenario 1
+        title: Customer Support Resolution Agent
+        text: Agent SDK, MCP tools and escalation logic.
+      - tag: Scenario 2
+        title: Code Generation with Claude Code
+        text: CLAUDE.md, plan mode and slash commands.
+      - tag: Scenario 3
+        title: Multi-Agent Research System
+        text: Coordinator-subagent patterns and error handling.
+      - tag: Scenario 4
+        title: Developer Productivity with Claude
+        text: Built-in tools, MCP servers and codebase exploration.
+      - tag: Scenario 5
+        title: Claude Code for CI/CD
+        text: Structured output, the batch API and multi-pass review.
+      - tag: Scenario 6
+        title: Structured Data Extraction
+        text: "JSON schemas, `tool_use` and validation-retry."
+    note: You can't know which four you'll get, so prepare all six.
+
+  - type: cards
+    eyebrow: The 10 critical anti-patterns · 1 of 2
+    title: These show up as wrong answers on the exam.
+    columns: 5
+    cards:
+      - tag: Anti-pattern 1
+        title: Parsing text to end the loop
+        text: "Natural language is not a termination signal. Check `stop_reason` instead."
+        tone: rust
+      - tag: Anti-pattern 2
+        title: An iteration cap as the stop
+        text: "An arbitrary cap is wrong as the primary stopping mechanism. `stop_reason` drives the loop."
+        tone: rust
+      - tag: Anti-pattern 3
+        title: Prompts for critical rules
+        text: Prompt-based enforcement is best-effort. Financial and safety rules belong in programmatic hooks.
+        tone: rust
+      - tag: Anti-pattern 4
+        title: Self-reported confidence
+        text: "Don't escalate on the model's own confidence score. Escalate on an explicit customer request; otherwise resolve within capability."
+        tone: rust
+      - tag: Anti-pattern 5
+        title: Sentiment-based escalation
+        text: "Sentiment ≠ complexity. An upset tone is not a reason to escalate an issue that is within capability."
+        tone: rust
+
+  - type: cards
+    eyebrow: The 10 critical anti-patterns · 2 of 2
+    title: Hidden errors, crowded agents and flattering metrics.
+    columns: 5
+    cards:
+      - tag: Anti-pattern 6
+        title: Generic error messages
+        text: "They hide diagnostic context. Return structure: the error category, whether it's retryable, and partial results."
+        tone: rust
+      - tag: Anti-pattern 7
+        title: Silently suppressed errors
+        text: Returning empty results as success hides the failure. Error handling is never generic or silent.
+        tone: rust
+      - tag: Anti-pattern 8
+        title: Too many tools per agent
+        text: "18 tools where 4–5 are recommended. Past ~10 tools, tool search with `defer_loading` changes the picture (Domain 2)."
+        tone: rust
+      - tag: Anti-pattern 9
+        title: Same-session self-review
+        text: The session retains its own reasoning context, so its review inherits that bias. Review from a fresh session.
+        tone: rust
+      - tag: Anti-pattern 10
+        title: One aggregate accuracy number
+        text: A good overall metric can mask a document type that keeps failing. Measure per document type.
+        tone: rust
+
+  - type: cards
+    eyebrow: Key decision frameworks · 1 of 3
+    title: Match the mechanism to the stakes and the scope.
+    columns: 3
+    cards:
+      - tag: Enforcement
+        points:
+          - "**Programmatic hooks** — financial/safety"
+          - "**Prompt-based** — best-effort"
+      - tag: Escalation
+        points:
+          - "**Immediate** — explicit customer request"
+          - "**Resolve first** — within capability"
+      - tag: Error handling
+        points:
+          - "**Structured context** — category, retry, partial"
+          - Never generic or silent
+      - tag: Execution mode
+        points:
+          - "**Plan mode** — multi-file, architectural"
+          - "**Direct** — single-file, obvious"
+      - tag: Code review
+        points:
+          - "**Multi-pass** — large PRs"
+          - "**Single-pass** — small, focused"
+      - tag: API type
+        points:
+          - "**Synchronous** — blocking workflows"
+          - "**Batch** — latency-tolerant"
+
+  - type: cards
+    eyebrow: Key decision frameworks · 2 of 3
+    title: Context never travels or survives on its own.
+    columns: 3
+    cards:
+      - tag: Context passing
+        points:
+          - "**Always explicit** in subagent prompts"
+          - Never rely on auto-inheritance
+      - tag: Agent harness
+        points:
+          - "**Tool Runner / Agent SDK** — you host"
+          - "**Managed Agents** — Anthropic hosts the loop; the sandbox is Anthropic's cloud or self-hosted"
+      - tag: Many-agent orchestration
+        points:
+          - "**Subagents / forks** — a few delegated tasks per turn"
+          - "**Dynamic workflows** — a script the runtime executes for dozens to hundreds of agents"
+      - tag: Context reduction
+        points:
+          - "**Clear** (context editing) — verbose tool results"
+          - "**Compact** — long conversations that need their narrative; prefer on-demand compaction"
+      - tag: State that must persist
+        points:
+          - "**Memory tool / files**"
+          - Never rely on the conversation surviving compaction
+      - tag: Conversation history
+        points:
+          - "**Append-only** — freeze `system`/`tools`, changes via `role: \"system\"` messages"
+          - Never edit or snip earlier turns — it invalidates thinking blocks
+
+  - type: cards
+    eyebrow: Key decision frameworks · 3 of 3
+    title: Defer big tool sets; sweep effort from the default.
+    columns: 2
+    cards:
+      - tag: Tool exposure
+        points:
+          - "**Load upfront** — under ~10 tools"
+          - "**Tool search + `defer_loading`** — 10+ tools or multi-server MCP"
+      - tag: tool_choice
+        points:
+          - "**\"any\"** — guarantee tool call"
+          - "**Forced** — specific tool first"
+          - "On models where both return 400: `auto` + instruction + `strict: true`, or `output_config.format`"
+      - tag: Thinking
+        points:
+          - "**Adaptive** — `{\"type\": \"adaptive\"}`"
+          - "`budget_tokens` is removed — it returns 400"
+      - tag: Effort
+        points:
+          - "**Start at the model's default and sweep**; `xhigh` for the hardest coding/agentic work"
+          - "**`low` / `medium`** — subagents, mechanical and routine tasks"
+
+  - type: timeline
+    eyebrow: 4-week study plan
+    title: Build the core, apply it, harden it, then drill.
+    lead: Assumes daily study, 1.5–2 hours per day.
+    steps:
+      - tag: Week 1
+        title: Core Architecture
+        points:
+          - "Agentic loops, `stop_reason`, multi-agent orchestration, hooks, session management, tool design, MCP config"
+          - "Daily: 1 domain section + practice questions"
+      - tag: Week 2
+        title: Applied Skills
+        points:
+          - CLAUDE.md hierarchy, plan mode, CI/CD, Batches API, explicit criteria, few-shot, validation-retry, structured output
+          - "Daily: 1 domain section + build a small project using each concept"
+      - tag: Week 3
+        title: Reliability + Hands-On
+        points:
+          - Context management, escalation, error propagation, provenance, hands-on exercises across all domains
+          - "Daily: review weak areas + build an end-to-end scenario"
+      - tag: Week 4
+        title: Exam Prep
+        points:
+          - Practice exams, anti-pattern drills, scenario walkthroughs, timed question sets
+          - "Daily: 1 full practice exam + targeted review"
+
+  - type: family
+
+  - type: lineup

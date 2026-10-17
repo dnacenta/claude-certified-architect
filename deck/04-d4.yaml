@@ -1,0 +1,337 @@
+# Domain 4 — Prompt Engineering & Structured Output. Source: domains/d4-prompt-engineering.md
+label: Domain 4
+domain: 4
+sections:
+  "4.1": Explicit criteria
+  "4.2": Few-shot prompting
+  "4.3": Structured output
+  "4.4": Validation-retry loops
+  "4.5": Batch processing
+  "4.6": Multi-pass review
+  "4.7": Thinking & effort
+  "4.8": Prompt caching
+
+slides:
+  - type: divider
+    eyebrow: Domain 4 of 5
+    blurb: "How to write criteria the model can't misread, get structured output you can validate, and shape requests for current models. Eight task statements:"
+    chips: [Explicit criteria, Few-shot prompting, Structured output, Validation-retry loops, Batch processing, Multi-pass review, Thinking & effort, Prompt caching]
+
+  # 4.1 Explicit criteria
+  - type: rightwrong
+    ref: "4.1"
+    title: Vague instructions get read differently every time.
+    right:
+      title: Define each judgment explicitly.
+      points:
+        - "**What qualifies**: the specific conditions that trigger the judgment."
+        - "**What doesn't**: the boundary cases that must not trigger it."
+        - "**Examples**: concrete input/output pairs that show the boundary."
+      note: "“Flag a comment as outdated ONLY when the claimed behavior directly contradicts the actual code behavior.”"
+    wrong:
+      - title: Asking for caution
+        text: "“Be conservative when flagging issues.”"
+      - title: Asking for confidence
+        text: "“Only report high-confidence findings.”"
+      - title: Asking for judgment
+        text: "“Use your best judgment on severity.”"
+
+  - type: concept
+    ref: "4.1"
+    title: One noisy category erodes trust in every category.
+    points:
+      - High false positive rates in one category undermine trust in all of them, even the accurate ones.
+      - Developers start ignoring every warning, not just the noisy kind.
+      - "The fix: temporarily disable the noisy category, improve its criteria, then re-enable it."
+      - "Tag each finding with a `detected_pattern` (4.4) to see which constructs developers keep dismissing."
+
+  # 4.2 Few-shot prompting
+  - type: concept
+    ref: "4.2"
+    title: Few-shot examples show what prose can't pin down.
+    points:
+      - Use them for ambiguous cases, formats or reasoning to demonstrate, edge cases, and extraction hallucination.
+      - "**2–4 targeted examples** is the sweet spot. Too few miss the pattern; too many waste context and overfit."
+      - Each example shows the input, the output, and the reasoning for why that output is correct.
+      - Good examples teach the pattern, so the model generalizes to situations it hasn't seen.
+    note: "Include a boundary case too: a comment that is vague but not wrong, whose correct output is `null`."
+
+  # 4.3 Structured output
+  - type: compare
+    ref: "4.3"
+    title: Don't ask for JSON in text; give Claude a schema.
+    columns:
+      - tag: Fragile
+        tone: rust
+        title: JSON requested in the prompt
+        points:
+          - Malformed JSON
+          - Missing required fields
+          - Unexpected field names
+          - Wrong data types
+      - tag: tool_use
+        tone: moss
+        title: "A tool whose `input_schema` is the output"
+        points:
+          - Define a tool that represents the structure you want back.
+          - "`strict: true` guarantees schema compliance."
+      - tag: Direct JSON
+        tone: moss
+        title: "`output_config.format`"
+        points:
+          - "Request JSON against a `json_schema`, no tool needed."
+          - "The SDK's `messages.parse()` takes a Pydantic or Zod schema and returns the validated object."
+          - "The older top-level `output_format` is deprecated."
+
+  - type: code
+    ref: "4.3"
+    title: A strict tool schema is a contract for the output.
+    lang: json
+    code: |
+      {
+        "name": "extract_invoice_data",
+        "description": "Extract structured data from an invoice document",
+        "strict": true,
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "vendor_name": { "type": "string" },
+            "total_amount": { "type": "number" }
+          },
+          "required": ["vendor_name", "total_amount"],
+          "additionalProperties": false
+        }
+      }
+    notes:
+      - "The `input_schema` is the structure you want back."
+      - "`strict: true` guarantees the output matches it."
+      - "Strict mode needs `additionalProperties: false` and every property listed in `required`."
+      - "Some current models reject forced `tool_choice` with a 400. There, use `output_config.format`, or `auto` plus `strict: true`."
+
+  - type: compare
+    ref: "4.3"
+    title: Structured output guarantees the shape, not the truth.
+    columns:
+      - tag: Guaranteed
+        tone: moss
+        title: Schema compliance
+        points:
+          - Correct types
+          - Required fields present
+          - Valid enum values
+          - '`"total_amount": 150.00` is a number in the right field.'
+      - tag: Not guaranteed
+        tone: rust
+        title: Semantic correctness
+        points:
+          - '`"total_amount": 150.00` while the line items sum to 175.00.'
+          - Valid against the schema, and still wrong.
+          - You still need validation logic to catch semantic errors.
+
+  - type: cards
+    ref: "4.3"
+    title: Leave room for missing or unclear data, and check the rest in code.
+    columns: 2
+    cards:
+      - tag: Nullable fields
+        title: "Missing data becomes `null`"
+        text: 'Use `"type": ["string", "null"]` when the source may not contain it. Making everything required can force Claude to fabricate data.'
+      - tag: Enum + other
+        title: An escape hatch
+        text: 'Add `"other"` to the enum, paired with a nullable detail field that describes what the document actually is.'
+      - tag: Enum + unclear
+        title: Permission not to guess
+        text: 'Add `"unclear"` so Claude doesn''t guess when the information is ambiguous.'
+      - tag: Strict mode subset
+        title: Some rules live in your code
+        text: "No `minimum`/`maximum`, length limits, `pattern`, `oneOf` or recursive schemas. Validate ranges, lengths and regex yourself."
+
+  # 4.4 Validation-retry loops
+  - type: code
+    ref: "4.4"
+    title: Feed the specific validation errors back into the retry.
+    lang: python
+    code: |
+      max_retries = 3
+
+      for iteration in range(max_retries):
+          response = extract_data(document, prompt)
+          errors = validate(response)
+          if not errors:
+              return response  # success
+          prompt += f"""
+          Your previous extraction had these validation errors:
+          {json.dumps(errors, indent=2)}
+          Please correct these specific issues and try again.
+          """
+
+      raise ExtractionError(f"Failed after {max_retries} attempts")
+    notes:
+      - Validate every response and return the first clean one.
+      - Schema checks catch missing fields, wrong types and bad enums. Sums, dates and cross-field contradictions need custom logic.
+      - "Extract a stated and a calculated total side by side to detect conflicts automatically."
+      - Cap the attempts and raise when they run out.
+
+  - type: rightwrong
+    ref: "4.4"
+    title: Retries can't recover data the document doesn't contain.
+    right:
+      title: "Accept `null` for missing data."
+      points:
+        - Make fields nullable or optional when the source may not contain the information.
+        - "No PO number on the invoice? Return `null` instead of retrying."
+    wrong:
+      - title: Retrying until the field is filled
+        text: If the invoice doesn't have a PO number, retrying won't make one appear.
+      - title: Making every field required
+        text: Requiring data the document may lack can force Claude to fabricate it.
+
+  # 4.5 Batch processing
+  - type: compare
+    ref: "4.5"
+    title: Batch what can wait; keep anything blocking synchronous.
+    columns:
+      - tag: Synchronous
+        title: Results needed now
+        points:
+          - Pre-merge code review checks
+          - Real-time user interactions
+          - Blocking CI steps
+          - Interactive debugging
+      - tag: Message Batches API
+        tone: gold
+        title: Results can wait
+        points:
+          - 50% cheaper than synchronous calls.
+          - Up to 24 hours, with no SLA.
+          - Overnight code analysis, weekly audit reports, nightly test generation, bulk document processing.
+    note: Multi-turn conversations are not supported inside a single batch request.
+
+  - type: rightwrong
+    ref: "4.5"
+    title: "Key every batch result by `custom_id`, and resubmit only the failures."
+    right:
+      title: "Correlate by `custom_id`."
+      points:
+        - "Give every request a `custom_id`. Results come back in any order."
+        - "Poll `processing_status` until `ended`, then stream the results."
+        - "Resubmit only the requests that didn't succeed."
+      note: "Result states: `succeeded`, `errored`, `canceled`, `expired`."
+    wrong:
+      - title: Resubmitting the whole batch
+        text: Wastes credits and reprocesses documents that already succeeded.
+      - title: Matching results by position
+        text: "Results arrive in any order. Key by `custom_id`, never by position."
+      - title: Skipping the trial run
+        text: Refine prompts on a small sample before spending credits on thousands of documents.
+
+  # 4.6 Multi-pass review
+  - type: concept
+    ref: "4.6"
+    title: Review code in a fresh session, not the one that wrote it.
+    diagram: independent-review
+    points:
+      - In the same session, Claude keeps the reasoning context from generation.
+      - It “remembers” why it made each decision, so it is less likely to question them.
+      - "This is **reasoning context bias**."
+      - "The fix: a completely separate review session with no knowledge of why decisions were made."
+
+  - type: compare
+    ref: "4.6"
+    title: Review large PRs file by file first, then across files.
+    columns:
+      - tag: Single pass
+        tone: rust
+        title: Breaks down on large PRs
+        points:
+          - "Attention dilution: early files get more focus than later ones."
+          - Inconsistent standards across files.
+          - Missed cross-file integration issues.
+      - tag: Pass 1
+        title: Per-file local analysis
+        points:
+          - A separate prompt for each file, at consistent depth.
+          - Catches bugs, style issues, type errors and security vulnerabilities.
+      - tag: Pass 2
+        tone: moss
+        title: Cross-file integration
+        points:
+          - A different prompt focused on how files interact, with Pass 1 results as context.
+          - Catches data flow issues, interface mismatches and missing error handling at boundaries.
+
+  # 4.7 Thinking & effort
+  - type: rightwrong
+    ref: "4.7"
+    title: Older request shapes now return a 400 on current models.
+    right:
+      title: Adaptive thinking, steered by effort.
+      points:
+        - '`thinking={"type": "adaptive"}` replaces fixed thinking budgets.'
+        - "Control depth with `effort` inside `output_config`, not at the top level."
+        - "Force a format with `output_config.format` or system-prompt instructions."
+    wrong:
+      - title: "`budget_tokens`"
+        text: Fixed thinking budgets return a 400.
+      - title: "`temperature`, `top_p`, `top_k`"
+        text: The sampling parameters return a 400 too.
+      - title: Assistant prefill
+        text: Prefilling the last assistant turn to force a format returns a 400, though older material still recommends it.
+
+  - type: cards
+    ref: "4.7"
+    title: Four request-surface rules to carry through every migration.
+    columns: 2
+    cards:
+      - tag: Effort
+        title: Set it explicitly, re-tune on migration
+        text: "Defaults differ by model, so an omitted `effort` can run shallower after a migration. Re-run your sweep; don't carry the old value across."
+      - tag: Thinking display
+        title: Hidden by default
+        text: 'Thinking still happens and is still billed, but `display: "omitted"` hides it. Streaming reasoning to users? Set `"summarized"`.'
+      - tag: System messages
+        title: A mid-conversation operator channel
+        text: 'Append a `"role": "system"` message to `messages` instead of editing `system`. It is prompt-injection-safe and leaves the cached prefix intact.'
+      - tag: Preserved thinking
+        title: History is part of the contract
+        text: Thinking blocks are bound to the model, prefix and account that produced them. Editing earlier turns invalidates later blocks; append-only histories are safe.
+
+  # 4.8 Prompt caching
+  - type: rightwrong
+    ref: "4.8"
+    title: The cache keys on an exact prefix, so put stable content first.
+    right:
+      title: Stable first, volatile last.
+      points:
+        - "Render order is `tools` → `system` → `messages`. Any byte change invalidates everything after it."
+        - Frozen system prompt and deterministically ordered tools first.
+        - Timestamps, per-request IDs and the question go after the last `cache_control` breakpoint.
+        - "Verify with `usage.cache_read_input_tokens`. Zero across repeats means the prefix is breaking."
+    wrong:
+      - title: "`datetime.now()` in the system prompt"
+        text: The prefix changes on every request, invalidating everything behind it.
+      - title: A tool list that varies or reorders
+        text: Tools render first, so it invalidates the system prompt and the whole conversation.
+      - title: Changing effort or thinking between requests
+        text: "Switching the top-level `effort` or thinking configuration invalidates the cache. Use a per-message effort change."
+
+  - type: quiz
+
+  - type: cheatsheet
+    cells:
+      - title: Explicit criteria
+        text: "Define what qualifies, what doesn't, and examples. One noisy category? Disable it, fix its criteria, re-enable."
+      - title: Few-shot
+        text: 2–4 targeted examples, each with input, output and reasoning. For ambiguity, formats and edge cases.
+      - title: Structured output
+        tone: gold
+        text: "A tool's `input_schema` or `output_config.format`, plus `strict: true`. It guarantees the shape, not the truth: validate semantics in code."
+      - title: Validation-retry
+        text: "Feed the specific errors back and retry. Data absent from the source won't appear: accept `null`."
+      - title: Batch
+        text: "Cheaper, up to 24 hours, no SLA. Key by `custom_id`; resubmit only failures. Keep blocking work synchronous."
+      - title: Multi-pass review
+        text: Review in a fresh session to avoid reasoning context bias. Large PRs get a per-file pass, then a cross-file pass.
+      - title: Thinking & effort
+        text: "Adaptive thinking plus `output_config.effort`. `budget_tokens`, sampling parameters and prefill return a 400."
+      - title: Prompt caching
+        text: "Exact prefix match, in `tools` → `system` → `messages` order. Stable first, volatile after the last breakpoint."

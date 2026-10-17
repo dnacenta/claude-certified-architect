@@ -1,0 +1,297 @@
+# Domain 1 — Agentic Architecture & Orchestration. Source: domains/d1-agentic-architecture.md
+label: Domain 1
+domain: 1
+sections:
+  "1.1": The agentic loop
+  "1.2": Multi-agent orchestration
+  "1.3": Subagents & context passing
+  "1.4": Workflow enforcement & handoff
+  "1.5": Hooks
+  "1.6": Task decomposition
+  "1.7": Session management
+
+slides:
+  - type: divider
+    eyebrow: Domain 1 of 5 · the heaviest
+    blurb: "How agentic systems are built, how loops run, how agents coordinate, and how enforcement works. Seven task statements:"
+    chips: [The agentic loop, Multi-agent orchestration, Subagents & context passing, Workflow enforcement & handoff, Hooks, Task decomposition, Session management]
+
+  - type: diagram
+    ref: "1.1"
+    title: "The loop ends on `stop_reason`, never on text."
+    diagram: agentic-loop
+
+  - type: rightwrong
+    ref: "1.1"
+    eyebrow: 1.1 · Exam traps
+    title: Three wrong answers that look right.
+    right:
+      title: "Branch on `stop_reason` every turn."
+      points:
+        - "`tool_use` → run the tool, return its tool_result, continue."
+        - "`end_turn` → present the final text."
+        - "A safety cap can exist, but `stop_reason` drives the loop."
+    wrong:
+      - title: Parsing natural language
+        text: "“If Claude says *I'm done*, exit the loop.”"
+      - title: An iteration cap as the main stop
+        text: "“Run max 5 loops, then stop.” Fine as a safety net, wrong as the mechanism."
+      - title: Treating text as “done”
+        text: "“If the response has text, it's finished.” Text and tool_use blocks can arrive together."
+
+  - type: table
+    ref: "1.1"
+    title: "Claude decides the next step; `stop_reason` tells your code how to act."
+    head: [Value, Meaning, Action]
+    rows:
+      - ["`tool_use`", Claude wants to call a tool, "Execute it, return the result, continue the loop"]
+      - ["`end_turn`", Claude has finished reasoning, Present the final text response]
+      - ["`pause_turn`", A server-side tool loop hit its internal limit, Send the response back to continue]
+      - ["`max_tokens`", "Response hit the `max_tokens` limit", May need to request continuation]
+      - ["`stop_sequence`", Output matched a configured stop string, Loop ends; inspect which sequence hit]
+      - ["`refusal`", Claude declined on safety grounds, "Loop ends; inspect `stop_details`, rephrase or route"]
+    highlight: [1, 2]
+    note: "A `refusal` arrives as HTTP 200, not an exception: branch on `stop_reason` before reading `content`."
+
+  - type: code
+    ref: "1.1"
+    title: "A `tool_result` must echo the exact `tool_use_id`."
+    lang: json
+    code: |
+      // Claude's response, stop_reason "tool_use"
+      { "type": "tool_use", "id": "toolu_01A", "name": "get_weather",
+        "input": { "location": "San Francisco, CA" } }
+
+      // Your next request, role "user"
+      { "type": "tool_result", "tool_use_id": "toolu_01A",
+        "content": "15 degrees celsius, partly cloudy" }
+
+      // When the tool fails
+      { "type": "tool_result", "tool_use_id": "toolu_01A",
+        "is_error": true, "content": "API timeout after 30 seconds" }
+    notes:
+      - "One response can hold text and several `tool_use` blocks."
+      - "Several calls → several `tool_result` blocks in one message, each matching its id."
+      - "`is_error: true` tells Claude the tool failed so it can reason about recovery."
+
+  - type: concept
+    ref: "1.2"
+    title: One coordinator routes everything; subagents never talk to each other.
+    diagram: hub-and-spoke
+    points:
+      - "The coordinator **decomposes** the task and **delegates** subtasks to specialized subagents."
+      - "It **routes** all inter-subagent communication. Subagents never talk directly."
+      - "It **aggregates** results, handles subagent failures and re-delegates when gaps exist."
+      - Not every query needs every subagent. Invoke only the relevant ones.
+
+  - type: rightwrong
+    ref: "1.2"
+    eyebrow: 1.2 · Exam traps
+    title: Decompose broadly; a narrow split misses whole subtopics.
+    right:
+      title: Decompose broadly, then check coverage.
+      points:
+        - Start with a broad initial decomposition of the whole topic.
+        - Add explicit coverage checks so no part of the topic is missed.
+        - Assess what each query actually requires and invoke only those subagents.
+    wrong:
+      - title: Overly narrow decomposition
+        text: "“Creative industries” split into visual arts only, missing music, writing, film and design."
+      - title: Every query through the full pipeline
+        text: Web search + document analysis + synthesis when a single focused search would suffice.
+      - title: Subagents talking directly
+        text: Results passed from subagent to subagent. The coordinator routes all of it.
+
+  - type: concept
+    ref: "1.2"
+    title: The coordinator evaluates the synthesis and re-delegates the gaps.
+    diagram: refinement-loop
+    points:
+      - "Round 1: the coordinator delegates to subagents and collects their results."
+      - It evaluates the results and identifies gaps in coverage or quality.
+      - "Round 2: targeted subtasks go out for the gaps only."
+      - Then the coordinator produces the final synthesis.
+
+  - type: compare
+    ref: "1.3"
+    title: A subagent knows only what its prompt tells it.
+    columns:
+      - tag: Bad
+        tone: rust
+        title: "“Analyze the customer's issue”"
+        text: "The subagent has no idea who the customer is or what the issue is. It inherits none of the coordinator's history."
+      - tag: Good
+        tone: moss
+        title: Everything it needs, explicitly
+        text: "“Customer #12345 reported that order #67890 ($149.99) arrived damaged and wants a full refund. Analyze the order history and return policy applicability.”"
+    note: Pass findings as structured data (claim, evidence, source, date) so the receiver can judge source quality.
+
+  - type: code
+    ref: "1.3"
+    title: "Parallel subagents means several `Agent` calls in one response."
+    lang: json
+    code: |
+      { "content": [
+        { "type": "tool_use", "name": "Agent",
+          "input": { "prompt": "Search for recent papers on...",
+                     "subagent_type": "search" } },
+        { "type": "tool_use", "name": "Agent",
+          "input": { "prompt": "Analyze the document at...",
+                     "subagent_type": "analysis" } }
+      ] }
+    notes:
+      - "Both calls in a **single** coordinator response run in parallel. Separate turns run sequentially."
+      - "The coordinator needs `Agent` in its allowed tools. `Agent(worker, researcher)` narrows the types."
+      - "Older material, including the exam guide, calls it the **Task** tool. Same mechanism."
+
+  - type: compare
+    ref: "1.3"
+    title: A fork inherits everything; a fresh subagent inherits nothing.
+    columns:
+      - title: Fresh subagent
+        points:
+          - "History not inherited: pass everything explicitly."
+          - Its own system prompt and tools.
+          - Cold prompt cache.
+          - Use for bounded, well-specified tasks and noisy exploration.
+      - title: Fork
+        tone: gold
+        points:
+          - Inherits the entire conversation, system prompt, tools and model.
+          - "Shares the parent's prompt cache, so it's cheaper."
+          - Only its final result returns. Forks can't spawn sub-forks.
+          - Use for divergent branches off a shared baseline.
+
+  - type: compare
+    ref: "1.4"
+    title: Money or safety at stake? Enforce it in code, not in the prompt.
+    columns:
+      - tag: Probabilistic
+        tone: rust
+        title: Prompt-based
+        points:
+          - "Instructions like *Always verify the customer's identity before any refund*."
+          - Works most of the time, with a non-zero failure rate.
+          - Fine only where best-effort is acceptable.
+      - tag: Deterministic
+        tone: moss
+        title: Programmatic
+        points:
+          - Hooks and prerequisites, enforced every time.
+          - Required when there are financial or safety consequences.
+          - "A PreToolUse hook on `process_refund` blocks with exit code 2 until `get_customer` returns a verified ID."
+
+  - type: concept
+    ref: "1.4"
+    title: A human handoff needs a structured summary, not the transcript.
+    points:
+      - The human agent typically has no access to the full conversation transcript.
+      - "Lead with the facts: customer, issue, order details and root cause."
+      - "List the actions already taken, such as *verified order, confirmed damage via photos*."
+      - "Close with the recommended action and amount, such as *full refund + replacement*."
+
+  - type: compare
+    ref: "1.5"
+    title: PreToolUse gates the call; PostToolUse cleans up the result.
+    columns:
+      - tag: Before the tool runs
+        tone: gold
+        title: "`PreToolUse`"
+        text: "Can block the call with exit code 2 or a `deny` decision. Use it for prerequisites, like a verified identity before a refund."
+      - tag: After it succeeds
+        title: "`PostToolUse`"
+        text: "Intercepts results before Claude processes them: normalize timestamps, dates and status codes, scrub sensitive data, add metadata."
+      - tag: After it fails
+        title: "`PostToolUseFailure`"
+        text: "Fires instead of PostToolUse when the tool itself errored. Handle retries and diagnostics here."
+    note: "Hooks live in user, project, local or managed settings, and can be scoped to a skill or a subagent."
+
+  - type: code
+    ref: "1.5"
+    title: "A PreToolUse hook blocks the call with a `deny` decision."
+    lang: json
+    code: |
+      {
+        "hookSpecificOutput": {
+          "hookEventName": "PreToolUse",
+          "permissionDecision": "deny",
+          "permissionDecisionReason": "Customer identity not yet verified",
+          "additionalContext": "Call get_customer first to verify identity"
+        }
+      }
+    notes:
+      - "Decisions are `allow`, `deny`, `ask` and `defer`. When hooks disagree, `deny` wins."
+      - "A `command` hook passes with exit 0 and blocks with exit 2."
+      - "A hook's `allow` never overrides a matching deny permission rule."
+      - "By default a hook that fails to start or times out lets the action go ahead. Make policy gates fail closed."
+
+  - type: concept
+    ref: "1.6"
+    title: Known steps get a chain; open-ended work gets dynamic decomposition.
+    diagram: adaptive-decomposition
+    points:
+      - "**Prompt chaining**: steps fixed upfront, each step's output feeds the next."
+      - "Fits predictable, multi-aspect tasks: per-file analysis, cross-file pass, final report."
+      - "**Dynamic decomposition**: each step's discoveries generate the next subtask."
+      - "Fits open-ended investigation, such as *Why is the app slow?*"
+
+  - type: rightwrong
+    ref: "1.6"
+    eyebrow: 1.6 · Exam traps
+    title: One pass over a large PR fails three ways. Split it in two.
+    right:
+      title: A per-file pass, then a cross-file pass.
+      points:
+        - "Pass 1: review each file independently, at consistent depth, for bugs, style and types."
+        - "Pass 2: a separate prompt for data flow, interface mismatches and cross-file consistency."
+    wrong:
+      - title: Attention dilution
+        text: A single pass focuses on early files and skimps on later ones.
+      - title: Contradictory findings
+        text: Standards vary from file to file, so findings contradict each other.
+      - title: Missed integration issues
+        text: "Reviewing one file at a time can't see cross-file problems."
+
+  - type: compare
+    ref: "1.7"
+    title: Resume while tool results are valid; start fresh once they're stale.
+    columns:
+      - tag: "`--resume`"
+        tone: moss
+        title: Resume
+        points:
+          - Continues a named prior conversation with full context.
+          - Ongoing investigation or iterative work, tool results still valid.
+      - tag: "`--fork-session`"
+        tone: gold
+        title: Fork
+        points:
+          - "Resumes under a **new** session ID; the original stays untouched."
+          - Try two refactoring strategies from the same starting point.
+      - tag: Fresh + summary
+        title: Start fresh
+        points:
+          - "Tool results are stale: files changed, services restarted."
+          - Context has drifted too far from the current task.
+          - Pass a structured summary of prior findings instead.
+    note: "Resuming after edits? Say what changed, such as *I've updated auth.py to use JWT tokens*. It won't notice on its own."
+
+  - type: quiz
+
+  - type: cheatsheet
+    cells:
+      - title: The loop
+        text: "Branch on `stop_reason`. tool_use → run, return tool_result, continue. end_turn → done."
+      - title: Orchestration
+        text: Hub-and-spoke. The coordinator decomposes, delegates, routes every message and aggregates. Subagents never talk directly.
+      - title: Subagents
+        text: "Isolated context: they inherit nothing. Put everything they need in the prompt."
+      - title: Enforcement
+        text: Money or safety → programmatic (hooks, prerequisites), deterministic. Prompts are probabilistic.
+      - title: Hooks
+        text: A PreToolUse hook can block a tool call (exit code 2) until a prerequisite is met.
+      - title: Decomposition
+        text: Known steps → prompt chaining. Open-ended → dynamic decomposition. Watch for splits that are too narrow.
+      - title: Sessions
+        text: "`--resume` while tool results are valid. Stale? Start fresh with a summary. `--fork-session` to branch."
+    most_tested: Programmatic vs prompt-based enforcement. If a prompt can fail and the cost is real, use a hook.

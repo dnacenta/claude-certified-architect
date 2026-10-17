@@ -92,6 +92,10 @@ blockquote > :last-child { margin-bottom: 0; }
 
 hr { border: none; border-top: 1px solid var(--rule); margin: 1.5em 0; }
 
+/* Diagrams: scripts/build-pdf.mjs swaps each <picture> for its light variant */
+.diagram { margin: 1.2em 0; page-break-inside: avoid; }
+img { max-width: 100%; height: auto; }
+
 /* Cover (pdf/cover.html) */
 .cover { padding-top: 46mm; }
 .cover-mark { display: block; width: 34mm; height: 34mm; margin-bottom: 10mm; }
