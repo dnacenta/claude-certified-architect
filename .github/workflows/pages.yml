@@ -32,6 +32,7 @@ jobs:
       - name: Build site, deck and PDFs
         run: |
           npm ci
+          npx playwright-core install --only-shell chromium
           npm run build
           node scripts/build-deck.mjs --check --pdf
           node scripts/build-pdf.mjs
