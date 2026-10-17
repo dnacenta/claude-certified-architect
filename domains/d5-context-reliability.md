@@ -112,14 +112,10 @@ The nested-file row is the trap: an instruction that lives in `src/billing/CLAUD
 
 This is a specifically tested concept:
 
-```
-"I'M SO FRUSTRATED WITH THIS!!!" + simple billing error
-→ Agent can resolve. Don't escalate based on caps and exclamation marks.
-
-"I have a question about the interaction between your enterprise SLA
-and the new EU data residency requirements" + calm tone
-→ May need escalation due to policy complexity, despite calm sentiment.
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/diagrams/sentiment-vs-complexity-dark.svg">
+  <img src="../docs/diagrams/sentiment-vs-complexity-light.svg" alt="Sentiment is not complexity: an angry customer with a simple billing error is resolved; a calm question about SLA and EU data residency may need escalation.">
+</picture>
 
 ### Multiple Customer Matches
 
@@ -216,13 +212,10 @@ Better: Continue with partial results, note the gap, and offer alternatives.
 
 Subagents should implement **local recovery** for transient failures:
 
-```
-Subagent: Search for "return policy"
-  → Timeout
-  → Retry with backoff (local recovery)
-  → Success on second attempt
-  → Return results to coordinator
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/diagrams/error-recovery-dark.svg">
+  <img src="../docs/diagrams/error-recovery-light.svg" alt="Error recovery: aborting the whole workflow on one timeout is wrong; a subagent retries locally with backoff and returns results to the coordinator.">
+</picture>
 
 Only propagate errors the subagent cannot resolve. When propagating, include:
 - What was attempted
@@ -265,15 +258,10 @@ When context is compressed, Claude can re-read the scratchpad to recover finding
 
 Isolate verbose exploration in subagents:
 
-```
-Main context: Clean, focused on the task
-  ↓
-Explore subagent: Reads 50 files, searches codebase extensively
-  ↓
-Returns: Concise summary of findings
-  ↓
-Main context: Receives only the summary, stays clean
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/diagrams/explore-subagent-dark.svg">
+  <img src="../docs/diagrams/explore-subagent-light.svg" alt="An Explore subagent does the noisy reading with Glob, Grep and Read and returns a concise summary, so the main conversation stays clean.">
+</picture>
 
 **3. `/compact` Proactive Use**
 
@@ -332,14 +320,10 @@ Instead of a single confidence score for the entire extraction, provide per-fiel
 
 **The hidden failure pattern:**
 
-```
-Overall accuracy: 97% ← Looks great!
-
-Breakdown:
-  Standard invoices: 99.5% ← Excellent
-  Handwritten notes: 45%  ← Terrible
-  Foreign language docs: 62% ← Bad
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/diagrams/accuracy-breakdown-dark.svg">
+  <img src="../docs/diagrams/accuracy-breakdown-light.svg" alt="Accuracy breakdown: 97% overall, but 99.5% on standard invoices, 62% on foreign-language documents and 45% on handwritten notes.">
+</picture>
 
 Aggregate metrics mask poor performance on specific document types. Always break down accuracy by type and field.
 

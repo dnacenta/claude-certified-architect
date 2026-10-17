@@ -256,22 +256,10 @@ The Model Context Protocol is an open standard for connecting AI models to exter
 
 ### Architecture
 
-```
-┌─────────────────────────────────────┐
-│              Host                   │
-│         (Claude Code)               │
-│                                     │
-│  ┌──────────┐  ┌──────────┐       │
-│  │ Client 1 │  │ Client 2 │  ...  │
-│  └─────┬────┘  └─────┬────┘       │
-└────────┼──────────────┼────────────┘
-         │              │
-         ↓              ↓
-   ┌──────────┐   ┌──────────┐
-   │ Server 1 │   │ Server 2 │
-   │ (GitHub)  │   │ (Postgres)│
-   └──────────┘   └──────────┘
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/diagrams/mcp-architecture-dark.svg">
+  <img src="../docs/diagrams/mcp-architecture-light.svg" alt="MCP architecture: a host such as Claude Code runs MCP clients, each with a one-to-one connection to an MCP server like GitHub or Postgres.">
+</picture>
 
 - **Host**: The AI application (Claude Code, an IDE) that coordinates MCP clients
 - **Client**: A component within the host that maintains a 1:1 connection to an MCP server

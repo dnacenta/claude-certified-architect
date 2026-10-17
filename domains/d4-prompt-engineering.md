@@ -418,14 +418,10 @@ This is called **reasoning context bias**.
 
 ### The Solution: Independent Review Instances
 
-```
-Session 1: Claude generates code
-                    ↓
-            (completely separate session)
-                    ↓
-Session 2: Claude reviews the code
-           (no knowledge of why decisions were made)
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/diagrams/independent-review-dark.svg">
+  <img src="../docs/diagrams/independent-review-light.svg" alt="Independent review: the code goes from the generation session to a fresh review session that shares none of its context.">
+</picture>
 
 ### Multi-Pass Architecture for Large PRs
 

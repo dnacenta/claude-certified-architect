@@ -52,25 +52,12 @@ CLAUDE.md files are instruction files that tell Claude Code how to behave in a s
 
 Claude Code loads CLAUDE.md files in a hierarchy. Every file it finds is **concatenated** into context, not overridden: content runs from the filesystem root down to the working directory, so instructions closer to where you launched Claude are read last, and `CLAUDE.local.md` follows `CLAUDE.md` within each directory. Two files that contradict each other leave Claude to pick one, so resolve conflicts rather than relying on precedence:
 
-```
-1. Managed Policy (org-wide, admin-controlled)
-   └── /etc/claude-code/CLAUDE.md                           (Linux, WSL)
-   └── /Library/Application Support/ClaudeCode/CLAUDE.md    (macOS)
-   └── C:\Program Files\ClaudeCode\CLAUDE.md                (Windows)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/diagrams/claude-md-hierarchy-dark.svg">
+  <img src="../docs/diagrams/claude-md-hierarchy-light.svg" alt="CLAUDE.md loading order from broader to more specific: managed policy, user, project, local project, directory.">
+</picture>
 
-2. User-Level (personal, NOT version-controlled)
-   └── ~/.claude/CLAUDE.md
-
-3. Project-Level (shared via version control)
-   └── ./CLAUDE.md  or  ./.claude/CLAUDE.md
-
-4. Local project (personal, gitignored)
-   └── ./CLAUDE.local.md
-
-5. Directory-Level (loaded on demand)
-   └── ./src/api/CLAUDE.md (loaded when Claude reads, writes, or edits a file in src/api/)
-   └── ./tests/CLAUDE.md (loaded when Claude reads, writes, or edits a file in tests/)
-```
+Managed policy lives at `/etc/claude-code/CLAUDE.md` (Linux, WSL), `/Library/Application Support/ClaudeCode/CLAUDE.md` (macOS), or `C:\Program Files\ClaudeCode\CLAUDE.md` (Windows). A directory-level file such as `./src/api/CLAUDE.md` or `./tests/CLAUDE.md` loads when Claude reads, writes, or edits a file in that directory.
 
 **Key distinction:** Project-level CLAUDE.md is committed to git and shared with the team. User-level is personal and local. `CLAUDE.local.md` is personal per project (gitignore it). Directory-level loads dynamically when Claude works in that directory — since v2.1.288 on Write and Edit as well as Read, and since v2.1.293 also when Claude views a single file there with a Bash read such as `cat` or `head`.
 
@@ -433,15 +420,10 @@ Four subagents ship with Claude Code and are registered by default in interactiv
 
 The Explore agent is the canonical context-preservation move:
 
-```
-Main conversation context is preserved
-     ↓
-Explore subagent runs (Glob, Grep, Read — lots of output)
-     ↓
-Returns concise summary to main conversation
-     ↓
-Main context stays clean
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/diagrams/explore-subagent-dark.svg">
+  <img src="../docs/diagrams/explore-subagent-light.svg" alt="An Explore subagent does the noisy reading with Glob, Grep and Read and returns a concise summary, so the main conversation stays clean.">
+</picture>
 
 Without it, a deep codebase exploration would fill the main context window with raw file contents and search results.
 
@@ -694,13 +676,10 @@ resubmit_batch = [r for r in original_requests if r.custom_id in failed_ids]
 
 **Solution:** Use independent review instances that don't have the generation context.
 
-```
-Generation session: Claude writes the code
-                          ↓
-               (new session, no shared context)
-                          ↓
-Review session: Claude reviews the code fresh
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/diagrams/independent-review-dark.svg">
+  <img src="../docs/diagrams/independent-review-light.svg" alt="Independent review: the code goes from the generation session to a fresh review session that shares none of its context.">
+</picture>
 
 ---
 
