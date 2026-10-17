@@ -1,7 +1,7 @@
 // Builds the full-text PDF (_site/guide_en.pdf): a cover, the overview, the five domains and the
 // three cert overviews, rendered from the markdown in the light print theme (pdf/print.css).
 //
-// usage: node scripts/build-pdf.mjs
+// usage: node scripts/build-pdf.mjs   (needs `npx playwright-core install --only-shell chromium` once)
 
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -9,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import hljs from "highlight.js";
 import MarkdownIt from "markdown-it";
-import puppeteer from "puppeteer";
+import { chromium } from "playwright-core";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "_site");
@@ -47,10 +47,10 @@ async function main() {
   const htmlFile = path.join(tmp, "guide.html");
   await writeFile(htmlFile, page);
 
-  const browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+  const browser = await chromium.launch();
   const tab = await browser.newPage();
-  await tab.goto(pathToFileURL(htmlFile).href, { waitUntil: "networkidle0", timeout: 120000 });
-  await tab.evaluate(() => document.fonts.ready);
+  await tab.goto(pathToFileURL(htmlFile).href, { waitUntil: "networkidle", timeout: 120000 });
+  await tab.evaluate(async () => { await document.fonts.ready; });
   await tab.pdf({
     path: path.join(OUT, "guide_en.pdf"),
     format: "A4",

@@ -7,6 +7,7 @@ viewer at `/deck/` on the website. The full text stays in the markdown files, th
 
 ```sh
 npm ci
+npx playwright-core install --only-shell chromium   # once: the headless Chrome for --check and PDFs
 node scripts/build-deck.mjs --check              # build + report slides whose content overflows
 node scripts/build-deck.mjs --check deck/01-d1.yaml   # just one file
 node scripts/build-deck.mjs --pdf                # also write _site/deck_en.pdf

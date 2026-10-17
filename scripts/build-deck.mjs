@@ -294,12 +294,11 @@ async function main() {
   if (ctx.missing.size) console.log(`missing diagrams: ${[...ctx.missing].join(", ")}`);
   if (!pdf && !check) return;
 
-  const { default: puppeteer } = await import("puppeteer");
-  const browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
-  const tab = await browser.newPage();
-  await tab.setViewport({ width: 1280, height: 720 });
-  await tab.goto(pathToFileURL(path.join(DECK_OUT, "print.html")).href, { waitUntil: "networkidle0" });
-  await tab.evaluate(() => document.fonts.ready);
+  const { chromium } = await import("playwright-core");
+  const browser = await chromium.launch();
+  const tab = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  await tab.goto(pathToFileURL(path.join(DECK_OUT, "print.html")).href, { waitUntil: "networkidle" });
+  await tab.evaluate(async () => { await document.fonts.ready; });
 
   let failed = false;
   if (check) {
