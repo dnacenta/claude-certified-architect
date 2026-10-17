@@ -1,0 +1,203 @@
+<!-- Landing page body. scripts/build-site.mjs wraps it in the shared header and footer
+     and fills {{last_refresh}} from README.md. -->
+<main id="main">
+
+<section aria-labelledby="fg-h1" class="fg-sec fg-sec-hero">
+  <div class="fg-thread" aria-hidden="true">
+    <span class="fg-thread-dot" style="background: var(--accent); box-shadow: 0 0 0 1.5px var(--moss)"></span>
+    <svg class="fg-thread-line" width="56" height="100%" viewBox="0 0 56 100" preserveAspectRatio="none"><path d="M28 0 C 14 18, 42 36, 28 54 S 18 86, 28 100" fill="none" stroke="#685742" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+  </div>
+  <div class="fg-hero">
+    <div class="fg-stack" style="gap: 28px">
+      <p class="fg-eyebrow fg-kicker"><span aria-hidden="true" class="fg-kicker-dot fg-blip"></span>Unofficial study guide · last refresh {{last_refresh}}</p>
+      <h1 id="fg-h1" class="fg-h1">Claude Certified Architect<span aria-hidden="true" class="fg-h1-spore"></span><span class="fg-h1-sub">— Foundations</span></h1>
+      <p class="fg-hero-copy">
+        A free, open-source guide to Anthropic's technical certification for solution architects
+        (exam code CCAR-F). All five exam domains, with code examples, anti-patterns, decision
+        frameworks, and practice questions.
+      </p>
+      <div class="fg-actions">
+        <a href="overview/" class="fg-btn fg-btn-primary fg-btn-lg">
+          Start reading
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+        </a>
+        <a href="guide_en.pdf" class="fg-btn fg-btn-ghost fg-btn-lg">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>
+          Download PDF
+        </a>
+        <a href="https://github.com/dnacenta/claude-certified-architect" class="fg-btn fg-btn-ghost fg-btn-lg">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/></svg>
+          Source
+        </a>
+      </div>
+    </div>
+
+    <figure class="fg-figure">
+      <svg viewBox="0 0 480 480" fill="none" stroke-linecap="round" aria-hidden="true">
+        <path class="fg-grow" d="M240 336 C 220 380, 170 402, 110 430" stroke="#685742" stroke-width="2" style="animation-delay: .1s"/>
+        <path class="fg-grow" d="M240 336 C 262 382, 320 404, 384 438" stroke="#685742" stroke-width="2" style="animation-delay: .3s"/>
+        <path class="fg-grow" d="M196 330 C 176 360, 120 362, 58 374" stroke="#685742" stroke-width="1.4" style="animation-delay: .5s"/>
+        <path class="fg-grow" d="M286 330 C 310 356, 372 354, 430 368" stroke="#685742" stroke-width="1.4" style="animation-delay: .7s"/>
+        <path class="fg-grow" d="M182 172 C 150 142, 118 122, 66 98" stroke="#685742" stroke-width="1.6" style="animation-delay: 1.2s"/>
+        <path class="fg-grow" d="M300 168 C 332 138, 372 120, 422 100" stroke="#685742" stroke-width="1.6" style="animation-delay: 1.4s"/>
+        <path class="fg-grow" d="M248 150 C 244 112, 252 80, 268 40" stroke="#685742" stroke-width="1.3" style="animation-delay: 1.6s"/>
+        <path class="fg-flow" d="M240 336 C 262 382, 320 404, 384 438" stroke="#c9a554" stroke-width="1.6" stroke-dasharray="4 10"/>
+        <circle cx="110" cy="430" r="6" fill="#5f875f"/>
+        <circle cx="384" cy="438" r="6" fill="#d7c483" style="animation: fg-blip 2.4s ease-in-out infinite"/>
+        <circle cx="58" cy="374" r="4" fill="#78824b"/>
+        <circle cx="430" cy="368" r="4" fill="#78824b"/>
+        <circle cx="66" cy="98" r="5" fill="#c9a554" style="animation: fg-blip 3s ease-in-out infinite"/>
+        <circle cx="422" cy="100" r="4" fill="#bb7744"/>
+        <circle cx="268" cy="40" r="3.5" fill="#d7c483"/>
+        <g transform="translate(105.6 105.6) scale(4.2)">
+          <path class="fg-orbit-flow" d="M17.23 23.4 A15 15 0 0 1 46.77 23.4" stroke="#78824b" stroke-width="4" stroke-dasharray="6.4 5.4" stroke-linecap="butt"/>
+          <path d="M7 40 Q19 34 30.5 41.5 V54 Q19 47 7 53 Z" fill="#5f875f"/>
+          <path d="M33.5 41.5 Q45 34 57 40 V53 Q45 47 33.5 54 Z" fill="#5f875f"/>
+          <circle class="fg-core" cx="32" cy="26" r="7" fill="#c9a554"/>
+          <circle class="fg-blip" cx="39.5" cy="13.01" r="4" fill="#d7c483"/>
+          <circle cx="19.71" cy="17.4" r="4" fill="#bb7744"/>
+        </g>
+      </svg>
+      <figcaption class="fg-figcaption">fig. 1 — the guide, open</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section aria-labelledby="exam" class="fg-sec" id="overview">
+  <div class="fg-thread" aria-hidden="true">
+    <span class="fg-thread-dot" style="background: var(--sand); box-shadow: 0 0 0 1.5px var(--olive)"></span>
+    <svg class="fg-thread-line" width="56" height="100%" viewBox="0 0 56 100" preserveAspectRatio="none"><path d="M28 0 C 40 22, 16 44, 28 66 S 36 90, 28 100" fill="none" stroke="#685742" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+  </div>
+  <div class="fg-stack">
+    <div class="fg-head">
+      <p class="fg-eyebrow">Plate I · The exam</p>
+      <h2 id="exam" class="fg-h2">Sixty questions. Two hours.</h2>
+    </div>
+    <ul class="fg-facts">
+      <li class="fg-fact"><span class="fg-fact-num">60</span><span class="fg-fact-label">scenario-based questions</span></li>
+      <li class="fg-fact"><span class="fg-fact-num">720<small>/1000</small></span><span class="fg-fact-label">to pass</span></li>
+      <li class="fg-fact"><span class="fg-fact-num">4<small>/6</small></span><span class="fg-fact-label">scenarios per exam</span></li>
+      <li class="fg-fact"><span class="fg-fact-num">5</span><span class="fg-fact-label">knowledge domains</span></li>
+    </ul>
+    <p class="fg-note">
+      Aimed at solution architects with 6+ months building on Claude APIs, the Agent SDK, Claude
+      Code, and MCP. One of four Claude certifications (Associate, Architect Foundations, Architect
+      Professional, Developer). Proctored via Pearson VUE, registered through the Anthropic Partner
+      Academy; $125 per attempt, certification valid 12 months (Exam Guide v1.0, July 2026). Access
+      via the Claude Partner Network.
+    </p>
+  </div>
+</section>
+
+<section aria-labelledby="domains" class="fg-sec" id="domain-list">
+  <div class="fg-thread" aria-hidden="true">
+    <span class="fg-thread-dot" style="background: var(--moss); box-shadow: 0 0 0 1.5px var(--olive)"></span>
+    <svg class="fg-thread-line" width="56" height="100%" viewBox="0 0 56 100" preserveAspectRatio="none"><path d="M28 0 C 16 20, 40 42, 28 62 S 20 88, 28 100" fill="none" stroke="#685742" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+  </div>
+  <div class="fg-stack">
+    <div class="fg-head">
+      <p class="fg-eyebrow">Plate II · Domains</p>
+      <h2 id="domains" class="fg-h2">Five domains, weighted.</h2>
+      <p class="fg-lead">Each ring shows the domain's share of the exam.</p>
+    </div>
+    <ul class="fg-domains">
+      <li class="fg-domain">
+        <span class="fg-ring-wrap" aria-hidden="true"><span class="fg-ring" style="--w: 27; display: block"></span><span class="fg-ring-label">27%<span>D1</span></span></span>
+        <div>
+          <h3><a href="domains/d1-agentic-architecture/">Agentic Architecture &amp; Orchestration</a></h3>
+          <p>Agentic loops, <code>stop_reason</code>, hub-and-spoke multi-agent systems, hooks, task decomposition, session management.</p>
+        </div>
+      </li>
+      <li class="fg-domain">
+        <span class="fg-ring-wrap" aria-hidden="true"><span class="fg-ring" style="--w: 18; display: block"></span><span class="fg-ring-label">18%<span>D2</span></span></span>
+        <div>
+          <h3><a href="domains/d2-tool-design-mcp/">Tool Design &amp; MCP Integration</a></h3>
+          <p>Tool interface design, structured errors, the 4–5 tool maximum, <code>tool_choice</code>, MCP servers and transports.</p>
+        </div>
+      </li>
+      <li class="fg-domain">
+        <span class="fg-ring-wrap" aria-hidden="true"><span class="fg-ring" style="--w: 20; display: block"></span><span class="fg-ring-label">20%<span>D3</span></span></span>
+        <div>
+          <h3><a href="domains/d3-claude-code-config/">Claude Code Configuration &amp; Workflows</a></h3>
+          <p>CLAUDE.md hierarchy, skills &amp; slash commands, path-specific rules, plan mode, CI/CD integration.</p>
+        </div>
+      </li>
+      <li class="fg-domain">
+        <span class="fg-ring-wrap" aria-hidden="true"><span class="fg-ring" style="--w: 20; display: block"></span><span class="fg-ring-label">20%<span>D4</span></span></span>
+        <div>
+          <h3><a href="domains/d4-prompt-engineering/">Prompt Engineering &amp; Structured Output</a></h3>
+          <p>Explicit criteria, few-shot prompting, <code>tool_use</code> &amp; JSON schemas, validation-retry loops, multi-pass review.</p>
+        </div>
+      </li>
+      <li class="fg-domain">
+        <span class="fg-ring-wrap" aria-hidden="true"><span class="fg-ring" style="--w: 15; display: block"></span><span class="fg-ring-label">15%<span>D5</span></span></span>
+        <div>
+          <h3><a href="domains/d5-context-reliability/">Context Management &amp; Reliability</a></h3>
+          <p>Context windows, escalation patterns, error propagation, large-codebase strategies, human review, provenance.</p>
+        </div>
+      </li>
+      <li class="fg-domain">
+        <span class="fg-ring-wrap" aria-hidden="true"><span class="fg-ring" style="--w: 100; display: block"></span><span class="fg-ring-label">All<span>MAP</span></span></span>
+        <div>
+          <h3><a href="overview/">The overview</a></h3>
+          <p>Exam scenarios, the critical anti-patterns, decision frameworks, a 4-week study plan, and official resources.</p>
+        </div>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="family" class="fg-sec" id="family-list">
+  <div class="fg-thread" aria-hidden="true">
+    <span class="fg-thread-dot" style="background: var(--rust); box-shadow: 0 0 0 1.5px var(--brown)"></span>
+    <svg class="fg-thread-line" width="56" height="100%" viewBox="0 0 56 100" preserveAspectRatio="none"><path d="M28 0 C 38 24, 18 48, 28 70 S 34 92, 28 100" fill="none" stroke="#685742" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+  </div>
+  <div class="fg-stack">
+    <div class="fg-head">
+      <p class="fg-eyebrow">Plate III · The family</p>
+      <h2 id="family" class="fg-h2">Studying another one?</h2>
+      <p class="fg-lead">Overview guides for the other three Claude certifications, from the official v1.0 exam guides.</p>
+    </div>
+    <ul class="fg-cards fg-cards-3">
+      <li><a class="fg-card" href="certs/ccao-f-associate/"><span class="fg-eyebrow">CCAO-F</span><h3>Associate — Foundations</h3><p>Business and productivity users (non-developer).</p></a></li>
+      <li><a class="fg-card" href="certs/ccdv-f-developer/"><span class="fg-eyebrow">CCDV-F</span><h3>Developer — Foundations</h3><p>Engineers shipping Claude apps, agents, and workflows.</p></a></li>
+      <li><a class="fg-card" href="certs/ccar-p-architect-professional/"><span class="fg-eyebrow">CCAR-P</span><h3>Architect — Professional</h3><p>Senior architects owning the full solution lifecycle.</p></a></li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="inside" class="fg-sec" id="inside-list">
+  <div class="fg-thread" aria-hidden="true">
+    <span class="fg-thread-dot" style="background: var(--olive); box-shadow: 0 0 0 1.5px var(--moss)"></span>
+    <svg class="fg-thread-line" width="56" height="100%" viewBox="0 0 56 100" preserveAspectRatio="none"><path d="M28 0 C 18 26, 38 50, 28 74 S 24 94, 28 100" fill="none" stroke="#685742" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+  </div>
+  <div class="fg-stack">
+    <div class="fg-head">
+      <p class="fg-eyebrow">Plate IV · What's inside</p>
+      <h2 id="inside" class="fg-h2">What's in it.</h2>
+    </div>
+    <ul class="fg-cards">
+      <li class="fg-card"><span class="fg-card-dot" style="background: var(--rust)" aria-hidden="true"></span><h3>10 critical anti-patterns</h3><p>The wrong answers that show up on the exam, and why they're wrong.</p></li>
+      <li class="fg-card"><span class="fg-card-dot" style="background: var(--accent)" aria-hidden="true"></span><h3>Decision frameworks</h3><p>Programmatic vs. prompt-based enforcement, plan vs. direct, batch vs. sync, and more.</p></li>
+      <li class="fg-card"><span class="fg-card-dot" style="background: var(--moss)" aria-hidden="true"></span><h3>Practice questions</h3><p>Scenario-based questions with explained answers across every domain.</p></li>
+      <li class="fg-card"><span class="fg-card-dot" style="background: var(--sand)" aria-hidden="true"></span><h3>4-week study plan</h3><p>A daily schedule from core architecture through exam-prep drills.</p></li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="start" class="fg-sec">
+  <div class="fg-thread" aria-hidden="true">
+    <span class="fg-thread-dot" style="background: var(--accent); box-shadow: 0 0 0 1.5px var(--moss)"></span>
+  </div>
+  <div class="fg-band">
+    <p class="fg-eyebrow">Refreshed weekly against Anthropic's docs</p>
+    <h2 id="start" class="fg-h2">Start studying.</h2>
+    <p class="fg-lead">Read it here, grab the PDF, or clone the repo and study offline.</p>
+    <div class="fg-actions">
+      <a href="overview/" class="fg-btn fg-btn-primary fg-btn-lg">Start reading</a>
+      <a href="guide_en.pdf" class="fg-btn fg-btn-ghost fg-btn-lg">Download PDF</a>
+    </div>
+  </div>
+</section>
+
+</main>
