@@ -96,10 +96,11 @@ function headerHtml(root) {
   <nav aria-label="Site" class="fg-nav">
     <span class="fg-navlinks">
       <a href="${root}overview/" class="fg-navlink">Guide</a>
+      <a href="${root}deck/" class="fg-navlink">Deck</a>
       <a href="${root}changelog/" class="fg-navlink">Changelog</a>
       <a href="${REPO}" class="fg-navlink">GitHub</a>
     </span>
-    <a href="${root}guide_en.pdf" class="fg-btn fg-btn-primary fg-btn-sm">PDF</a>
+    <a href="${root}deck_en.pdf" class="fg-btn fg-btn-primary fg-btn-sm">PDF</a>
   </nav>
 </header>`;
 }
@@ -113,6 +114,8 @@ function footerHtml(root) {
     </div>
     <nav aria-label="Elsewhere" class="fg-footer-links">
       <a href="${REPO}" class="fg-footer-link">Source</a>
+      <a href="${root}deck/" class="fg-footer-link">Deck</a>
+      <a href="${root}guide_en.pdf" class="fg-footer-link">Full text PDF</a>
       <a href="${root}changelog/" class="fg-footer-link">Changelog</a>
       <a href="https://claude.com/partners" class="fg-footer-link">Partner network</a>
       <a href="https://anthropic.skilljar.com/claude-with-the-anthropic-api" class="fg-footer-link">Anthropic Academy</a>
@@ -208,6 +211,9 @@ async function buildPage(page, pages) {
     }
   });
   let html = md.renderer.render(tokens, md.options, env);
+  // Diagrams are <picture> blocks in the markdown (light/dark for GitHub); the site is dark.
+  html = html.replace(/<picture>[\s\S]*?\/diagrams\/([a-z0-9-]+)-dark\.svg[\s\S]*?alt="([^"]*)"[\s\S]*?<\/picture>/g,
+    (_, id, alt) => `<figure class="diagram"><img src="${rel(page.out, "diagrams")}${id}-dark.svg" alt="${alt}" loading="lazy"></figure>`);
   // Practice answers fold away so the questions can be tried first.
   html = html.replace(/<p><strong>Answer: ([^<]+)<\/strong>([\s\S]*?)<\/p>/g,
     '<details class="answer"><summary>Show answer</summary><p><strong>Answer: $1</strong>$2</p></details>');
@@ -250,6 +256,7 @@ async function main() {
   for (const f of ["style.css", "og-image.png", "favicon.svg", "favicon.ico", "apple-touch-icon.png"]) {
     await cp(path.join(ROOT, "site", f), path.join(OUT, f));
   }
+  await cp(path.join(ROOT, "docs", "diagrams"), path.join(OUT, "diagrams"), { recursive: true, filter: (f) => !f.endsWith("-light.svg") });
 
   const landing = (await readFile(path.join(ROOT, "site", "landing.html"), "utf8"))
     .replaceAll("{{last_refresh}}", esc(lastRefresh));
