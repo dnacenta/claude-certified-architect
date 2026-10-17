@@ -46,7 +46,7 @@ slides:
 ```
 
 Text fields take inline markdown: `` `code` ``, `**bold**`, `*italic*`. Quote any YAML string
-that contains `: `, starts with a backtick, quote or `*`, or begins with `-`.
+that contains `: `, starts with a backtick, quote or `*`, or begins with `-`. Inside a `[ ]` list, also quote any value containing `?`, `:` or `#`. Other tools read these files with other YAML parsers, so the build fails on anything two parsers might read differently.
 
 ## Slide types
 

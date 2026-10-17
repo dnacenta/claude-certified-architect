@@ -231,13 +231,40 @@ const T = {
   },
 };
 
+// ---- Portability: other tools read these files with other YAML parsers ----
+
+// Throws unless every parser reads the file the same way: YAML 1.1 and 1.2 must agree, and inside
+// a [ ] list a plain value must not contain ? : or # (PyYAML and others misread them there).
+function portableYaml(file, text) {
+  const name = path.basename(file);
+  const v12 = YAML.parse(text, { version: "1.2" });
+  let v11;
+  try {
+    v11 = YAML.parse(text, { version: "1.1" });
+  } catch (e) {
+    throw new Error(`${name}: YAML 1.1 can't parse it (${e.message.split("\n")[0]})`);
+  }
+  if (JSON.stringify(v11) !== JSON.stringify(v12)) throw new Error(`${name}: YAML 1.1 and 1.2 read it differently; quote the ambiguous values (yes, no, on, off, numbers with leading zeros)`);
+  const lines = new YAML.LineCounter();
+  const bad = [];
+  YAML.visit(YAML.parseDocument(text, { lineCounter: lines }), {
+    Scalar(_, node, ancestors) {
+      if (node.type === "PLAIN" && /[?:#]/.test(String(node.value)) && ancestors.some((a) => YAML.isCollection(a) && a.flow)) {
+        bad.push(`${name}:${lines.linePos(node.range[0]).line} ${node.value}`);
+      }
+    },
+  });
+  if (bad.length) throw new Error(`quote these values inside [ ]; other YAML parsers misread ? : # there:\n  ${bad.join("\n  ")}`);
+  return v12;
+}
+
 // ---- Build ----
 
 async function render(files) {
   const ctx = { domains: await domainInfo(), facts: await readmeFacts(), missing: new Set(), diagrams: new Set() };
   const slides = [];
   for (const file of files) {
-    const doc = YAML.parse(await readFile(file, "utf8"));
+    const doc = portableYaml(file, await readFile(file, "utf8"));
     const meta = { label: doc.label ?? "", domain: doc.domain };
     const sectionNames = doc.sections ?? {};
     for (const [k, s] of (doc.slides ?? []).entries()) {

@@ -79,7 +79,7 @@ slides:
   - type: table
     ref: "2.2"
     title: "The error category decides the move: retry, fix, explain, or escalate."
-    head: [Category, Retryable?, Examples, Agent action]
+    head: [Category, "Retryable?", Examples, Agent action]
     rows:
       - [Transient, "Yes", "Timeouts, service unavailability, rate limits", Retry with backoff]
       - [Validation, Not without input changes, "Invalid email format, missing required field", "Examine the error, fix the input, retry"]
@@ -190,7 +190,7 @@ slides:
   - type: table
     ref: "2.4"
     title: The scope decides where a server is stored and who gets it.
-    head: [Scope, Loads in, Shared?, Stored in]
+    head: [Scope, Loads in, "Shared?", Stored in]
     rows:
       - [Local (default), Current project only, "No", "`~/.claude.json`, keyed by project path"]
       - [Project, Current project only, "Yes, via version control", "`.mcp.json` in the project root"]
