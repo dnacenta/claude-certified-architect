@@ -1,0 +1,320 @@
+# Domain 2 — Tool Design & MCP Integration. Source: domains/d2-tool-design-mcp.md
+label: Domain 2
+domain: 2
+sections:
+  "2.1": Tool interface design
+  "2.2": Structured error responses
+  "2.3": Tool distribution & tool_choice
+  "2.4": MCP server configuration
+  "2.5": Built-in tools
+  "2.6": Anthropic-defined & server tools
+
+slides:
+  - type: divider
+    eyebrow: Domain 2 of 5 · tools & MCP
+    blurb: "How to design tool interfaces LLMs use reliably, handle tool errors, distribute tools across agents, and configure MCP servers. Six task statements:"
+    chips: [Tool interface design, Structured error responses, Tool distribution & tool_choice, MCP server configuration, Built-in tools, Anthropic-defined & server tools]
+
+  # ---- 2.1 Tool interface design ----
+  - type: cards
+    ref: "2.1"
+    title: Claude picks a tool by its description, so make it answer five questions.
+    lead: "The description is the selection criteria, not documentation. “Search for things” leads to unreliable selection."
+    columns: 5
+    cards:
+      - title: Purpose
+        text: What the tool does and when to use it.
+      - title: Input format
+        text: What the input should look like, with examples.
+      - title: Output format
+        text: What the tool returns.
+      - title: Edge cases
+        text: What happens with invalid inputs or no results.
+      - title: Differentiation
+        text: When to use this tool instead of a similar one.
+        tone: gold
+    note: "A good one, `search_knowledge_base`, says what it searches, when to use it, what to send, and what comes back."
+
+  - type: code
+    ref: "2.1"
+    title: Strict mode guarantees schema-valid inputs, once the schema is closed.
+    lang: json
+    code: |
+      {
+        "name": "extract_invoice",
+        "strict": true,
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "vendor_name": { "type": "string" },
+            "total_amount": { "type": "number" }
+          },
+          "required": ["vendor_name", "total_amount"],
+          "additionalProperties": false
+        }
+      }
+    notes:
+      - "`strict: true` guarantees Claude's tool inputs conform exactly to the schema."
+      - "`additionalProperties: false` must be set."
+      - "Every property must be listed in `required`."
+      - Only a subset of JSON Schema is supported (Domain 4).
+
+  - type: rightwrong
+    ref: "2.1"
+    eyebrow: 2.1 · Exam traps
+    title: Vague or overlapping tools get misrouted.
+    right:
+      title: Make every tool distinct.
+      points:
+        - A specific name, plus what it does, what it takes and what it returns.
+        - "Say when to use **this** tool versus similar ones."
+        - Two tools overlap? Rename them to differentiate purpose, or merge them into one.
+    wrong:
+      - title: A one-line description
+        text: "`search`: “Search for things.” Nothing to select on, so selection is unreliable."
+      - title: Near-identical descriptions
+        text: "`analyze_content` (“Analyze content for insights”) vs `analyze_document` (“Analyze a document for insights”). Claude can't reliably tell them apart."
+
+  # ---- 2.2 Structured error responses ----
+  - type: table
+    ref: "2.2"
+    title: "The error category decides the move: retry, fix, explain, or escalate."
+    head: [Category, Retryable?, Examples, Agent action]
+    rows:
+      - [Transient, "Yes", "Timeouts, service unavailability, rate limits", Retry with backoff]
+      - [Validation, Not without input changes, "Invalid email format, missing required field", "Examine the error, fix the input, retry"]
+      - [Business, "No", "Refund exceeds policy limit, account frozen", Explain the policy to the user or escalate]
+      - [Permission, "No", "Insufficient access, expired token", Escalate to a human]
+    note: Subagents recover from transient errors locally and propagate them only if recovery fails.
+
+  - type: rightwrong
+    ref: "2.2"
+    eyebrow: 2.2 · Exam traps
+    title: Errors that hide, lie, or give up are the wrong answers.
+    right:
+      title: Return a structured error.
+      points:
+        - "Set `isError`, an `errorCategory` and `isRetryable`."
+        - "Describe the cause and the `attempted_action`, so the agent can recover intelligently."
+        - Use partial results or try alternatives instead of ending the workflow.
+    wrong:
+      - title: Generic messages
+        text: "“Operation failed” or “search unavailable” hides the cause and what was attempted."
+      - title: Silent suppression
+        text: 'Returning `{ "results": [] }` when search is down. The agent confidently says “I found nothing.”'
+      - title: Terminating on a single failure
+        text: Killing a whole multi-step workflow because one step failed.
+
+  - type: compare
+    ref: "2.2"
+    title: An empty result is information; a timeout is an error.
+    columns:
+      - tag: "`[]` with status 200"
+        title: Valid query, no matches
+        points:
+          - The search ran and found nothing.
+          - That is information, so report it.
+          - "Say: “No results found for that query.”"
+      - tag: Timeout error
+        title: The query didn't execute
+        points:
+          - The search didn't work, so there is no result to report.
+          - That is an error, so handle it as one.
+          - "Say: “I wasn't able to search right now, let me try again.”"
+    note: Check the response status before answering. The two must be handled differently.
+
+  # ---- 2.3 Tool distribution & tool_choice ----
+  - type: cards
+    ref: "2.3"
+    title: Give each agent four or five tools, and split the rest across subagents.
+    lead: "Eighteen tools on one agent degrades selection: wrong picks, unnecessary calls, trouble reasoning about which to use."
+    columns: 4
+    cards:
+      - tag: Coordinator
+        text: "`Agent`, `AskUser`"
+        tone: gold
+      - tag: Search subagent
+        text: "`search_web`, `search_docs`, `search_db`"
+      - tag: Analysis subagent
+        text: "`analyze_text`, `extract_entities`, `summarize`"
+      - tag: Action subagent
+        text: "`send_email`, `create_ticket`, `update_record`"
+    note: The principle behind the number is one agent, one focused job.
+
+  - type: concept
+    ref: "2.3"
+    eyebrow: 2.3 · Beyond the exam guide
+    title: Tool search keeps a few tools in view while the catalog behind them grows.
+    points:
+      - "Tools marked `defer_loading: true` are still sent every request but stay out of the context window."
+      - Claude calls the search tool, and matches expand into full definitions inline, so prompt caching survives.
+      - "Never defer everything: at least one tool, normally the search tool, must stay loaded, or it's a 400."
+      - Leave the 3–5 most-used tools non-deferred so Claude calls them without a search round-trip.
+    note: "The exam's “4–5 tools” means tools in front of the model at decision time. Tool search keeps it there."
+
+  - type: table
+    ref: "2.3"
+    title: "`tool_choice` decides whether Claude may, must, or can't call a tool."
+    head: [Value, Behavior, Use it for]
+    rows:
+      - ['`"auto"` (default)', May call a tool or answer in text, General conversation with optional tool use]
+      - ['`"any"`', "Must call a tool, but chooses which", "Guaranteed structured output, e.g. picking among invoice, receipt and contract schemas"]
+      - ['`{"type": "tool", "name": …}`', Must call that exact tool, "Forcing a step first, e.g. `extract_metadata` before enrichment"]
+      - ['`"none"`', Text only; tool definitions stay in context, "A prose turn, e.g. a final summarization pass"]
+    note: "Some current models reject forced `any` and `tool` with a 400. Use `auto` plus an instruction naming the tool and `strict: true`, or structured outputs."
+
+  # ---- 2.4 MCP server configuration ----
+  - type: concept
+    ref: "2.4"
+    title: A host runs one MCP client per server, and servers supply the context.
+    diagram: mcp-architecture
+    points:
+      - "**Host**: the AI app, like Claude Code or an IDE, that coordinates MCP clients."
+      - "**Client**: lives in the host, with a 1:1 connection to one server."
+      - "**Server**: provides tools, resources and prompts."
+      - "**Resources** are read-only catalogs Claude can browse instead of blindly searching."
+    note: MCP is an open standard for connecting AI models to data and tools, over JSON-RPC 2.0.
+
+  - type: table
+    ref: "2.4"
+    title: Use stdio for local servers and Streamable HTTP for remote ones.
+    head: [Transport, "`type` in config", When to use]
+    rows:
+      - [stdio, '`"stdio"`, implied by `command`', "Local processes. No network overhead; most common for local tools"]
+      - [Streamable HTTP, '`"http"`', "Remote and cloud-hosted servers; supports OAuth"]
+      - [SSE (legacy), '`"sse"`', Services that still expose only an SSE endpoint]
+      - [WebSocket, '`"ws"`', "Remote servers that push events unprompted; header-only auth, no OAuth"]
+    highlight: [1, 2]
+    note: "Gotcha: an entry with a `url` but no `type` is read as stdio and skipped. Always set `type` on remote servers."
+
+  - type: table
+    ref: "2.4"
+    title: The scope decides where a server is stored and who gets it.
+    head: [Scope, Loads in, Shared?, Stored in]
+    rows:
+      - [Local (default), Current project only, "No", "`~/.claude.json`, keyed by project path"]
+      - [Project, Current project only, "Yes, via version control", "`.mcp.json` in the project root"]
+      - [User, All your projects, "No", "`~/.claude.json`"]
+      - [Managed (admin), Every session in the org, "Yes, pushed by IT", "`managedMcpServers` in managed settings"]
+    highlight: [2]
+    note: "Naming trap: MCP local scope lives in `~/.claude.json`, not `.claude/settings.local.json`. The two are unrelated."
+
+  - type: code
+    ref: "2.4"
+    title: "`.mcp.json` is committed, so secrets come in through `${VAR}` expansion."
+    lang: json
+    code: |
+      {
+        "mcpServers": {
+          "shared-api": {
+            "type": "http",
+            "url": "https://example.com/mcp",
+            "headers": { "Authorization": "Bearer ${API_TOKEN}" }
+          },
+          "postgres": {
+            "command": "npx",
+            "args": ["@modelcontextprotocol/server-postgres"],
+            "env": { "DATABASE_URL": "${DATABASE_URL}" }
+          }
+        }
+      }
+    notes:
+      - "`${VAR}` expands from the environment, so the secret is never in the file. `${VAR:-default}` covers unset ones."
+      - "`command` + `args` start a stdio server; remote entries set `type` and `url`."
+      - "Interactive sessions ask before using project servers; `claude -p` and Agent SDK runs load them without asking."
+      - "Remote auth: OAuth via `/mcp`, else a static token in `headers`, or `headersHelper` for short-lived ones."
+
+  # ---- 2.5 Built-in tools ----
+  - type: table
+    ref: "2.5"
+    title: Grep searches inside files, Glob finds files, Edit changes them in place.
+    head: [Tool, Purpose, When to use]
+    rows:
+      - [Grep, Search file contents for patterns, "Function definitions, error messages, imports, string patterns"]
+      - [Glob, Find files by name or extension, "`**/*.test.ts`, `src/**/config.*`"]
+      - [Read, Load full file contents, A specific file after Grep or Glob found it]
+      - [Write, Create new files, Files that don't exist yet]
+      - [Edit, Targeted changes by unique text matching, Specific sections of existing files]
+      - [Bash, Run terminal commands, "git, npm, scripts, system commands"]
+    note: "Also built in: Agent, Skill, WebSearch and WebFetch, AskUserQuestion, and ToolSearch for deferred tools."
+
+  - type: compare
+    ref: "2.5"
+    title: Explore from entry points outward, and fall back to Read + Write when Edit fails.
+    columns:
+      - tag: Exploring a codebase
+        title: Grep, read, follow, repeat
+        tone: moss
+        points:
+          - Grep for entry points like main functions, routes and exports.
+          - Read those files, then Grep for the modules they import.
+          - Build understanding iteratively.
+      - tag: Anti-pattern
+        title: Reading every file upfront
+        tone: rust
+        text: Wastes context and doesn't build understanding.
+      - tag: When Edit fails
+        title: Read it, then Write it whole
+        points:
+          - Edit matches a unique text string. If the text isn't unique, the edit fails.
+          - "Fallback: Read the full file, then Write the entire modified version."
+
+  # ---- 2.6 Anthropic-defined & server-side tools ----
+  - type: concept
+    ref: "2.6"
+    title: Server-side tools run on Anthropic's side, and their errors arrive as HTTP 200.
+    points:
+      - "Anthropic-defined tools are schema-less: declare a `type` and a `name`, and Claude knows the interface."
+      - Server-side tools such as web search and code execution return results as content blocks in the same response.
+      - A server-tool error returns 200 with an error object in the result block. Branch on its shape before indexing.
+      - "Your own tool named `bash` with an `input_schema` is a *different* tool from Anthropic's schema-less one."
+    note: "Web fetch only fetches URLs already in the conversation. `pause_turn` means a server tool loop hit its cap: send it back."
+
+  - type: rightwrong
+    ref: "2.6"
+    eyebrow: 2.6 · Parallel tool use
+    title: Parallel tool calls get all their results back in one message.
+    right:
+      title: Run them together, answer them together.
+      points:
+        - "Execute every `tool_use` block in the message concurrently."
+        - "Return all `tool_result` blocks in a single user message."
+        - "A tool that failed still gets its `tool_result`, with `is_error: true`."
+    wrong:
+      - title: Splitting results across messages
+        text: Silently teaches Claude to stop making parallel calls.
+      - title: Dropping a failed result
+        text: "Never drop it. Return the failure with `is_error: true`."
+
+  - type: quiz
+    why_not:
+      3:
+        letter: A
+        text: "`.mcp.json` lives in the project root and is version-controlled, so anything written in it gets committed."
+      5:
+        letter: B
+        text: "`any` is forced tool use too. The same models reject it with a 400, just like a named tool."
+
+  - type: cheatsheet
+    cells:
+      - ref: "2.1"
+        title: Tool design
+        text: "Descriptions are the selection criteria: purpose, input, output, edge cases, when to use vs similar. Overlap → rename or merge."
+      - ref: "2.2"
+        title: Errors
+        text: "Category + retryable. Transient → retry with backoff. Validation → fix input. Business → explain. Permission → escalate. Empty ≠ failed."
+      - ref: "2.3"
+        title: Distribution
+        text: "Four or five tools per agent; split the rest across subagents. `auto` may, `any` must, a named tool forces it, `none` is text only."
+      - ref: "2.4"
+        title: MCP architecture
+        text: "A host runs one client per server. stdio for local, Streamable HTTP for remote. A `url` always needs a `type`."
+      - ref: "2.4"
+        title: MCP config
+        text: "`.mcp.json` is project scope and committed, so secrets go in `${VAR}`. Local and user scope live in `~/.claude.json`."
+      - ref: "2.5"
+        title: Built-in tools
+        text: "Grep for contents, Glob for names. Explore from entry points, never read everything upfront. Edit fails on non-unique text → Read + Write."
+      - ref: "2.6"
+        title: API-side tools
+        text: "Schema-less: just `type` + `name`. Server-tool errors arrive inside a 200. Parallel results go back in one message."

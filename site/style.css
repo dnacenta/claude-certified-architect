@@ -329,6 +329,8 @@ a[aria-current="page"] .rd-badge { background: var(--accent); border-color: var(
 }
 .prose blockquote > :last-child { margin-bottom: 0; }
 .prose img { max-width: 100%; height: auto; }
+.prose figure.diagram { margin: 28px 0; }
+.prose figure.diagram img { display: block; width: 100%; height: auto; border-radius: 20px; border: 1px solid var(--border); }
 
 .prose pre.code {
   position: relative; margin: 24px 0; padding: 20px 22px; border-radius: 20px; overflow-x: auto;

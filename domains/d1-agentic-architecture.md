@@ -10,43 +10,10 @@ At its core, an agentic system is a loop. Claude receives a prompt with tools, d
 
 ### How the Loop Works
 
-```
-User sends prompt with tool definitions
-         ↓
-    Claude responds
-         ↓
-  Check stop_reason
-         ↓
-┌──────────────────────────────────────┐
-│ "tool_use"     → Execute tool        │
-│                 → Return tool_result │
-│                 → Send next request  │
-│                 → Loop continues     │
-│                                      │
-│ "end_turn"     → Claude is done      │
-│                 → Present final text │
-│                 → Loop ends          │
-│                                      │
-│ "stop_sequence"→ Custom stop matched │
-│                 → Loop ends          │
-│                                      │
-│ "pause_turn"   → Server-side tool    │
-│                  loop hit its cap    │
-│                 → Send response back │
-│                 → Loop continues     │
-│                                      │
-│ "max_tokens"   → Hit token limit     │
-│                 → May need continue  │
-│                                      │
-│ "refusal"      → Declined on safety  │
-│                 → Inspect stop_details│
-│                 → Loop ends           │
-│                                      │
-│ "model_context_window_exceeded"      │
-│                → Hit context window  │
-│                → Valid but truncated │
-└──────────────────────────────────────┘
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/diagrams/agentic-loop-dark.svg">
+  <img src="../docs/diagrams/agentic-loop-light.svg" alt="The agentic loop: send the prompt and tools, Claude responds, branch on stop_reason. tool_use runs the tool and loops; end_turn ends.">
+</picture>
 
 ### The `stop_reason` Values
 
@@ -211,19 +178,10 @@ Two independent questions separate the options: **who supplies the harness** (th
 
 The standard pattern for multi-agent systems is hub-and-spoke: one coordinator agent manages multiple specialized subagents.
 
-```
-                    ┌──────────────┐
-                    │  Coordinator │
-                    │    Agent     │
-                    └──────┬───────┘
-                           │
-            ┌──────────────┼──────────────┐
-            ↓              ↓              ↓
-     ┌──────────┐   ┌──────────┐   ┌──────────┐
-     │ Subagent │   │ Subagent │   │ Subagent │
-     │  Search  │   │ Analysis │   │ Synthesis│
-     └──────────┘   └──────────┘   └──────────┘
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/diagrams/hub-and-spoke-dark.svg">
+  <img src="../docs/diagrams/hub-and-spoke-light.svg" alt="Hub-and-spoke: one coordinator delegates to Search, Analysis and Synthesis subagents; subagents never talk to each other directly.">
+</picture>
 
 ### Coordinator Responsibilities
 
@@ -263,17 +221,10 @@ The fix: broader initial decomposition with explicit coverage checks.
 
 The coordinator evaluates synthesis output and identifies gaps:
 
-```
-Coordinator → Subagents (round 1)
-         ↓
-   Evaluate results
-         ↓
-   Identify gaps
-         ↓
-Coordinator → Subagents (round 2, targeted)
-         ↓
-   Final synthesis
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/diagrams/refinement-loop-dark.svg">
+  <img src="../docs/diagrams/refinement-loop-light.svg" alt="Iterative refinement: round 1, evaluate, identify gaps, a targeted round 2, then final synthesis.">
+</picture>
 
 ---
 
@@ -583,14 +534,10 @@ Each step's output feeds into the next. The sequence is predetermined.
 
 For open-ended investigation where subtasks emerge from discoveries:
 
-```
-Initial query: "Why is the app slow?"
-  → Profile CPU usage
-    → Discovery: database queries are the bottleneck
-      → Analyze query patterns
-        → Discovery: N+1 queries in the user listing endpoint
-          → Generate fix for specific queries
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/diagrams/adaptive-decomposition-dark.svg">
+  <img src="../docs/diagrams/adaptive-decomposition-light.svg" alt="Dynamic decomposition: from 'Why is the app slow?' each finding picks the next step, ending in a fix for the N+1 queries.">
+</picture>
 
 The subtasks are generated based on what each step reveals.
 

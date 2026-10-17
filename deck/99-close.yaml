@@ -1,0 +1,30 @@
+# Wrap-up — cross-domain reminders drawn from claude-certified-architect.md
+label: Wrap-up
+
+slides:
+  - type: cards
+    eyebrow: Before exam day
+    title: Every domain rewards the same instincts.
+    columns: 3
+    cards:
+      - tag: Mechanisms over words
+        title: Decide on signals, not prose
+        text: "Loops end on `stop_reason`. Critical rules live in hooks. Escalation follows an explicit request, not sentiment or self-reported confidence."
+      - tag: Visible failures
+        title: Errors carry structure
+        text: "Return the category, whether it's retryable, and partial results. Never generic, never silent, never empty results passed off as success."
+      - tag: Explicit context
+        title: Nothing is inherited
+        text: Subagent prompts carry everything explicitly. State that must persist goes in the memory tool or files, not the conversation.
+      - tag: Fresh eyes
+        title: Review outside the session
+        text: Same-session self-review keeps its reasoning bias. Use multi-pass review for large PRs and break accuracy down per document type.
+      - tag: Right-sized
+        title: Scale to the job
+        text: Plan mode for multi-file or architectural work, batch for latency-tolerant jobs, tool search once an agent passes about ten tools.
+      - tag: The exam itself
+        title: Prepare all six scenarios
+        text: Each exam draws 4 of 6 at random, and there is no penalty for guessing, so answer every question.
+        tone: gold
+
+  - type: closing

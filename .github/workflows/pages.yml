@@ -29,42 +29,12 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Build site
+      - name: Build site, deck and PDFs
         run: |
           npm ci
           npm run build
-
-      - name: Assemble combined markdown
-        run: |
-          refresh="$(grep -oP 'Last refresh: \K[^*]+' README.md || true)"
-          {
-            sed "s|{{last_refresh}}|${refresh}|" pdf/cover.html
-            echo
-            echo '<div class="page-break"></div>'
-            echo
-            cat claude-certified-architect.md
-            for f in $(ls domains/d*.md | sort); do
-              echo
-              echo '<div class="page-break"></div>'
-              echo
-              cat "$f"
-            done
-            for f in $(ls certs/*.md | sort); do
-              echo
-              echo '<div class="page-break"></div>'
-              echo
-              cat "$f"
-            done
-          } > combined.md
-
-      - name: Build PDF
-        run: |
-          npx --yes md-to-pdf combined.md \
-            --stylesheet pdf/print.css \
-            --document-title "Claude Certified Architect — Foundations" \
-            --launch-options '{"args":["--no-sandbox","--disable-setuid-sandbox"]}' \
-            --pdf-options '{"format":"A4","margin":{"top":"18mm","bottom":"18mm","left":"16mm","right":"16mm"},"printBackground":true}'
-          mv combined.pdf _site/guide_en.pdf
+          node scripts/build-deck.mjs --check --pdf
+          node scripts/build-pdf.mjs
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
