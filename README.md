@@ -1,10 +1,19 @@
-# Claude Certified Architect — Foundations Study Guide
+<p align="center">
+  <img src="docs/banner.svg" width="720" alt="claude-certified-architect: unofficial study guide for Claude Certified Architect — Foundations">
+</p>
 
-Unofficial study guide for the **Claude Certified Architect — Foundations** (CCAR-F) certification exam by Anthropic.
+<p align="center">
+  <a href="https://dnacenta.github.io/claude-certified-architect/"><img src="https://img.shields.io/badge/read-online-c9a554?labelColor=1a1a1a" alt="read online"></a>
+  <a href="https://dnacenta.github.io/claude-certified-architect/guide_en.pdf"><img src="https://img.shields.io/badge/download-PDF-5f875f?labelColor=1a1a1a" alt="download PDF"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/refreshed-weekly-bb7744?labelColor=1a1a1a" alt="refreshed weekly"></a>
+</p>
 
-This guide covers all 5 exam domains with detailed explanations, code examples, anti-patterns, decision frameworks, and practice questions.
+<p align="center">
+  Unofficial study guide for the <b>Claude Certified Architect — Foundations</b> (CCAR-F) exam by Anthropic.<br>
+  All five domains, with detailed explanations, code examples, anti-patterns, decision frameworks, and practice questions.
+</p>
 
-Read it online as a **website** at https://dnacenta.github.io/claude-certified-architect/ or download the **PDF (English)** at https://dnacenta.github.io/claude-certified-architect/guide_en.pdf. Both are built and deployed automatically from this repo's markdown on every push to `main` (see [`.github/workflows/pages.yml`](.github/workflows/pages.yml)), so the PDF never drifts from the guide.
+Read it online at https://dnacenta.github.io/claude-certified-architect/, where every domain is its own page and the practice answers stay folded until you've tried the question, or download the **PDF (English)** at https://dnacenta.github.io/claude-certified-architect/guide_en.pdf. Both are built and deployed automatically from this repo's markdown on every push to `main` (see [`.github/workflows/pages.yml`](.github/workflows/pages.yml)), so neither drifts from the guide.
 
 It is actively maintained and updated regularly to track changes to Anthropic's models, APIs, and Claude Code. **Last refresh: 14 October 2026** — see [CHANGELOG.md](CHANGELOG.md) for what changed and when.
 
@@ -81,7 +90,7 @@ I'm also building open-source tools around persistent agents, structured memory,
 
 - **[recall-echo](https://github.com/dnacenta/recall-echo)** — persistent, confidence-weighted memory for coding agents (MCP-friendly). Early but usable.
 - **[pulse-null](https://github.com/dnacenta/pulse-null)** — single-binary scaffold for longer-running AI pulses. Research prototype — expect bugs.
-- **[pulse-limits](https://github.com/pulse-null/pulse-limits)** — Claude, Codex and Grok plan limits as a retro patient monitor: macOS menu bar, Waybar, terminal. One Rust binary. `brew install pulse-null/tap/pulse-limits && pulse-limits install`. No account, no server — it reuses the logins your CLIs already keep.
+- **[pulse-limits](https://github.com/pulse-null/pulse-limits)** — Claude, Codex and Grok plan limits as a living monitor: macOS menu bar, Waybar, terminal. One Rust binary. `brew install pulse-null/tap/pulse-limits && pulse-limits install`. No account, no server — it reuses the logins your CLIs already keep.
 - **[pulse-null.com](https://pulse-null.com)** — overview of the work.
 
 Not affiliated with Anthropic or the Claude Certified Architect program. Solo project; stars and issues help.

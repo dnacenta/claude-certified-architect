@@ -26,15 +26,19 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
+          cache: npm
+
+      - name: Build site
+        run: |
+          npm ci
+          npm run build
 
       - name: Assemble combined markdown
         run: |
-          mkdir -p site
+          refresh="$(grep -oP 'Last refresh: \K[^*]+' README.md || true)"
           {
-            echo "# Claude Certified Architect — Foundations"
-            echo
-            echo "_Unofficial community study guide — https://github.com/dnacenta/claude-certified-architect_"
+            sed "s|{{last_refresh}}|${refresh}|" pdf/cover.html
             echo
             echo '<div class="page-break"></div>'
             echo
@@ -60,12 +64,12 @@ jobs:
             --document-title "Claude Certified Architect — Foundations" \
             --launch-options '{"args":["--no-sandbox","--disable-setuid-sandbox"]}' \
             --pdf-options '{"format":"A4","margin":{"top":"18mm","bottom":"18mm","left":"16mm","right":"16mm"},"printBackground":true}'
-          mv combined.pdf site/guide_en.pdf
+          mv combined.pdf _site/guide_en.pdf
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: site
+          path: _site
 
   deploy:
     needs: build

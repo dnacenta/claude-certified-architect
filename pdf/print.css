@@ -1,68 +1,108 @@
 /* Print stylesheet for the generated study-guide PDF.
-   Light, readable, ink-friendly — Nord accents on headings, code, and rules. */
+   Field Guide, light: white paper, warm ink, Bricolage Grotesque + JetBrains Mono, Miasma accents
+   darkened for print contrast. */
+
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap");
 
 :root {
-  --ink: #2e3440;
-  --muted: #4c566a;
-  --accent: #5e81ac;
-  --accent-soft: #81a1c1;
-  --rule: #d8dee9;
-  --code-bg: #eceff4;
-  --code-border: #d8dee9;
+  --ink: #1a1a1a;
+  --muted: #4a4840;
+  --subtle: #77735f;
+  --gold: #8a6a1c;
+  --rust: #9a5728;
+  --moss: #4b7350;
+  --olive: #5f6a35;
+  --rule: #e4dfcb;
+  --card: #f7f3e6;
 }
 
 body {
-  font-family: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  font-family: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
   font-size: 10.5pt;
   line-height: 1.55;
   color: var(--ink);
   max-width: 100%;
 }
 
-h1, h2, h3, h4 { color: var(--accent); line-height: 1.25; }
-h1 { font-size: 20pt; margin: 0 0 0.4em; border-bottom: 2px solid var(--accent); padding-bottom: 0.2em; }
-h2 { font-size: 15pt; margin: 1.4em 0 0.5em; color: var(--ink); border-bottom: 1px solid var(--rule); padding-bottom: 0.15em; }
-h3 { font-size: 12pt; margin: 1.1em 0 0.4em; color: var(--accent); }
-h4 { font-size: 11pt; margin: 1em 0 0.3em; color: var(--muted); }
+h1, h2, h3, h4 { color: var(--ink); line-height: 1.15; font-weight: 800; }
+h1 { font-size: 26pt; letter-spacing: -0.03em; margin: 0 0 0.6em; }
+h2 { font-size: 16pt; letter-spacing: -0.02em; margin: 1.6em 0 0.5em; }
+h2::before {
+  content: ""; display: block; width: 7pt; height: 7pt; margin-bottom: 7pt; border-radius: 50%;
+  background: #c9a554; box-shadow: 0 0 0 1.6pt #fff, 0 0 0 2.6pt var(--moss);
+}
+h3 { font-size: 12.5pt; font-weight: 700; margin: 1.2em 0 0.4em; }
+h4 {
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 8.5pt; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--olive); margin: 1.1em 0 0.3em;
+}
 
-p, li { color: var(--ink); }
-a { color: var(--accent); text-decoration: none; }
+p, li { color: var(--muted); }
+strong { color: var(--ink); font-weight: 700; }
+li::marker { color: var(--olive); }
+a { color: var(--rust); text-decoration: none; }
 
 code {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  background: var(--code-bg);
-  border: 1px solid var(--code-border);
+  background: var(--card);
+  border: 1px solid var(--rule);
   border-radius: 3px;
   padding: 0.05em 0.3em;
-  font-size: 0.9em;
-  color: #bf616a;
+  font-size: 0.86em;
+  color: var(--rust);
 }
 
 pre {
-  background: var(--code-bg);
-  border: 1px solid var(--code-border);
-  border-radius: 6px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
   padding: 0.9em 1em;
   overflow-x: auto;
-  font-size: 8.6pt;
-  line-height: 1.45;
+  font-size: 8.4pt;
+  line-height: 1.5;
   page-break-inside: avoid;
 }
-pre code { background: none; border: none; padding: 0; color: var(--ink); }
+pre code, pre code.hljs { background: none; border: none; padding: 0; color: var(--ink); }
+pre code .hljs-comment, pre code .hljs-quote { color: var(--subtle); font-style: italic; }
+pre code .hljs-keyword, pre code .hljs-built_in, pre code .hljs-type, pre code .hljs-selector-tag { color: var(--gold); }
+pre code .hljs-string, pre code .hljs-regexp { color: var(--moss); }
+pre code .hljs-number, pre code .hljs-literal, pre code .hljs-symbol, pre code .hljs-meta { color: var(--rust); }
+pre code .hljs-attr, pre code .hljs-attribute, pre code .hljs-property, pre code .hljs-variable, pre code .hljs-params { color: var(--olive); }
+pre code .hljs-title, pre code .hljs-name, pre code .hljs-section { color: var(--ink); font-weight: 700; }
 
 table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 9pt; page-break-inside: avoid; }
-th, td { border: 1px solid var(--rule); padding: 0.4em 0.6em; text-align: left; vertical-align: top; }
-th { background: var(--code-bg); color: var(--ink); }
+th, td { border-bottom: 1px solid var(--rule); padding: 0.45em 0.6em; text-align: left; vertical-align: top; }
+th {
+  background: var(--card); border-bottom: 1.5px solid var(--rule);
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 7.5pt; font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--subtle);
+}
+td { color: var(--muted); }
 
 blockquote {
-  border-left: 3px solid var(--accent-soft);
   margin: 1em 0;
-  padding: 0.3em 0 0.3em 1em;
+  padding: 0.7em 1em;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--card);
   color: var(--muted);
-  background: #f6f8fb;
 }
+blockquote > :first-child { margin-top: 0; }
+blockquote > :last-child { margin-bottom: 0; }
 
 hr { border: none; border-top: 1px solid var(--rule); margin: 1.5em 0; }
+
+/* Cover (pdf/cover.html) */
+.cover { padding-top: 46mm; }
+.cover-mark { display: block; width: 34mm; height: 34mm; margin-bottom: 10mm; }
+.cover-eyebrow {
+  margin: 0 0 6mm; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 9pt;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--subtle);
+}
+.cover-title { margin: 0; font-size: 46pt; line-height: 0.95; font-weight: 800; letter-spacing: -0.045em; color: var(--ink); }
+.cover-sub { margin: 3mm 0 0; font-size: 22pt; font-weight: 800; letter-spacing: -0.02em; color: var(--muted); }
+.cover-note { margin: 12mm 0 0; max-width: 120mm; font-size: 12pt; line-height: 1.45; color: var(--muted); }
+.cover-foot { margin: 40mm 0 0; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 8pt; color: var(--subtle); }
 
 /* page break inserted between concatenated files */
 .page-break { page-break-after: always; }
