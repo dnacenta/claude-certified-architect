@@ -36,7 +36,7 @@ about them.
 ```yaml
 label: Domain 1          # footer label
 domain: 1                # links divider, quiz and cheatsheet to domains/d1-*.md
-sections:                # optional: names that complete a slide's eyebrow from its ref
+sections:                # a short name for every ## N.M section of the domain file; completes a slide's eyebrow from its ref
   "1.1": The agentic loop
 slides:
   - type: concept
