@@ -39,7 +39,7 @@ Fable 5.1 also requires 30-day data retention (no zero-data-retention orgs unles
 >
 > **Program (Exam Guide v1.0, effective July 2026):** four credentials (CCAO-F, CCAR-F, CCAR-P, CCDV-F), proctored via Pearson VUE, registered through the Anthropic Partner Academy. $125 for CCAR-F, 12-month validity — superseding the launch-period "$99 / first 5,000 partner employees free" terms.
 >
-> Refresh history: [CHANGELOG.md](CHANGELOG.md).
+> **Refresh history:** [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
