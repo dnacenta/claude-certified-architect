@@ -588,11 +588,11 @@ A `refusal` arrives as HTTP 200 with `stop_reason: "refusal"` and a `stop_detail
 **Q7:** A custom harness keeps context small by deleting old tool results from the middle of the `messages` array before each request. It worked on Claude Opus 5. After moving to Claude Fable 5.1, requests start failing with a 400 that mentions thinking blocks. What is the correct fix?
 
 - A) Strip all `thinking` blocks from every request
-- B) Keep the history append-only and move the trimming to server-side context editing (`clear_tool_uses`) or compaction, which don't count as edits
+- B) Keep the history append-only and move the trimming to server-side context editing (`clear_tool_uses_20250919`) or compaction, which don't count as edits
 - C) Switch `thinking` to `{"type": "disabled"}`
-- D) Delete the tool results *and* the thinking blocks that follow them
+- D) Delete the tool results *and* the thinking block right after each one
 
-**Answer: B** — Fable 5.1's thinking blocks are valid only against the exact prefix that preceded them, so any client-side edit to earlier turns invalidates every later block. Server-side context editing and compaction are exempt because the check compares the conversation as you sent it. Stripping every thinking block always works but throws away the reasoning and restarts the prompt cache on every request; disabling thinking is a 400 on Fable 5.1 and Opus 5.5 (thinking is always on); deleting the tool results and the thinking blocks after them still edits the middle of the transcript.
+**Answer: B** — Fable 5.1's thinking blocks are valid only against the exact prefix that preceded them, so any client-side edit to earlier turns invalidates every later block. Server-side context editing and compaction are exempt because the check compares the conversation as you sent it. Stripping every thinking block always works but throws away the reasoning and restarts the prompt cache on every request; disabling thinking is a 400 on Fable 5.1 and Opus 5.5 (thinking is always on); deleting the tool results with only the thinking block right after each one still leaves the later thinking blocks behind an edited prefix, so the 400 stays.
 
 **Q8:** An application uses on-demand compaction. It puts the returned `compaction` block first in `messages`, but leaves the messages the block summarized in place after it. Requests keep returning 200. What is happening?
 
