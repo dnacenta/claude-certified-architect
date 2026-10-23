@@ -579,7 +579,7 @@ Rules of thumb: declare what you know up front (in `tools`, deferred if the mode
 **Q4:** A platform team aggregates six MCP servers, exposing about 200 tools. Tool definitions consume ~55k tokens before any work starts, and tool selection has become unreliable. What is the current recommended fix?
 
 - A) Raise `max_tokens` so there is room for the definitions
-- B) Enable the tool search tool and mark all but 3-5 frequently used tools `defer_loading: true`
+- B) Enable the tool search tool, keep it and the 3-5 most-used tools loaded, and mark the rest `defer_loading: true`
 - C) Set `tool_choice: "any"` so Claude is forced to commit to a tool
 - D) Set `defer_loading: true` on every tool including the search tool
 
