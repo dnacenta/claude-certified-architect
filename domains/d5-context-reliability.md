@@ -592,7 +592,7 @@ A `refusal` arrives as HTTP 200 with `stop_reason: "refusal"` and a `stop_detail
 - C) Switch `thinking` to `{"type": "disabled"}`
 - D) Delete the tool results *and* the thinking blocks that follow them
 
-**Answer: B** — Fable 5.1's thinking blocks are valid only against the exact prefix that preceded them, so any client-side edit to earlier turns invalidates every later block. Server-side context editing and compaction are exempt because the check compares the conversation as you sent it. A always works but throws away the reasoning and restarts the prompt cache on every request; C is a 400 on Fable 5.1 and Opus 5.5 (thinking is always on); D still edits the middle of the transcript.
+**Answer: B** — Fable 5.1's thinking blocks are valid only against the exact prefix that preceded them, so any client-side edit to earlier turns invalidates every later block. Server-side context editing and compaction are exempt because the check compares the conversation as you sent it. Stripping every thinking block always works but throws away the reasoning and restarts the prompt cache on every request; disabling thinking is a 400 on Fable 5.1 and Opus 5.5 (thinking is always on); deleting the tool results and the thinking blocks after them still edits the middle of the transcript.
 
 **Q8:** An application uses on-demand compaction. It puts the returned `compaction` block first in `messages`, but leaves the messages the block summarized in place after it. Requests keep returning 200. What is happening?
 
@@ -601,4 +601,4 @@ A `refusal` arrives as HTTP 200 with `stop_reason: "refusal"` and a `stop_detail
 - C) The API deduplicates the summarized messages against the block automatically
 - D) The block is dropped because its signature no longer matches the messages
 
-**Answer: B** — After the swap, the block stands in for the messages it summarized, and the API passes every message after it to Claude unchanged, so leaving them in place re-sends them with no error. `compaction_block_misplaced` (A) fires only when summarized messages remain *in front of* the block. Leaving the block out of a later request is the other silent mistake: Claude simply gets no summary. Signatures (D) are checked, but only against edits to the block itself.
+**Answer: B** — After the swap, the block stands in for the messages it summarized, and the API passes every message after it to Claude unchanged, so leaving them in place re-sends them with no error. `compaction_block_misplaced` fires only when summarized messages remain *in front of* the block. Leaving the block out of a later request is the other silent mistake: Claude simply gets no summary. Signatures are checked, but only against edits to the block itself.

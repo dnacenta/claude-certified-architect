@@ -583,7 +583,7 @@ Rules of thumb: declare what you know up front (in `tools`, deferred if the mode
 - C) Set `tool_choice: "any"` so Claude is forced to commit to a tool
 - D) Set `defer_loading: true` on every tool including the search tool
 
-**Answer: B** — Tool search keeps only a small hot set plus the search tool in context and loads the rest on demand via `tool_reference` blocks, cutting definition tokens by ~85% while preserving prompt caching. D is a 400 error: at least one tool must stay non-deferred. Splitting across subagents (§2.3) is still valid, but tool search is what makes a 200-tool catalog workable inside one agent.
+**Answer: B** — Tool search keeps only a small hot set plus the search tool in context and loads the rest on demand via `tool_reference` blocks, cutting definition tokens by ~85% while preserving prompt caching. Deferring every tool, the search tool included, is a 400 error: at least one tool must stay non-deferred. Splitting across subagents (§2.3) is still valid, but tool search is what makes a 200-tool catalog workable inside one agent.
 
 **Q5:** An extraction service forces its schema with `tool_choice: {"type": "tool", "name": "extract_invoice"}` and is being moved from Claude Opus 5 to Claude Fable 5.1. What happens, and what is the right fix?
 
