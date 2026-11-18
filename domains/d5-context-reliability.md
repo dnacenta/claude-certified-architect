@@ -88,7 +88,7 @@ Tool results can be verbose. A customer order lookup might return 40 fields when
 | Auto-memory (MEMORY.md) and the skill list (rebuilt from your current skills, v2.1.304+) | Exact quotes and numbers from early context |
 | The plan-mode plan, recently edited files (up to five), invoked skill bodies (capped) | Nested CLAUDE.md files and `paths:`-scoped rules — summarized away, reloaded only when Claude next touches a matching file |
 
-The nested-file row is the trap: an instruction that lives in `src/billing/CLAUDE.md` or a path-scoped rule is gone after `/compact` until Claude reads, writes, or edits a file there again. If a rule must survive compaction, put it in the project-root CLAUDE.md or drop its `paths:` frontmatter. Size is a second trap for these on-demand files: since v2.1.309 a nested CLAUDE.md or on-demand rules file over the per-file limit (40,000 characters on a 200k window, 150,000 on a 1M window for current models) loads only its start, with a note telling Claude to read the rest. Claude Code also compacts on its own: automatically near the limit, and — since v2.1.299 — when a 200k+ token conversation sits idle for about 54 minutes, just before its one-hour prompt cache would expire (`"idleCompaction": false`, or the `Idle compaction` row in `/config`, turns that off). Idle compaction started in the terminal and since v2.1.314 also runs in the VS Code chat panel and the desktop app's Code tab.
+The nested-file row is the trap: an instruction that lives in `src/billing/CLAUDE.md` or a path-scoped rule is gone after `/compact` until Claude reads, writes, or edits a file there again. If a rule must survive compaction, put it in the project-root CLAUDE.md or drop its `paths:` frontmatter. Size is a second trap for these on-demand files: since v2.1.309 a nested CLAUDE.md or on-demand rules file over the per-file limit (40,000 characters on a 200k window, 150,000 on a 1M window for current models) loads only its start, with a note telling Claude to read the rest. Claude Code also compacts on its own: automatically near the limit, and — since v2.1.299 — when an interactive conversation on the one-hour prompt cache (with auto-compaction on) has reached 200,000 tokens (`CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS`, at least 100,000) and about an hour has passed since its last request, before that cache expires (`"idleCompaction": false`, or the `Idle compaction` row in `/config`, turns that off). Idle compaction started in the terminal and since v2.1.314 also runs in the VS Code chat panel and the desktop app's Code tab.
 
 ---
 
@@ -386,7 +386,7 @@ When sources disagree, **annotate the conflict** rather than silently picking on
       "note": "Audited figures"
     }
   ],
-  "resolution": "SEC filing is the authoritative source (audited)",
+  "note": "Press release figure is preliminary; SEC filing figure is audited",
   "conflict_type": "minor_discrepancy"
 }
 ```
@@ -432,7 +432,7 @@ When producing research synthesis:
 
 ## 5.7 Server-Side Context Management
 
-Sections 5.1 and 5.4 cover context management as something *you* do — case-facts blocks, scratchpads, trimming, delegating to subagents. The API now offers three server-side mechanisms that do part of this work for you. They are complementary, not alternatives, and knowing which one solves which problem is the point.
+Sections 5.1 and 5.4 cover context management as something *you* do — case-facts blocks, scratchpads, trimming, delegating to subagents. The API now offers three mechanisms that do part of this work for you: context editing and compaction run on the server, while the memory tool runs client-side (Claude requests the file operations; your application performs them). They are complementary, not alternatives, and knowing which one solves which problem is the point.
 
 | Mechanism | What it does | Where state goes |
 |-----------|--------------|------------------|
@@ -464,7 +464,7 @@ client.beta.messages.create(
 ```
 
 - `clear_tool_uses_20250919` — clears old tool results (`clear_tool_inputs: true` also clears the parameters). Default trigger: 100,000 input tokens; default `keep`: 3.
-- `clear_thinking_20251015` — clears thinking blocks. When combining both, **`clear_thinking` must be listed first**.
+- `clear_thinking_20251015` — clears thinking blocks. When combining both, **`clear_thinking_20251015` must be listed first**.
 - `clear_at_least` exists to protect the prompt cache: clearing a trivial amount invalidates the cache for no benefit.
 - The response reports what happened in `context_management.applied_edits`.
 - On Fable 5.2, Fable 5.1, Opus 5.5, Sonnet 5.5, and Haiku 5.5, server-side context editing **never invalidates thinking blocks**; deleting the same tool results client-side would (see below).
@@ -514,8 +514,8 @@ Its role in this domain: it's the persistence layer that makes clearing safe. Co
 
 | Situation | Mechanism |
 |-----------|-----------|
-| Agentic loop with dozens of verbose tool results | Context editing (`clear_tool_uses`) |
-| Extended thinking plus a need to keep cache hits high | Context editing (`clear_thinking`) |
+| Agentic loop with dozens of verbose tool results | Context editing (`clear_tool_uses_20250919`) |
+| Extended thinking plus a need to keep cache hits high | Context editing (`clear_thinking_20251015`) |
 | Long research/analysis conversation that must keep its narrative | Compaction — on demand where available, threshold when the API should manage it inside ordinary requests |
 | Application must pick the moment, keep the last turns word for word, or keep working while the summary is written | Compaction on demand |
 | Findings that must survive across sessions, not just turns | Memory tool |
@@ -533,7 +533,7 @@ Managed Agents **session budgets** are a different thing: hard, dollar-denominat
 
 ### Refusals Are a Reliability Concern, Not Just a Safety One
 
-A `refusal` arrives as HTTP 200 with `stop_reason: "refusal"` and a `stop_details.category`. Code that reads `content` without checking `stop_reason` treats a refusal as a successful empty answer — the same class of bug as treating a failed search as zero results (§5.3). For production paths, enable server-side fallback (`betas=["server-side-fallback-2026-07-01"]`, `fallbacks="default"`) so the request is re-routed by category rather than dropped. See Domain 1 §1.1. Opus 5.5 widened the classifier set — a biology classifier joins the cybersecurity one, and prompts that push the model to reproduce its internal reasoning can be declined as `reasoning_extraction` — so refusals are now a first-class path on the default model, not just the flagship. Sonnet 5.5 and Haiku 5.5 ship classifiers too (Sonnet 5.5 can decline as `cyber`, `bio`, `frontier_llm`, `reasoning_extraction`, or `general_harms`), so every current model can refuse. Fable 5.2 runs classifiers covering the same `stop_details` categories as Fable 5.1; its permitted fallback targets are Opus 4.8 and Opus 5, and server-side fallback doesn't retry a request it declined as `reasoning_extraction`. Haiku 5.5 has **no server-side fallback and no fallback credit**, so route its refusals through the SDK middleware or your own retry, and expect that retry to pay full price to write the fallback model's cache. A Sonnet 5.5 request using `between_tools` that falls back to Sonnet 5 runs there with thinking disabled. Since 2026-09-24 a refusal before any output is **billed** when its category is `bio`, `frontier_llm`, or `reasoning_extraction`, and every refusal counts against rate limits, so budget for them. Mythos 5.1's safeguards depend on its Project Glasswing access program, so handle `refusal` there as well. And a fallback *from* Fable 5.2, Fable 5.1, Opus 5.5, or Sonnet 5.5 usually lands on a model that can't read their thinking blocks (nothing but Mythos 5.2 reads Fable 5.2's, so its fallback targets always start without that reasoning; Opus 5.5's are read only by Fable / Mythos 5.2 and 5.1, Sonnet 5.5's only by Opus 5.5 and Fable / Mythos 5.2), so budget for a re-planning turn — the API drops the unreadable blocks without billing them and the request still succeeds.
+A `refusal` arrives as HTTP 200 with `stop_reason: "refusal"` and a `stop_details.category`. Code that reads `content` without checking `stop_reason` treats a refusal as a successful empty answer — the same class of bug as treating a failed search as zero results (§5.3). For production paths, enable server-side fallback (`betas=["server-side-fallback-2026-07-01"]`, `fallbacks="default"`) so the request is re-routed by category rather than dropped. See Domain 1 §1.1. Re-sending a refused request to the same model usually earns another refusal, so point any manual retry at a fallback model — including for Message Batches, where `fallbacks` isn't supported and refused items have to be resubmitted. Opus 5.5 widened the classifier set — a biology classifier joins the cybersecurity one, and prompts that push the model to reproduce its internal reasoning can be declined as `reasoning_extraction` — so refusals are now a first-class path on the default model, not just the flagship. Sonnet 5.5 and Haiku 5.5 ship classifiers too (Sonnet 5.5 can decline as `cyber`, `bio`, `frontier_llm`, `reasoning_extraction`, or `general_harms`), so every current model can refuse. Fable 5.2 runs classifiers covering the same `stop_details` categories as Fable 5.1; its permitted fallback targets are Opus 4.8 and Opus 5, and server-side fallback doesn't retry a request it declined as `reasoning_extraction`. Haiku 5.5 has **no server-side fallback and no fallback credit**, so route its refusals through the SDK middleware or your own retry, and expect that retry to pay full price to write the fallback model's cache. A Sonnet 5.5 request using `between_tools` that falls back to Sonnet 5 runs there with thinking disabled. Since 2026-09-24 a refusal before any output is **billed** when its category is `bio`, `frontier_llm`, or `reasoning_extraction`, and every refusal counts against rate limits, so budget for them. Mythos 5.1's safeguards depend on its Project Glasswing access program, and the refusal docs cover Mythos 5.2 too, so handle `refusal` on both. And a fallback *from* Fable 5.2, Fable 5.1, Opus 5.5, or Sonnet 5.5 usually lands on a model that can't read their thinking blocks (nothing but Mythos 5.2 reads Fable 5.2's, so its fallback targets always start without that reasoning; Opus 5.5's are read only by Fable / Mythos 5.2 and 5.1, Sonnet 5.5's only by Opus 5.5 and Fable / Mythos 5.2), so budget for a re-planning turn — the API drops the unreadable blocks without billing them and the request still succeeds.
 
 ---
 

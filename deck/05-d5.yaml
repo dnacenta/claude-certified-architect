@@ -182,7 +182,7 @@ slides:
       points:
         - Every claim carries its evidence, source, document name, publication date and source type.
         - Conflicting values stay side by side, each with its source and a note.
-        - "State the resolution and why: an audited filing outranks preliminary figures."
+        - "Say why they differ, such as preliminary vs audited figures, and let the reader decide."
         - Label claims as well-established, contested or single-source.
     wrong:
       - title: Silently picking one value

@@ -56,7 +56,7 @@ slides:
     notes:
       - "`strict: true` guarantees Claude's tool inputs conform exactly to the schema."
       - "`additionalProperties: false` must be set."
-      - "Every property must be listed in `required`."
+      - "Properties left out of `required` stay optional, up to 24 per request."
       - Only a subset of JSON Schema is supported (Domain 4).
 
   - type: rightwrong
@@ -131,7 +131,7 @@ slides:
     columns: 4
     cards:
       - tag: Coordinator
-        text: "`Agent`, `AskUser`"
+        text: "`Agent`, `AskUserQuestion`"
         tone: gold
       - tag: Search subagent
         text: "`search_web`, `search_docs`, `search_db`"
@@ -157,10 +157,10 @@ slides:
     title: "`tool_choice` decides whether Claude may, must, or can't call a tool."
     head: [Value, Behavior, Use it for]
     rows:
-      - ['`"auto"` (default)', May call a tool or answer in text, General conversation with optional tool use]
-      - ['`"any"`', "Must call a tool, but chooses which", "Guaranteed structured output, e.g. picking among invoice, receipt and contract schemas"]
+      - ['`{"type": "auto"}` (default)', May call a tool or answer in text, General conversation with optional tool use]
+      - ['`{"type": "any"}`', "Must call a tool, but chooses which", "Guaranteed structured output, e.g. picking among invoice, receipt and contract schemas"]
       - ['`{"type": "tool", "name": …}`', Must call that exact tool, "Forcing a step first, e.g. `extract_metadata` before enrichment"]
-      - ['`"none"`', Text only; tool definitions stay in context, "A prose turn, e.g. a final summarization pass"]
+      - ['`{"type": "none"}`', Text only; tool definitions stay in context, "A prose turn, e.g. a final summarization pass"]
     note: "Some current models reject forced `any` and `tool` with a 400. Use `auto` plus an instruction naming the tool and `strict: true`, or structured outputs."
 
   # ---- 2.4 MCP server configuration ----
@@ -182,7 +182,7 @@ slides:
     rows:
       - [stdio, '`"stdio"`, implied by `command`', "Local processes. No network overhead; most common for local tools"]
       - [Streamable HTTP, '`"http"`', "Remote and cloud-hosted servers; supports OAuth"]
-      - [SSE (legacy), '`"sse"`', Services that still expose only an SSE endpoint]
+      - [SSE (legacy), '`"sse"`', "Deprecated; use HTTP where the service offers it"]
       - [WebSocket, '`"ws"`', "Remote servers that push events unprompted; header-only auth, no OAuth"]
     highlight: [1, 2]
     note: "Gotcha: an entry with a `url` but no `type` is read as stdio and skipped. Always set `type` on remote servers."
@@ -236,7 +236,7 @@ slides:
       - [Write, Create new files, Files that don't exist yet]
       - [Edit, Targeted changes by unique text matching, Specific sections of existing files]
       - [Bash, Run terminal commands, "git, npm, scripts, system commands"]
-    note: "Also built in: Agent, Skill, WebSearch and WebFetch, AskUserQuestion, and ToolSearch for deferred tools."
+    note: "Also built in: Agent, Skill, WebSearch, WebFetch, AskUserQuestion, ToolSearch. On macOS, Linux and WSL, Grep and Glob are off by default; Claude runs `grep` and `find` through Bash."
 
   - type: compare
     ref: "2.5"
@@ -254,10 +254,10 @@ slides:
         tone: rust
         text: Wastes context and doesn't build understanding.
       - tag: When Edit fails
-        title: Read it, then Write it whole
+        title: Pin the match, or rewrite
         points:
-          - Edit matches a unique text string. If the text isn't unique, the edit fails.
-          - "Fallback: Read the full file, then Write the entire modified version."
+          - "`old_string` must appear exactly once: add context to pin it, or set `replace_all: true`."
+          - "Neither fits? Read the full file, then Write the entire modified version."
 
   # ---- 2.6 Anthropic-defined & server-side tools ----
   - type: concept
@@ -265,7 +265,7 @@ slides:
     title: Server-side tools run on Anthropic's side, and their errors arrive as HTTP 200.
     points:
       - "Anthropic-defined tools are schema-less: declare a `type` and a `name`, and Claude knows the interface."
-      - Server-side tools such as web search and code execution return results as content blocks in the same response.
+      - Server-side tools such as web search return results in the same response, unless Claude also called one of your tools.
       - A server-tool error returns 200 with an error object in the result block. Branch on its shape before indexing.
       - "Your own tool named `bash` with an `input_schema` is a *different* tool from Anthropic's schema-less one."
     note: "Web fetch only fetches URLs already in the conversation. `pause_turn` means a server tool loop hit its cap: send it back."
@@ -275,9 +275,9 @@ slides:
     eyebrow: 2.6 · Parallel tool use
     title: Parallel tool calls get all their results back in one message.
     right:
-      title: Run them together, answer them together.
+      title: Run them all, answer them together.
       points:
-        - "Execute every `tool_use` block in the message concurrently."
+        - "Run every `tool_use` block, concurrently or in order, as your tools allow."
         - "Return all `tool_result` blocks in a single user message."
         - "A tool that failed still gets its `tool_result`, with `is_error: true`."
     wrong:
@@ -314,7 +314,7 @@ slides:
         text: "`.mcp.json` is project scope and committed, so secrets go in `${VAR}`. Local and user scope live in `~/.claude.json`."
       - ref: "2.5"
         title: Built-in tools
-        text: "Grep for contents, Glob for names. Explore from entry points, never read everything upfront. Edit fails on non-unique text → Read + Write."
+        text: "Grep for contents, Glob for names. Explore from entry points, never read everything upfront. Non-unique Edit match → more context or `replace_all`, else Read + Write."
       - ref: "2.6"
         title: API-side tools
         text: "Schema-less: just `type` + `name`. Server-tool errors arrive inside a 200. Parallel results go back in one message."

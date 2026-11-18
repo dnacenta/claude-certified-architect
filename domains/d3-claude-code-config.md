@@ -36,7 +36,7 @@ Three distinct mechanisms — the exam-relevant distinction is *where they run*:
 
 | Mechanism | Runs | Use for |
 |-----------|------|---------|
-| **Routines** (`/schedule`, web, or desktop) | In the cloud — keeps running with your machine off; can also trigger on API calls or GitHub events | Morning PR reviews, overnight CI failure analysis, weekly dependency audits |
+| **Cloud scheduled tasks** (formerly routines; `/schedule`, claude.ai/code/routines, or the desktop app) | In the cloud — keeps running with your machine off, and each run starts from a fresh clone of its repositories, without your local files; can also trigger on API calls or GitHub events | Morning PR reviews, overnight CI failure analysis, weekly dependency audits |
 | **Desktop scheduled tasks** | On your machine, with local file and tool access | Anything that needs the local filesystem or private network |
 | **`/loop`** | Inside the current CLI session | Quick polling within one sitting — omit the interval and Claude self-paces between iterations |
 
@@ -144,7 +144,7 @@ Claude Code maintains automatic memory at:
 
 > **Major change (2026):** Custom slash commands have been **merged into skills**. A file at `.claude/commands/deploy.md` and a skill at `.claude/skills/deploy/SKILL.md` both create `/deploy` and behave the same way. The old `/project:name` and `/user:name` namespacing is gone — commands are just `/name`, and higher-priority locations win when names collide.
 
-### Skill Locations (Priority: Enterprise > Personal > Project > Plugin)
+### Skill Locations (Priority: Enterprise > Personal > Project; Plugin Skills Are Namespaced)
 
 | Location | Path | Applies to |
 |----------|------|------------|
@@ -162,7 +162,7 @@ Legacy `.claude/commands/*.md` still works and supports the same frontmatter —
 name: deploy
 description: Deploy the application to a specified environment
 context: fork
-agent: Explore
+agent: general-purpose
 allowed-tools: Bash(git *) Bash(npm run deploy *)
 argument-hint: [environment]
 disable-model-invocation: true
@@ -194,7 +194,7 @@ Deploy the application to $ARGUMENTS.
 | `effort` | `low` / `medium` / `high` / `xhigh` / `max` — effort-level override |
 | `context` | `fork` runs the skill in an isolated subagent |
 | `agent` | Which subagent type executes when `context: fork` (e.g. `Explore`, `Plan`, `general-purpose`) |
-| `hooks` | Hooks scoped to this skill's lifecycle |
+| `hooks` | Hooks registered when the skill is invoked; they run for the rest of the session (`once: true` removes one after its first successful run) |
 | `paths` | Glob patterns — auto-load only when working with matching files |
 | `shell` | `bash` (default) or `powershell` for inline command injection |
 
@@ -236,7 +236,7 @@ Summarize this pull request...
 
 - Spawns the skill as a subagent with its own context
 - The `agent:` field picks the execution environment (built-in `Explore`, `Plan`, `general-purpose`, or a custom `.claude/agents/*` subagent)
-- CLAUDE.md still loads; main conversation history does not
+- Main conversation history never loads; CLAUDE.md loads only if the chosen agent loads it at startup — Explore and Plan don't, so a skill forked onto them starts with its own content and none of your CLAUDE.md files
 - Useful for noisy operations (deep research, deployments) that would pollute the main context
 
 ### Skill Lifecycle and Compaction
@@ -258,7 +258,7 @@ Claude Code ships with a set of bundled skills that varies by release. Recent ve
 - `/verify` — Build and run the app to confirm a change does what it should, rather than trusting tests or type checks; runs only when invoked, and records its recipe as a project skill at `.claude/skills/verify/`
 - `/run-skill-generator` — Record how to build and launch the project as a per-project skill that `/run` and `/verify` then follow
 - `/loop` — Run a prompt or slash command on a recurring interval
-- `/schedule` — Create and manage cloud routines
+- `/schedule` — Create and manage cloud scheduled tasks (formerly routines; `/routines` is an alias)
 - `/deep-research` — A bundled dynamic *workflow*: fan out web searches, cross-check sources, synthesize a cited report
 - `/workflows` / `/workflow-authoring` — Watch running workflows; load the script-writing reference (when dynamic workflows are enabled)
 - `/advisor` — Consult a second model (`fable`, `opus`, `sonnet`) at key moments of a task
@@ -278,7 +278,7 @@ Check `/help` in your installed version (or the commands page in the docs) for t
 
 ### Plugins
 
-A **plugin** is a distributable bundle — skills and commands, subagents, hooks, MCP and LSP servers, monitors, output styles and themes, default settings, and (since v2.1.287) **mods** — installed from a marketplace and enabled per project. Plugin-provided items are namespaced (`plugin-name:skill-name` for skills, `plugin:<plugin>:<server>` for MCP servers) so they can't collide with your own. Plugins sit at the lowest priority in the skill resolution order (Enterprise > Personal > Project > Plugin).
+A **plugin** is a distributable bundle — skills and commands, subagents, hooks, MCP and LSP servers, monitors, output styles and themes, default settings, and (since v2.1.287) **mods** — installed from a marketplace and enabled per project. Plugin-provided items are namespaced (`plugin-name:skill-name` for skills, `plugin:<plugin>:<server>` for MCP servers) so they can't collide with your own: a plugin skill and a same-named enterprise, personal, or project skill both load, outside the Enterprise > Personal > Project resolution order.
 
 Plugins are also the unit that `claude plugin eval` tests: you write an eval suite against the plugin's skills and run it in a sandbox or in CI, and it emits a JSON report. That is the packaging answer to "how does a team ship and regression-test its Claude Code conventions?"
 
@@ -334,6 +334,8 @@ paths:
 - Each test file must have a describe block matching the component/function name
 ```
 
+Each pattern is relative to the rule's base directory — for a project rule, the directory that contains its `.claude` folder; for a user-level rule, the session's primary working directory. A pattern that names a folder matches only files directly in it: `src/components/*.tsx` matches `.tsx` files in `src/components/` but not in its subfolders, while `**/*.ts` and `*.md` match files anywhere under the base directory (`/*.md` only directly in it).
+
 ### When Path-Specific Rules Beat Directory CLAUDE.md
 
 **Scenario:** Testing conventions that apply to test files scattered throughout the entire codebase.
@@ -381,7 +383,7 @@ Plan mode is now one entry in a broader permission-mode system. Start in a speci
 | `plan` | Exploration-only: Claude designs an approach and presents it before touching files |
 | `auto` | A classifier decides per-tool whether to prompt — see `claude auto-mode defaults`. Since v2.1.278–282 the classifier runs **server-side by default** on the Claude API, Bedrock, Vertex, Foundry, and gateways (no classifier overhead billed; `CLAUDE_CODE_AUTO_MODE_SERVER=0` opts out; `/status` shows which is active), and read-only or sandboxed commands also wait for its review |
 | `dontAsk` | Only file reads inside the working directories and pre-approved tools run; anything that would prompt is **denied** — locked-down CI with an exact `--allowedTools` list |
-| `bypassPermissions` | Skip all prompts (dangerous; use only for short, contained tasks) |
+| `bypassPermissions` | Skip permission prompts and safety checks (dangerous; isolated containers and VMs only) |
 
 ### When to Use Plan Mode
 
@@ -464,7 +466,7 @@ Execute SELECT queries only. Never issue writes.
 
 **Three ways to invoke:** name it in natural language ("use the db-reader to…"), `@`-mention it to guarantee that specific agent runs, or start a whole session as it with `claude --agent db-reader`. Since v2.1.292 Claude can also pass a per-invocation `effort` to a non-fork subagent; it overrides the frontmatter `effort` and survives a resume, and `CLAUDE_CODE_EFFORT_LEVEL` still beats both. With no `effort` of its own, a subagent on the main conversation's model runs at the session's level; on a different model that level doesn't apply — since v2.1.317 it uses that model's saved level or its default.
 
-**What a fresh subagent loads:** its own system prompt, the delegation prompt, the CLAUDE.md hierarchy (unless `omitClaudeMd: true`), a git status snapshot, preloaded skills, and environment details. **What stays out:** your conversation history, the main session's auto memory, and other subagents' results — which is exactly the "context does not inherit" rule from Domain 1 §1.3.
+**What a fresh subagent loads:** its own system prompt, the delegation prompt, the CLAUDE.md hierarchy (unless `omitClaudeMd: true`), a git status snapshot, preloaded skills, and environment details. **What stays out:** your conversation history, the main session's auto memory, and other subagents' results — which is exactly the "context does not inherit" rule from Domain 1 §1.3. Explore and Plan skip the CLAUDE.md hierarchy and git status (a subdirectory's CLAUDE.md or matching path rule still loads when they work with files there), so a rule they must follow, such as ignoring `vendor/`, has to be restated in the delegation prompt.
 
 **Constraints worth remembering:** permission modes flow *down* — if the parent runs `bypassPermissions`, `acceptEdits`, or `auto`, the subagent inherits it and cannot override. Subagents nest 3 deep by default and 20 can run concurrently. Completed subagents can be resumed by ID or name via `SendMessage`, retaining their prior context; one-shot agents (Explore, Plan) cannot be resumed.
 
@@ -529,7 +531,7 @@ Write tests first, then iterate by sharing test failures:
 
 ### 3. Interview Pattern
 
-Claude asks clarifying questions before implementing:
+Claude asks clarifying questions before implementing. Use it when you don't know exactly what you want yet: ask Claude to interview you, and it asks about the parts you haven't pinned down until the answers add up to a spec. Then build from that spec, ideally in a fresh session.
 
 ```
 User: "Add authentication to the app"
@@ -565,24 +567,24 @@ Fix both together."
 | `--output-format` | `text`, `json`, or `stream-json` for machine-parseable output | Needed for downstream processing |
 | `--input-format stream-json` | Stream input events back into the agent | For pipeline composition |
 | `--json-schema '{...}'` | Validate final output against a JSON Schema (print mode only) | Enforces CI output shape |
-| `--max-turns N` | Hard cap on agentic turns; exits with error if hit | Guardrail |
-| `--max-budget-usd X` | Stop once API spend hits $X (print mode only) | Cost guardrail |
+| `--max-turns N` | Limit the number of agentic turns (print mode only; no limit by default) | Guardrail |
+| `--max-budget-usd X` | Stop once estimated API spend reaches $X (print mode only) | Cost guardrail |
 | `--bare` | Skip auto-discovery (hooks, skills, custom commands, subagents, plugins, MCP, auto memory, CLAUDE.md) — fast, reproducible scripted starts. Since v2.1.286 it also connects only MCP servers given on the command line, sends no system reminders, and runs no background tasks; it never reads OAuth or the keychain, so set `ANTHROPIC_API_KEY`. Recommended for scripts and slated to become the `-p` default | Low-overhead scripted calls |
 | `--no-session-persistence` | Don't save the session to disk | Ephemeral CI runs |
-| `--fallback-model sonnet` | Auto-fall back when the primary model is overloaded | Reliability |
+| `--fallback-model sonnet,haiku` | Fall back to the listed model(s), tried in order, when the primary model is overloaded or not available | Reliability |
 | `--include-hook-events` | Emit all hook lifecycle events into the stream | Observability |
 | `--include-partial-messages` | Emit partial streaming events | Debugging |
 | `--permission-mode <mode>` | Start in `default` / `acceptEdits` / `plan` / `auto` / `dontAsk` / `bypassPermissions` | See §3.4 |
 | `--permission-prompt-tool <mcp>` | Delegate permission prompts to an MCP tool in headless mode | Non-interactive approvals |
 | `--permission-prompts none` | Deny anything that would prompt when nobody can answer (v2.1.259+); the active mode still decides everything else | Unattended runners |
 | `--restricted` | Remove command/code-running tools and `WebFetch`, confine file tools to the working directories, load only managed settings, refuse `bypassPermissions` (v2.1.248+) | Eval harnesses on shared machines |
-| `--safe-mode` | Start with every customization disabled (CLAUDE.md, skills, hooks, MCP, plugins, workflows, auto memory) — unlike `--bare`, permissions still apply | Troubleshooting a broken config |
+| `--safe-mode` | Start with every customization disabled (CLAUDE.md, skills, hooks, MCP, plugins, workflows, auto memory) — unlike `--bare`, authentication, model selection, built-in tools, and permissions work normally | Troubleshooting a broken config |
 | `--session-id`, `--resume`, `--continue`, `--fork-session` | Session lifecycle control | Multi-step pipelines |
 | `--setting-sources user,project,local` | Restrict which settings layers are loaded | Reproducible runs |
 | `--effort <level>` | `low` / `medium` / `high` / `xhigh` / `max`; `ultracode` turns the ultracode toggle on and sets `xhigh` | Tune cost vs quality per run |
 | `--agent <name>` / `--agents '<json>'` | Run the session as a named subagent, or define subagents inline | Specialized CI jobs |
 | `--append-subagent-system-prompt` / `-file` | Append text (or a file, v2.1.261+) to every subagent's prompt except forks (non-interactive only) | Consistent citation/format rules |
-| `--forward-subagent-text` | Emit subagent messages into the stream | Observability across delegated work |
+| `--forward-subagent-text` | Emit subagent text and thinking blocks into the stream (requires `-p` and `--output-format stream-json`) | Observability across delegated work |
 | `--system-prompt` / `--system-prompt-file` / `--append-system-prompt` | Replace or extend the system prompt (use the `-file` forms for large prompts — self-hosted runners now pass prompts as files; since v2.1.283 a flag can be combined with its own `-file` form; `--system-prompt-snapshot off` re-renders it every request while you iterate on the text) | Purpose-built CI personas |
 | `--exclude-dynamic-system-prompt-sections` | Move per-machine sections out of the system prompt | Prompt-cache reuse across runners |
 | `--strict-mcp-config` | Use only the servers from `--mcp-config` | Hermetic MCP surface |
@@ -613,7 +615,7 @@ You don't always wire the CLI up by hand:
 | **GitHub Actions** | Run Claude Code in a workflow — PR review, issue triage, `@claude` mentions |
 | **GitLab CI/CD** | Same model on GitLab pipelines |
 | **GitHub Code Review** | Automatic review on every PR, no workflow file to maintain |
-| **Routines** | Cloud-scheduled runs that can also fire on GitHub events or API calls |
+| **Cloud scheduled tasks** (formerly routines) | Cloud-scheduled runs that can also fire on GitHub events or API calls |
 
 The `-p` + `--output-format json` pattern below is still the right primitive when you need full control; these integrations are the managed path.
 
@@ -648,7 +650,7 @@ For non-blocking, cost-optimized batch operations:
 | Cost savings | 50% compared to synchronous API |
 | Processing window | Up to 24 hours, no latency SLA |
 | Correlation | `custom_id` per request for matching responses — results arrive in **any order**, so key by `custom_id`, never by position |
-| Multi-turn | NOT supported within a single batch request |
+| Multi-turn | A request can carry a multi-turn conversation (and tools), but each request gets exactly one response — no tool loop runs inside it |
 | Extended output | Up to 300k output tokens on Opus 5.5 / 5 / 4.8 / 4.7 / 4.6, Sonnet 5.5 / 5 / 4.6, and Haiku 5.5 (not Fable 5.2 / 5.1) with beta header `output-300k-2026-03-24` (vs 128k synchronous) |
 
 **Good for:**
@@ -667,7 +669,7 @@ For non-blocking, cost-optimized batch operations:
 ```python
 # Process batch results
 for result in batch_results:
-    if result.status == "failed":
+    if result.result.type in ("errored", "expired"):
         failed_ids.append(result.custom_id)
 
 # Resubmit only failures

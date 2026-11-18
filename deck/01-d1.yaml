@@ -80,7 +80,7 @@ slides:
     diagram: hub-and-spoke
     points:
       - "The coordinator **decomposes** the task and **delegates** subtasks to specialized subagents."
-      - "It **routes** all inter-subagent communication. Subagents never talk directly."
+      - "It **routes** all inter-subagent communication. By design, subagents never talk directly."
       - "It **aggregates** results, handles subagent failures and re-delegates when gaps exist."
       - Not every query needs every subagent. Invoke only the relevant ones.
 
@@ -140,8 +140,8 @@ slides:
                      "subagent_type": "analysis" } }
       ] }
     notes:
-      - "Both calls in a **single** coordinator response run in parallel. Separate turns run sequentially."
-      - "The coordinator needs `Agent` in its allowed tools. `Agent(worker, researcher)` narrows the types."
+      - "Foreground calls in a **single** coordinator response run in parallel. In separate turns, one after another."
+      - "`Agent` is available by default. `Agent(worker, researcher)` in a main-thread agent's `tools` narrows the types."
       - "Older material, including the exam guide, calls it the **Task** tool. Same mechanism."
 
   - type: compare
@@ -177,7 +177,7 @@ slides:
         tone: moss
         title: Programmatic
         points:
-          - Hooks and prerequisites, enforced every time.
+          - Hooks and prerequisites, enforced every time when the hook fails closed.
           - Required when there are financial or safety consequences.
           - "A PreToolUse hook on `process_refund` blocks with exit code 2 until `get_customer` returns a verified ID."
 
@@ -204,7 +204,7 @@ slides:
       - tag: After it fails
         title: "`PostToolUseFailure`"
         text: "Fires instead of PostToolUse when the tool itself errored. Handle retries and diagnostics here."
-    note: "Hooks live in user, project, local or managed settings, and can be scoped to a skill or a subagent."
+    note: "Hooks live in user, project, local or managed settings, a skill (for the rest of the session once invoked) or a subagent (while it runs)."
 
   - type: code
     ref: "1.5"
@@ -271,10 +271,10 @@ slides:
       - tag: Fresh + summary
         title: Start fresh
         points:
-          - "Tool results are stale: files changed, services restarted."
+          - "Tool results are broadly stale: many files changed, services restarted."
           - Context has drifted too far from the current task.
           - Pass a structured summary of prior findings instead.
-    note: "Resuming after edits? Say what changed, such as *I've updated auth.py to use JWT tokens*. It won't notice on its own."
+    note: "Resuming after a few known edits? Say what changed, such as *I've updated auth.py to use JWT tokens*. It won't notice on its own."
 
   - type: quiz
 
