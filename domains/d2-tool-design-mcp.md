@@ -199,7 +199,7 @@ How it works:
 | Cache | A tool with `defer_loading: true` can't also carry `cache_control` — 400. Put the breakpoint on a non-deferred tool |
 | Composability | Works with `strict: true`; the grammar builds from the full toolset |
 | MCP | Don't set `defer_loading` per tool — set it on the `mcp_toolset` entry's `default_config` |
-| Models | Both variants on every current model (Fable 5.1, Opus 5.5, Sonnet 5.5, Haiku 5.5) and back to Opus 4.5 / Sonnet 4.5 / Haiku 4.5; not on Opus 4.1 or earlier |
+| Models | Both variants on every current model (Fable 5.2, Opus 5.5, Sonnet 5.5, Haiku 5.5) and back to Opus 4.5 / Sonnet 4.5 / Haiku 4.5; not on Opus 4.1 or earlier |
 
 **When to use it:** 10+ tools, tool definitions over 10k tokens, accuracy dropping as the toolset grows, or aggregating multiple MCP servers. **When not to:** fewer than 10 tools, every tool used every request, or definitions totalling under ~100 tokens.
 
@@ -218,10 +218,12 @@ Controls how Claude interacts with tools:
 
 Any `tool_choice` value can also carry `"disable_parallel_tool_use": true` to cap Claude at a single tool call per response (by default it may emit several `tool_use` blocks at once).
 
-> **Fable 5.1 / Mythos 5.1 (since 2026-09-01), Opus 5.5 (since 2026-09-22), and Sonnet 5.5 (since 2026-09-28): forced tool use is gone.** `{"type": "any"}` and `{"type": "tool", "name": ...}` return `400 invalid_request_error` (`tool_choice: type "tool" and "any" are not supported for this model`) — on `count_tokens` and in the Batches API too. `auto` and `none` still work, and `disable_parallel_tool_use` still works with `auto`. The replacements, in order of preference:
+> **Fable 5.2 / Mythos 5.2 (released 2026-11-09), Opus 5.5 (since 2026-09-22), Sonnet 5.5 (since 2026-09-28), and the now-legacy Fable 5.1 / Mythos 5.1 (since 2026-09-01): forced tool use is gone.** `{"type": "any"}` and `{"type": "tool", "name": ...}` return `400 invalid_request_error` (`tool_choice: type "tool" and "any" are not supported for this model`) — on `count_tokens` and in the Batches API too. `auto` and `none` still work, and `disable_parallel_tool_use` still works with `auto`. The replacements, in order of preference:
 >
 > 1. `tool_choice: {"type": "auto"}` plus an explicit instruction naming the tool (in the `user` turn, or in a mid-conversation `role: "system"` message when the app requires the call), with `strict: true` on the tool so the arguments still match your schema.
 > 2. Structured outputs (`output_config.format`, Domain 4 §4.3) when the forced call only existed to get JSON back.
+>
+> One gap in both replacements: in an organization with customer-managed encryption keys, Fable 5.2 / Mythos 5.2 offer neither strict tool use nor JSON outputs — leave out `strict` there and validate the tool input in your own code.
 >
 > **Haiku 5.5 is now the only current model that accepts forced `tool_choice`** — but a forced call skips thinking: the response starts with the tool call and carries no `thinking` block, so use `auto` plus an instruction when you want it to reason before calling. Sonnet 5, Opus 5 (both legacy), and the 4.x family also keep all four values, so the exam's "`any` guarantees a tool call" answer is still correct as a concept — but it now holds on only one of the four current models. Check `client.models.retrieve(id).capabilities` before assuming.
 
@@ -237,7 +239,7 @@ Any `tool_choice` value can also carry `"disable_parallel_tool_use": true` to ca
 
 ```python
 # Force Claude to call a specific tool (Haiku 5.5, and legacy Sonnet 5 / Opus 5 / 4.x —
-# 400 on Fable 5.1, Opus 5.5, and Sonnet 5.5)
+# 400 on Fable 5.2, Opus 5.5, and Sonnet 5.5)
 response = client.messages.create(
     model="claude-haiku-5-5",
     messages=[...],
@@ -296,7 +298,11 @@ The **2026-07-28** revision makes MCP **stateless**, and the handshake above is 
 
 The same revision **deprecates Roots, Sampling, and Logging** (they keep working through a deprecation window of at least twelve months, but new implementations shouldn't adopt them: pass directories via tool parameters, resource URIs, or server configuration instead of Roots; call an LLM provider's API directly instead of Sampling; log to `stderr` or OpenTelemetry instead of Logging), reclassifies the legacy HTTP+SSE transport as Deprecated, and deprecates OAuth Dynamic Client Registration in favor of Client ID Metadata Documents. URL-mode elicitation — a server asking the client to open a browser-based flow instead of a form — dates from **2025-11-25**; 2026-07-28 only removed its `notifications/elicitation/complete` / `elicitationId` plumbing, since elicitation now rides on Multi Round-Trip Requests.
 
+2026-07-28 is still the current revision. Under the release cycle adopted in October 2026 (SEP-3398), specification releases come every six months — generally the last Tuesday of March and September — and the next one is targeted for late March 2027. Optional capabilities ship as **extensions** with a lifecycle of their own (SEP-3392): an extension starts as Experimental, may advance to Beta, and then either becomes Stable as an extension or is promoted into the core specification. MCP Apps, OAuth Client Credentials, and Enterprise-Managed Authorization are Stable; MCP Tasks is Beta and headed for core; Server Cards and Skills over MCP are Beta.
+
 Claude Code asks HTTP, stdio (every install since v2.1.292), claude.ai connector (v2.1.295), and cloud / Remote Control connector (v2.1.299) servers whether they speak 2026-07-28, uses it with those that do, and connects to the rest on the classic handshake; `MCP_PROTOCOL_NEGOTIATION=legacy` keeps every server on the handshake. It supports URL-mode elicitation on 2026-07-28 connections (v2.1.281) and on 2025-11-25 servers (v2.1.287 — a server that stops connecting after that can set `"bareElicitationCapability": true` in its entry).
+
+**MCP tasks** (public beta in the Claude Code CLI): on a 2026-07-28 connection, a server can answer a long-running tool call — a report export, a build — with a task from the MCP Tasks extension. The call returns as soon as the server accepts the job, Claude keeps working, and it gets the result when the job ends; `CLAUDE_CODE_DISABLE_MCP_TASK_BACKGROUND=1` makes Claude wait instead. `MCP_PROTOCOL_NEGOTIATION=legacy` rules tasks out, and a one-shot `claude -p "<prompt>"` run doesn't get them.
 
 ### Server Primitives
 
@@ -342,6 +348,10 @@ claude mcp add airtable --env AIRTABLE_API_KEY=YOUR_KEY -- npx -y @example/mcp-s
 
 # Paste a config block written for another MCP client
 claude mcp add-json example '{"type":"http","url":"https://mcp.example.com/mcp"}'
+
+# Same, reading the JSON from stdin so a token stays off the command line (v2.1.327+;
+# not available inside a Claude Code session)
+claude mcp add-json example - < server.json
 ```
 
 ### Project-Level Configuration (`.mcp.json`)
@@ -486,12 +496,12 @@ Not every tool is one you write. Some are **Anthropic-defined** (schema-less: yo
 Details worth carrying into an exam or a design review:
 
 - **Version the type string.** `web_search_20260209` / `web_fetch_20260209` add dynamic filtering and need Opus 4.6+ / Sonnet 4.6+; older models use the basic `web_search_20250305` / `web_fetch_20250910`. Don't also declare `code_execution` alongside the `_20260209` variants — they run code under the hood, and a second execution environment confuses the model.
-- **Web fetch only fetches URLs already present in the conversation.** It is not a crawler.
+- **Web fetch only fetches URLs already present in the conversation.** It is not a crawler. An organization admin can also turn web fetch off in the Console (since 2026-10-20); a Messages API request that declares the tool then fails outright with a 400 `invalid_request_error`.
 - **Server-tool errors do not raise.** They return HTTP 200 with an error object inside the result block (e.g. `{"error_code": "max_uses_exceeded"}`). For web search, a success `content` is a *list* and an error `content` is an *object* — branch on that before indexing. This is the same "empty vs failed" distinction from §2.2, at the API layer.
 - **`pause_turn`** is how a server-side tool loop tells you it hit its internal cap. Send the response back to continue (Domain 1 §1.1).
 - **Bash and text editor are schema-less.** Declaring a custom tool of your own named `"bash"` with an `input_schema` creates a *different* tool.
-- **Advisor tool:** its `model` must be Sonnet 4.6 or better and at least as capable as the request's top-level (executor) `model` (e.g. executor `claude-sonnet-5-5` → advisor `claude-opus-5-5`). An invalid pair returns 400 — and the matrix is per model, not a simple ranking: a Sonnet 5.5 executor rejects Opus 4.8, Opus 4.7, Sonnet 5, and Haiku 5.5 advisors that a Sonnet 5 executor accepts. Fable / Mythos 5 and 5.1, Opus 5 / 5.5, Sonnet 5.5, and Haiku 5.5 advisors return their advice **encrypted**, as an `advisor_redacted_result` block your client can't read; round-trip it verbatim and the server decrypts it into the executor's prompt next turn. Only older advisors (Opus 4.8, for example, where the executor accepts it) return the plaintext `advisor_result` you could log.
-- **Computer use moved to a toolset.** On the Claude API and Google Cloud, Claude 5.5-and-later models accept only `computer_toolset_20260801` — the earlier `computer_20251124` / `computer_20250124` tools return 400 — while on Bedrock Opus 5.5, Sonnet 5.5, and Haiku 5.5 still accept `computer_20251124`. Since 2026-10-07 the Python and TypeScript SDKs have beta browser and computer **toolset classes**: you subclass one and write the methods against your own browser or desktop automation (or use a provider's driver); the SDK runs the tool loop, the URL and file policies you set, and your approval callback.
+- **Advisor tool:** its `model` must be Sonnet 4.6 or better and at least as capable as the request's top-level (executor) `model` (e.g. executor `claude-sonnet-5-5` → advisor `claude-opus-5-5`). An invalid pair returns 400 — and the matrix is per model, not a simple ranking: a Sonnet 5.5 executor rejects Opus 4.8, Opus 4.7, Sonnet 5, and Haiku 5.5 advisors that a Sonnet 5 executor accepts, and a Fable 5.2 or Mythos 5.2 executor accepts **only** Fable 5.2 or Mythos 5.2 as its advisor (any other, Fable 5.1 and Mythos 5.1 included, is a 400), while every executor accepts a Fable 5.2 advisor. Changing the advisor's `model` is an edit to `tools`, so make it in new conversations — a request that sends earlier thinking blocks back after the change can fail with a 400. Fable / Mythos 5, 5.1, and 5.2, Opus 5 / 5.5, Sonnet 5.5, and Haiku 5.5 advisors return their advice **encrypted**, as an `advisor_redacted_result` block your client can't read; round-trip it verbatim and the server decrypts it into the executor's prompt next turn. Only older advisors (Opus 4.8, for example, where the executor accepts it) return the plaintext `advisor_result` you could log.
+- **Computer use moved to a toolset.** On the Claude API and Google Cloud, Opus 5.5, Sonnet 5.5, and Haiku 5.5 accept only `computer_toolset_20260801` — the earlier `computer_20251124` / `computer_20250124` tools return 400 — and Fable 5.2 / Mythos 5.2 reject `computer_20251124` on every platform except Amazon Bedrock (legacy Fable 5.1 accepted both forms). On Bedrock, Fable 5.2, Mythos 5.2, and the three 5.5 models still accept `computer_20251124` with the `computer-use-2025-11-24` beta header. Since 2026-10-07 the Python and TypeScript SDKs have beta browser and computer **toolset classes**: you subclass one and write the methods against your own browser or desktop automation (or use a provider's driver); the SDK runs the tool loop, the URL and file policies you set, and your approval callback.
 
 ### Parallel Tool Use
 
@@ -515,11 +525,11 @@ client.beta.messages.create(
 )
 ```
 
-Set `defer_loading` once on the `mcp_toolset` entry's `default_config` (or per tool in `configs`) rather than on individual tool definitions.
+Set `defer_loading` once on the `mcp_toolset` entry's `default_config` (or per tool in `configs`) rather than on individual tool definitions. An MCP server can change its tools at any time: for Fable 5.2 thinking blocks, a connector tool list that changes between requests counts as an edit to earlier turns (for Fable 5.1 or Opus 5.5 blocks it doesn't), so pin the list — see `mcp_tool_listing` below.
 
 ### Changing Tools Mid-Conversation Without Breaking the Cache
 
-The `tools` array sits *earlier* in the cached prefix than `system`, so editing it between turns invalidates the cache for the whole conversation (Domain 4 §4.8). On the models that support mid-conversation system messages (Fable 5 / 5.1, Mythos 5 / 5.1, Opus 5.5, Opus 5, Opus 4.8, Sonnet 5.5, Haiku 5.5 — not Sonnet 5), declare the full tool set up front and then *offer or withdraw* tools with `tool_addition` / `tool_removal` blocks inside a `role: "system"` message (beta; each block's `tool` is a `tool_reference` by name, or `mcp_tool_reference` / `mcp_toolset_reference` for connector tools — naming a tool that isn't in `tools` is a 400, `tool_reference_unresolved`). The reference-only header `mid-conversation-tool-changes-2026-07-01` works on the Claude API, Bedrock, and Google Cloud; on the Claude API, `inline-tools-2026-09-15` covers both references and inline definitions (below). A tool declared with `defer_loading: true` stays withheld until a `tool_addition` surfaces it. On Fable 5.1, Opus 5.5, Sonnet 5.5, and Haiku 5.5 this is also the only history-safe way to change tools, because rebuilding `tools` counts as editing earlier turns and invalidates later thinking blocks.
+The `tools` array sits *earlier* in the cached prefix than `system`, so editing it between turns invalidates the cache for the whole conversation (Domain 4 §4.8). On the models that support mid-conversation system messages (Fable 5 / 5.1 / 5.2, Mythos 5 / 5.1 / 5.2, Opus 5.5, Opus 5, Opus 4.8, Sonnet 5.5, Haiku 5.5 — not Sonnet 5), declare the full tool set up front and then *offer or withdraw* tools with `tool_addition` / `tool_removal` blocks inside a `role: "system"` message (beta; each block's `tool` is a `tool_reference` by name, or `mcp_tool_reference` / `mcp_toolset_reference` for connector tools — naming a tool that isn't in `tools` is a 400, `tool_reference_unresolved`). The reference-only header `mid-conversation-tool-changes-2026-07-01` works on the Claude API, Bedrock, and Google Cloud; on the Claude API, `inline-tools-2026-09-15` covers both references and inline definitions (below). A tool declared with `defer_loading: true` stays withheld until a `tool_addition` surfaces it. On Fable 5.2, Fable 5.1, Opus 5.5, Sonnet 5.5, and Haiku 5.5 this is also the only history-safe way to change tools, because rebuilding `tools` counts as editing earlier turns and invalidates later thinking blocks — on Fable 5.2 / Mythos 5.2 that is a 400 for every account, whatever its age.
 
 > **Placement caveat on Sonnet 5.5 / Haiku 5.5:** both are trained to resist prompt injection through tool results, so they can treat a system message placed right after a `tool_result` as untrusted text and ignore it. Relay a user's mid-turn words as a `text` block after the last `tool_result` in the same `user` message, and keep harness notices in a separate system message after that. Never put tool output or retrieved documents in a system message on any model — that hands third-party text operator authority.
 
@@ -585,11 +595,11 @@ Rules of thumb: declare what you know up front (in `tools`, deferred if the mode
 
 **Answer: B** — Tool search keeps only a small hot set plus the search tool in context and loads the rest on demand via `tool_reference` blocks, cutting definition tokens by ~85% while preserving prompt caching. Deferring every tool, the search tool included, is a 400 error: at least one tool must stay non-deferred. Splitting across subagents (§2.3) is still valid, but tool search is what makes a 200-tool catalog workable inside one agent.
 
-**Q5:** An extraction service forces its schema with `tool_choice: {"type": "tool", "name": "extract_invoice"}` and is being moved from Claude Opus 5 to Claude Fable 5.1. What happens, and what is the right fix?
+**Q5:** An extraction service forces its schema with `tool_choice: {"type": "tool", "name": "extract_invoice"}` and is being moved from Claude Opus 5 to Claude Fable 5.2. What happens, and what is the right fix?
 
 - A) Nothing changes — forced tool use works on every current model
 - B) The request returns 400; switch to `tool_choice: "any"` instead
 - C) The request returns 400; use `tool_choice: "auto"` with an explicit instruction and `strict: true`, or structured outputs via `output_config.format`
 - D) The call silently falls back to text output
 
-**Answer: C** — Fable 5.1 and Mythos 5.1 reject both forced forms (`any` and `tool`) with a 400. `auto` plus an instruction keeps the tool call, `strict: true` keeps the arguments schema-valid, and structured outputs replace the pattern entirely when the tool only existed to return JSON. Opus 5.5 and Sonnet 5.5 reject it exactly as Fable 5.1 does, while Haiku 5.5 (and legacy Sonnet 5 / Opus 5) still accept it — so this is a per-model check, not a global rule, and three of the four current models fail it.
+**Answer: C** — Fable 5.2 and Mythos 5.2 reject both forced forms (`any` and `tool`) with a 400. `auto` plus an instruction keeps the tool call, `strict: true` keeps the arguments schema-valid, and structured outputs replace the pattern entirely when the tool only existed to return JSON. Opus 5.5 and Sonnet 5.5 (and legacy Fable 5.1) reject it exactly as Fable 5.2 does, while Haiku 5.5 (and legacy Sonnet 5 / Opus 5) still accept it — so this is a per-model check, not a global rule, and three of the four current models fail it.

@@ -206,7 +206,9 @@ const T = {
       const c = r.map((x) => x.replace(/\*\*/g, ""));
       return `<div class="card${main ? " tone-gold" : ""}"><span class="tag">${esc(c[0])}</span><h3>${il(c[1])}</h3><p>${il(c[2])}</p><p style="margin-top:auto;font-family:var(--mono);font-size:15px;color:var(--fg)">${esc(c[3])}</p></div>`;
     }).join("");
-    return { html: `${head(s.eyebrow ?? "The certification family", s.title ?? "Four credentials, one program.", s.lead)}<div class="grid cols-4">${cards}</div>${s.note ? `<p class="s-note">${il(s.note)}</p>` : ""}` };
+    const n = ctx.facts.family.rows.length;
+    const count = ["Zero", "One", "Two", "Three", "Four", "Five", "Six"][n] ?? String(n);
+    return { html: `${head(s.eyebrow ?? "The certification family", s.title ?? `${count} credentials, one program.`, s.lead)}<div class="grid cols-${n > 4 ? 5 : 4}">${cards}</div>${s.note ? `<p class="s-note">${il(s.note)}</p>` : ""}` };
   },
 
   async quiz(s, ctx) {
