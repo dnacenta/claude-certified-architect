@@ -1,5 +1,5 @@
 // Builds the full-text PDF (_site/guide_en.pdf): a cover, the overview, the five domains and the
-// three cert overviews, rendered from the markdown in the light print theme (pdf/print.css).
+// cert overviews, rendered from the markdown in the light print theme (pdf/print.css).
 //
 // usage: node scripts/build-pdf.mjs   (needs `npx playwright-core install --only-shell chromium` once)
 

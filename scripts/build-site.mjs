@@ -27,6 +27,7 @@ const PAGES = [
   { src: "certs/ccao-f-associate.md", out: "certs/ccao-f-associate/", group: "Other certifications" },
   { src: "certs/ccdv-f-developer.md", out: "certs/ccdv-f-developer/", group: "Other certifications" },
   { src: "certs/ccar-p-architect-professional.md", out: "certs/ccar-p-architect-professional/", group: "Other certifications" },
+  { src: "certs/ccdv-p-developer-professional.md", out: "certs/ccdv-p-developer-professional/", group: "Other certifications" },
   { src: "CHANGELOG.md", out: "changelog/", group: "Guide" },
 ];
 

@@ -273,7 +273,7 @@ slides:
       - title: "`budget_tokens`"
         text: Fixed thinking budgets return a 400.
       - title: "`temperature`, `top_p`, `top_k`"
-        text: The sampling parameters return a 400 too.
+        text: "The sampling parameters return a 400 too. API version `2026-10-21` removes them on every model."
       - title: Assistant prefill
         text: Prefilling the last assistant turn to force a format returns a 400, though older material still recommends it.
 

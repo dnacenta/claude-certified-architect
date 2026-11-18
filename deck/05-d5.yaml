@@ -53,7 +53,7 @@ slides:
       - ["Project-root CLAUDE.md and unscoped rules, re-injected from disk", Earlier conversation details]
       - [System prompts, Specific tool results]
       - [Recent messages, Nuanced reasoning from earlier turns]
-      - ["Auto-memory (MEMORY.md)", Exact quotes and numbers from early context]
+      - ["Auto-memory (MEMORY.md) and the skill list", Exact quotes and numbers from early context]
       - ["The plan-mode plan, recently edited files, invoked skill bodies (capped)", "Nested CLAUDE.md files and `paths:`-scoped rules, until Claude next touches a matching file"]
     highlight: [5]
     note: "Put a rule that must survive compaction in the project-root CLAUDE.md, or drop its `paths:` frontmatter."
