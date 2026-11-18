@@ -185,7 +185,7 @@ The standard pattern for multi-agent systems is hub-and-spoke: one coordinator a
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../docs/diagrams/hub-and-spoke-dark.svg">
-  <img src="../docs/diagrams/hub-and-spoke-light.svg" alt="Hub-and-spoke: one coordinator delegates to Search, Analysis and Synthesis subagents; subagents never talk to each other directly.">
+  <img src="../docs/diagrams/hub-and-spoke-light.svg" alt="Hub-and-spoke: one coordinator delegates to Search, Analysis and Synthesis subagents; by design, subagents don't talk to each other directly.">
 </picture>
 
 ### Coordinator Responsibilities

@@ -229,13 +229,13 @@ Any `tool_choice` value can also carry `"disable_parallel_tool_use": true` to ca
 
 ### When to Use Each
 
-**`"auto"`** — Most conversations. Claude decides whether a tool is needed.
+**`auto`** — Most conversations. Claude decides whether a tool is needed.
 
-**`"any"`** — When you need guaranteed structured output. Example: You have multiple extraction schemas (invoice, receipt, contract) and you want Claude to pick the right one and always return structured data.
+**`any`** — When you need guaranteed structured output. Example: You have multiple extraction schemas (invoice, receipt, contract) and you want Claude to pick the right one and always return structured data.
 
 **Forced specification** — When a specific tool must run first. Example: Always call `extract_metadata` before any enrichment step.
 
-**`"none"`** — When a turn must produce prose (e.g., a final summarization pass) without stripping the tool definitions from the request.
+**`none`** — When a turn must produce prose (e.g., a final summarization pass) without stripping the tool definitions from the request.
 
 ```python
 # Force Claude to call a specific tool (Haiku 5.5, and legacy Sonnet 5 / Opus 5 / 4.x —
@@ -457,7 +457,7 @@ Claude Code's built-in tools and when to use each:
 | **SendMessage / ListAgents** | Message a running or completed subagent, teammate, or another session | Resuming a subagent with its context intact (Domain 3 §3.4); cross-session messaging |
 | **Workflow** | Run a dynamic-workflow script that orchestrates many subagents | Only when the user opts in ("use a workflow", `ultracode`) — see Domain 1 §1.3 |
 
-On macOS, Linux, and WSL, Grep and Glob are left out of the default tool set: Claude searches with `grep` and `find` through Bash, and those searches reach hooks and permission rules as `Bash` calls. Naming either tool in `--tools` or `--allowedTools` (or in a subagent's `tools` without `Bash`) brings them back; on Windows they are in the default set.
+On macOS, Linux, and WSL, Grep and Glob are left out of the default tool set: Claude searches with `grep` and `find` through Bash, and those searches reach hooks and permission rules as `Bash` calls. Listing them in `--tools`, naming either one in `--allowedTools` (which restores both), denying `Bash`, or listing them in a subagent's `tools` without `Bash` brings them back; on Windows they are in the default set.
 
 ### Codebase Exploration Pattern
 
@@ -477,8 +477,6 @@ The correct pattern for exploring an unfamiliar codebase:
 
 Edit's `old_string` must appear exactly once; otherwise Claude adds surrounding context to pin one occurrence, or sets `replace_all: true` to change them all. When neither fits (identical blocks, only one to change), fall back to Read + Write.
 
-**Fallback:** Use Read to get the full file, then Write to replace the entire file with the modified version.
-
 ---
 
 ## 2.6 Anthropic-Defined and Server-Side Tools
@@ -497,7 +495,7 @@ Not every tool is one you write. Some are **Anthropic-defined** (schema-less: yo
 
 Details worth carrying into an exam or a design review:
 
-- **Version the type string.** `web_search_20260209` / `web_fetch_20260209` add dynamic filtering and need Opus 4.6+ / Sonnet 4.6+; older models use the basic `web_search_20250305` / `web_fetch_20250910`. `web_search_20260318` adds `response_inclusion`: `"excluded"` drops the search result blocks that a completed code-execution call already consumed (token usage is unchanged). The dynamic-filtering versions don't need a `code_execution` tool in `tools` — the API provisions code execution itself and both share one container; if you do declare one, use `code_execution_20260120` or later, because older versions are rejected alongside these web tools.
+- **Version the type string.** `web_search_20260209` / `web_fetch_20260209` add dynamic filtering and need Opus 4.6+ / Sonnet 4.6+; older models use the basic `web_search_20250305` / `web_fetch_20250910`. `web_search_20260318` / `web_fetch_20260318` add `response_inclusion`: `"excluded"` drops the search result blocks that a completed code-execution call already consumed (token usage is unchanged). The dynamic-filtering versions don't need a `code_execution` tool in `tools` — the API provisions code execution itself; if you do declare one, use `code_execution_20260120` or later, because older versions are rejected alongside these web tools.
 - **Web fetch only fetches URLs already present in the conversation.** It is not a crawler. An organization admin can also turn web fetch off in the Console (since 2026-10-20); a Messages API request that declares the tool then fails outright with a 400 `invalid_request_error`.
 - **Server-tool errors do not raise.** They return HTTP 200 with an error object inside the result block (e.g. `{"error_code": "max_uses_exceeded"}`). For web search, a success `content` is a *list* and an error `content` is an *object* — branch on that before indexing. This is the same "empty vs failed" distinction from §2.2, at the API layer.
 - **A server tool called alongside a client tool waits.** If Claude calls a server tool and one of your tools in the same response, the API doesn't run the server tool yet: the response ends with `stop_reason: "tool_use"` and a `server_tool_use` block with no result block. Send back only the client `tool_result` blocks, with the same `tools`, and the API runs the server tool at the start of the next request.
@@ -568,7 +566,7 @@ Rules of thumb: declare what you know up front (in `tools`, deferred if the mode
 **Q1:** An agent has 18 tools configured and is frequently selecting the wrong tool. What is the most effective solution?
 - A) Improve all 18 tool descriptions to be more detailed
 - B) Distribute the tools across specialized subagents with 4-5 tools each
-- C) Set tool_choice to "any" to force tool usage
+- C) Set `tool_choice` to `{"type": "any"}` to force tool usage
 - D) Add examples to the system prompt showing correct tool selection
 
 **Answer: B** — The 4-5 tool maximum per agent is the key architectural principle. Even with better descriptions, 18 tools degrades selection reliability.
@@ -593,7 +591,7 @@ Rules of thumb: declare what you know up front (in `tools`, deferred if the mode
 
 - A) Raise `max_tokens` so there is room for the definitions
 - B) Enable the tool search tool, keep it and the 3-5 most-used tools loaded, and mark the rest `defer_loading: true`
-- C) Set `tool_choice: "any"` so Claude is forced to commit to a tool
+- C) Set `tool_choice: {"type": "any"}` so Claude is forced to commit to a tool
 - D) Set `defer_loading: true` on every tool including the search tool
 
 **Answer: B** — Tool search keeps only a small hot set plus the search tool in context and loads the rest on demand via `tool_reference` blocks, cutting definition tokens by ~85% while preserving prompt caching. Deferring every tool, the search tool included, is a 400 error: at least one tool must stay non-deferred. Splitting across subagents (§2.3) is still valid, but tool search is what makes a 200-tool catalog workable inside one agent.
@@ -601,8 +599,8 @@ Rules of thumb: declare what you know up front (in `tools`, deferred if the mode
 **Q5:** An extraction service forces its schema with `tool_choice: {"type": "tool", "name": "extract_invoice"}` and is being moved from Claude Opus 5 to Claude Fable 5.2. What happens, and what is the right fix?
 
 - A) Nothing changes — forced tool use works on every current model
-- B) The request returns 400; switch to `tool_choice: "any"` instead
-- C) The request returns 400; use `tool_choice: "auto"` with an explicit instruction and `strict: true`, or structured outputs via `output_config.format`
+- B) The request returns 400; switch to `tool_choice: {"type": "any"}` instead
+- C) The request returns 400; use `tool_choice: {"type": "auto"}` with an explicit instruction and `strict: true`, or structured outputs via `output_config.format`
 - D) The call silently falls back to text output
 
 **Answer: C** — Fable 5.2 and Mythos 5.2 reject both forced forms (`any` and `tool`) with a 400. `auto` plus an instruction keeps the tool call, `strict: true` keeps the arguments schema-valid, and structured outputs replace the pattern entirely when the tool only existed to return JSON. Opus 5.5 and Sonnet 5.5 (and legacy Fable 5.1) reject it exactly as Fable 5.2 does, while Haiku 5.5 (and legacy Sonnet 5 / Opus 5) still accept it — so this is a per-model check, not a global rule, and three of the four current models fail it.

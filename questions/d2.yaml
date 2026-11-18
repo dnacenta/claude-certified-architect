@@ -199,7 +199,7 @@ questions:
       - "The cache breakpoint belongs on the last deferred MCP tool so that the whole catalog gets cached"
       - "For the MCP server's tools, `defer_loading` goes on the `mcp_toolset` entry's `default_config`"
     correct: [C, E]
-    explanation: "When Claude searches, the API returns `tool_reference` blocks and expands them into full definitions inline, leaving the system-prompt prefix alone, so prompt caching survives. For MCP connector tools, `defer_loading` is set once on the `mcp_toolset` entry's `default_config` rather than on individual tool definitions."
+    explanation: "When Claude searches, the API returns `tool_reference` blocks and expands them into full definitions inline, leaving the system-prompt prefix alone, so prompt caching survives. For MCP connector tools, `defer_loading` goes on the `mcp_toolset` entry, in its `default_config` (or per tool in its `configs`), not on separate tool definitions."
     why_not:
       A: "Every tool definition is still sent on every request; `defer_loading` controls what enters the context window, not what is transmitted."
       D: "A tool with `defer_loading: true` can't also carry `cache_control`, which returns a 400; the breakpoint goes on a non-deferred tool."

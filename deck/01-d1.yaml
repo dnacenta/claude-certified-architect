@@ -76,7 +76,7 @@ slides:
 
   - type: concept
     ref: "1.2"
-    title: One coordinator routes everything; subagents never talk to each other.
+    title: One coordinator routes everything; by design, subagents don't talk to each other directly.
     diagram: hub-and-spoke
     points:
       - "The coordinator **decomposes** the task and **delegates** subtasks to specialized subagents."
@@ -283,7 +283,7 @@ slides:
       - title: The loop
         text: "Branch on `stop_reason`. tool_use → run, return tool_result, continue. end_turn → done."
       - title: Orchestration
-        text: Hub-and-spoke. The coordinator decomposes, delegates, routes every message and aggregates. Subagents never talk directly.
+        text: Hub-and-spoke. The coordinator decomposes, delegates, routes every message and aggregates. By design, subagents don't talk directly.
       - title: Subagents
         text: "Isolated context: they inherit nothing. Put everything they need in the prompt."
       - title: Enforcement

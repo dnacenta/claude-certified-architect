@@ -228,7 +228,7 @@ slides:
       - ["`plan`", "Exploration only: designs an approach and presents it before touching files."]
       - ["`auto`", "A classifier decides per tool call whether to prompt."]
       - ["`dontAsk`", "Only in-directory reads and pre-approved tools run; anything else is denied."]
-      - ["`bypassPermissions`", "Skips all prompts. Dangerous: isolated containers and VMs only."]
+      - ["`bypassPermissions`", "Skips permission prompts and safety checks. Dangerous: isolated containers and VMs only."]
     highlight: [3]
     note: "Set one with `--permission-mode` or `permissions.defaultMode`, or cycle with Shift+Tab. `dontAsk` suits locked-down CI."
 

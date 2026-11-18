@@ -152,7 +152,7 @@ questions:
     explanation: "When a skill is invoked, its rendered body enters the conversation as a single message and stays there; Claude Code doesn't re-read the file on later turns. That is also why skill bodies should be written as standing instructions rather than one-time steps."
     why_not:
       B: "A skill's body isn't loaded at startup; it enters the conversation as a message at the moment the skill is invoked."
-      A: "Plugin skills sit at the lowest priority and are namespaced, so they can't shadow a project skill."
+      A: "Plugin skills are namespaced as `plugin-name:skill-name`, so a same-named plugin skill loads alongside the project skill instead of shadowing it."
     source: "3.2"
     verified: "2026-11-18"
 
@@ -166,10 +166,10 @@ questions:
       - "An enabled plugin ships its own `release` skill, and plugin skills outrank project skills"
       - "Project skills load only after `/init` has been run once on each developer's machine"
     correct: [B]
-    explanation: "Skills resolve Enterprise > Personal > Project > Plugin, and the higher-priority location wins when names collide. A personal `release` skill in her home directory shadows the updated project skill on her machine alone."
+    explanation: "When enterprise, personal, and project skills share a name, Enterprise > Personal > Project, and the higher-priority location wins. A personal `release` skill in her home directory shadows the updated project skill on her machine alone."
     why_not:
       A: "When a skill and a legacy command share a name, the skill wins, so a stale command file can't hide the update."
-      C: "Plugins sit at the lowest priority, and their skills are namespaced as `plugin-name:skill-name`, so they can't shadow a project skill."
+      C: "Plugin skills are namespaced as `plugin-name:skill-name`, so a same-named plugin skill loads alongside the project skill rather than outranking it."
     source: "3.2"
     verified: "2026-11-18"
 
