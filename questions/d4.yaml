@@ -1,0 +1,508 @@
+domain: 4
+questions:
+  - id: "d4-001"
+    task: "4.1"
+    scenario: 5
+    stem: "A CI pipeline runs Claude as a security reviewer on every pull request. Most of its security findings turn out to be on code that is already protected, and developers have started ignoring its comments. Which two changes to the review prompt address this? Choose two."
+    options:
+      - "List the specific conditions that qualify, such as user input concatenated into SQL"
+      - "Instruct the reviewer to be conservative and report only high-confidence findings"
+      - "Have the reviewer rate its own confidence and post only findings rated above 0.8"
+      - "Add a \"Do NOT flag\" list of boundary cases, such as ORM queries and env-loaded keys"
+      - "Remove the category's code examples so the reviewer isn't anchored on patterns"
+    correct: [A, D]
+    explanation: "Explicit criteria name what qualifies (the specific conditions that trigger a finding) and what doesn't (boundary cases that must not trigger it). Without the second list, safe constructs such as parameterized ORM queries keep getting flagged."
+    why_not:
+      B: "\"Be conservative\" and \"only report high-confidence findings\" are the guide's own examples of vague instructions: the model reads them differently from run to run, so the false positives shift instead of stopping."
+      E: "Concrete examples showing the boundary are part of explicit criteria; removing them takes away the clearest signal of where the line is."
+    source: "4.1"
+    verified: "2026-11-18"
+
+  - id: "d4-002"
+    task: "4.1"
+    scenario: 5
+    stem: "An automated review bot posts findings in five categories. Its naming-convention findings are mostly false positives, and the team notices developers now dismiss its accurate null-dereference findings as well. What should the team do?"
+    options:
+      - "Keep every category running and let developers dismiss the noisy naming findings"
+      - "Disable the naming category for now, improve its criteria, then re-enable it"
+      - "Lower the naming findings' severity so they are listed last in each review"
+      - "Have the bot re-check each naming finding in the same session before posting"
+    correct: [B]
+    explanation: "High false positive rates in one category undermine trust in all of them, even the accurate ones. Disabling the noisy category temporarily and improving its criteria before re-enabling it stops it from dragging down the categories that work."
+    why_not:
+      C: "Demoted findings are still posted next to the real ones, so developers keep meeting false positives, which is what erodes trust in every category."
+      D: "A re-check in the same session keeps the reasoning that produced the finding, so it tends to confirm it, and the criteria that cause the noise stay unchanged."
+    source: "4.1"
+    verified: "2026-11-18"
+
+  - id: "d4-003"
+    task: "4.1"
+    scenario: 1
+    stem: "A support resolution agent tags each closed ticket with a `product_defect` flag. Its prompt says to set the flag \"when the ticket suggests a product problem,\" and the same ticket gets a different flag on different runs. What is the best fix?"
+    options:
+      - "Add a line telling the agent to be careful and consistent when it sets the flag"
+      - "Run the tagging three times per ticket and keep whichever answer wins the vote"
+      - "Have the agent attach a confidence score and drop flags below a fixed cutoff"
+      - "Define what qualifies and what doesn't, with examples of tickets at the boundary"
+    correct: [D]
+    explanation: "The inconsistency comes from a vague instruction that the model interprets differently each time. Explicit criteria fix it: what qualifies (say, a reproducible failure of a documented feature), what doesn't (a how-to question or a feature request), and concrete examples at the boundary."
+    why_not:
+      B: "Voting over runs hides the inconsistency without removing its cause; the instruction is still vague, so individual runs keep disagreeing."
+    source: "4.1"
+    verified: "2026-11-18"
+
+  - id: "d4-004"
+    task: "4.1"
+    scenario: 4
+    stem: "A team uses Claude to audit code comments across a large repository. It flags hundreds of comments as outdated, most of them accurate but terse. Which instruction best fixes this?"
+    options:
+      - "Flag a comment as outdated only when you are highly confident it is wrong, and skip doubtful ones"
+      - "Be conservative when flagging outdated comments, and leave out any case that feels borderline"
+      - "Flag a comment as outdated only when it contradicts the code, not when it is merely incomplete"
+      - "Flag a comment as outdated when it is vague or incomplete, and suggest a more detailed version"
+    correct: [C]
+    explanation: "The explicit instruction names the condition that qualifies (the comment's claim contradicts the code) and the boundary that doesn't (a comment that is merely incomplete). \"Highly confident\" and \"be conservative\" leave the threshold to the model's interpretation, which varies from run to run."
+    why_not:
+      A: "Confidence wording is one of the guide's examples of a vague instruction; it never says what makes a comment outdated, so terse but accurate comments can still be flagged."
+    source: "4.1"
+    verified: "2026-11-18"
+
+  - id: "d4-005"
+    task: "4.2"
+    scenario: 6
+    stem: "An extraction pipeline pulls warranty terms from supplier contracts. Some clauses point to terms in another document, and despite several rewrites of the prose instructions, the pipeline handles these clauses inconsistently. What should the team try next?"
+    options:
+      - "Add a few targeted examples, each showing input, output, and reasoning"
+      - "Add twenty past contracts as examples so every supplier's layout is covered"
+      - "Expand the prose instructions into a longer, more detailed section on cross-references"
+      - "Make every warranty field required so the model always returns a value for it"
+    correct: [A]
+    explanation: "Few-shot examples are for ambiguous cases that prose instructions can't pin down, and a few targeted examples work best (Anthropic's prompting guide suggests three to five). Showing the input, the output, and the reasoning for each lets the model learn the pattern rather than memorize the cases."
+    why_not:
+      B: "Too many examples waste context and can make the model overfit to them instead of learning the pattern."
+      D: "Making fields required when the source may not contain the information pushes the model to fabricate values."
+    source: "4.2"
+    verified: "2026-11-18"
+
+  - id: "d4-006"
+    task: "4.2"
+    scenario: 5
+    stem: "A CI reviewer that checks whether code comments match their functions is prompted with three examples, each showing only the code and the expected JSON finding. It handles cases like the examples well but misjudges new variations. What is the best improvement?"
+    options:
+      - "Add many more examples that repeat the same cases with small variations"
+      - "Add to each example the reasoning that explains why its output is correct"
+      - "Remove the examples and describe the expected findings in detailed prose"
+      - "Enable strict mode on the finding schema so every result is well formed"
+    correct: [B]
+    explanation: "A good example shows the input, the output, and the reasoning behind the output. The reasoning is what teaches the pattern, and the pattern is what lets the model generalize to cases the examples don't cover."
+    why_not:
+      A: "Near-duplicates spend context and push the model to overfit the specific cases, without telling it why they're decided the way they are."
+      D: "Strict mode guarantees the finding's structure, not whether the judgment inside it is right."
+    source: "4.2"
+    verified: "2026-11-18"
+
+  - id: "d4-007"
+    task: "4.2"
+    scenario: 2
+    stem: "A team's Claude Code review command includes three examples, each a comment that contradicts its function and the finding it should produce. Claude now also reports comments like `// Formats the date` that describe the function loosely but correctly. What is the best fix?"
+    options:
+      - "Replace the three examples with ten new ones that all show clear contradictions"
+      - "Ask Claude to label each finding's confidence and discard the low-confidence ones"
+      - "Add an example of a vague but accurate comment with null output and its reasoning"
+      - "Have Claude re-check every finding in the same session before it reports any of them"
+    correct: [C]
+    explanation: "Examples should show how to handle edge cases, including the side of the boundary that must not be flagged. An example whose output is null, with reasoning that a vague comment isn't wrong unless it contradicts the code, demonstrates the boundary the current examples never show."
+    why_not:
+      A: "More examples from the same side of the boundary don't show the case Claude is getting wrong, and too many examples waste context and risk overfitting."
+    source: "4.2"
+    verified: "2026-11-18"
+
+  - id: "d4-008"
+    task: "4.3"
+    scenario: 6
+    stem: "A high-volume claims extraction service on Haiku 5.5 forces `tool_choice` to its `record_claim` tool. On long claims whose figures conflict and must be reconciled before the fields are filled, accuracy is poor, and every response starts with the `tool_use` block and has no `thinking` block. What should change?"
+    options:
+      - "Raise `output_config.effort` to `high` so the forced call reasons more first"
+      - "Set `thinking.display` to `summarized` so the hidden reasoning comes back"
+      - "Send `thinking: {\"type\": \"adaptive\"}` explicitly alongside the forced choice"
+      - "Switch to `auto`, name the tool in the instructions, and set `strict: true`"
+    correct: [D]
+    explanation: "On Haiku 5.5 a forced tool call skips thinking: the response starts with the `tool_use` block and has no `thinking` block. When the model has to reason before filling the fields, use `auto` with an instruction naming the tool, and `strict: true` keeps the tool input schema-valid."
+    why_not:
+      A: "A forced call skips thinking whatever the effort level, so raising effort changes nothing while the choice stays forced."
+      B: "Display decides how thinking is returned; a forced call produces no thinking to return."
+      C: "Haiku 5.5 already runs adaptive thinking by default; the forced tool choice is what skips it."
+    source: "4.3"
+    verified: "2026-11-18"
+
+  - id: "d4-009"
+    task: "4.3"
+    scenario: 6
+    stem: "A team extracts shipping manifests with a strict-mode schema. Which two of its rules can't be enforced by the strict schema itself and have to be checked after the response arrives? Choose two."
+    options:
+      - "`weight` must be a whole number of grams, set with `type: integer`"
+      - "`package_count` must be at least 1, set with a `minimum` of 1"
+      - "`ship_date` must be a calendar date, using `format: date`"
+      - "Every package object must include `weight` and `destination`"
+      - "`notes` must be at most 500 characters, set with a `maxLength`"
+    correct: [B, E]
+    explanation: "Strict mode supports only a subset of JSON Schema: types such as `integer`, `required`, and `format` values such as `date` are in it, while numeric ranges like `minimum` and string lengths like `maxLength` are not. Those checks belong in validation code; SDK helpers such as `messages.parse()` strip them from the schema they send and check them against the response."
+    why_not:
+      C: "`format: date` is on the supported list for strict mode, alongside `date-time`, `email`, `uuid`, and others."
+    source: "4.3"
+    verified: "2026-11-18"
+
+  - id: "d4-010"
+    task: "4.3"
+    scenario: 1
+    stem: "A support agent fills a ticket schema from customer emails, and `order_number` is a required string. For emails that never mention an order, audits find order numbers that look real but match no order. What is the best schema change?"
+    options:
+      - "Make the field nullable, described as null when the email has no order number"
+      - "Add a `minLength` to the field so that short invented numbers fail the schema"
+      - "Retry with the validation error appended until an order number comes back"
+      - "Keep the field required and tell the agent never to invent order numbers"
+    correct: [A]
+    explanation: "Making a field required when the source may not contain it forces the model to fabricate a value. A nullable field, described as null when not found, gives it an honest answer for emails without an order number."
+    why_not:
+      C: "Retries can't produce information that isn't in the source; an email with no order number will never yield a real one."
+      D: "The schema still demands a value, so the instruction fights the schema; the fix the guide gives is a nullable field, not a prompt rule."
+    source: "4.3"
+    verified: "2026-11-18"
+
+  - id: "d4-011"
+    task: "4.3"
+    scenario: 1
+    stem: "A support agent records `delivery_status` with an enum of `delivered`, `in_transit`, and `lost`. When a customer's message is ambiguous about where the parcel is, the agent still picks one of the three, and some refunds go out wrongly. What is the best schema change?"
+    options:
+      - "Make the status a free-text string so the agent can describe it in its own words"
+      - "Add `other` to the enum, with a detail field that describes the other status"
+      - "Add `unclear` to the enum so the agent has a valid value when it can't tell"
+      - "Have the agent report its confidence and send answers below 0.7 to a human"
+    correct: [C]
+    explanation: "Adding `unclear` to an enum stops the model from guessing when the information is ambiguous. The parcel's status is one of the listed values; the message just doesn't say which, and that is the case `unclear` is for."
+    why_not:
+      B: "`other` is for a value outside the list, described in a detail field; here the status is one of the listed ones and only the message is unclear about which."
+      D: "Self-reported confidence is an unreliable basis for routing decisions; the schema should let the agent say the information is unclear."
+    source: "4.3"
+    verified: "2026-11-18"
+
+  - id: "d4-012"
+    task: "4.3"
+    scenario: 5
+    stem: "A CI job asks Claude for a JSON summary of test failures and parses the reply text with `json.loads`. Now and then the job crashes on malformed JSON or a missing field. What is the best change?"
+    options:
+      - "Pass the summary's JSON schema in the top-level `output_format` parameter"
+      - "Call `client.messages.parse()` with a Pydantic model and read `parsed_output`"
+      - "Tell Claude to answer with valid JSON only, and retry when parsing fails"
+      - "Prefill the assistant turn with an opening brace so the reply starts as JSON"
+    correct: [B]
+    explanation: "Structured outputs guarantee schema-compliant JSON, and `client.messages.parse()` wraps them: it sends `output_config.format` from a Pydantic or Zod schema, validates the response, and returns it as `response.parsed_output`. The guide prefers it over hand-parsing JSON."
+    why_not:
+      A: "Top-level `output_format` is deprecated; new code uses `output_config.format`, which `messages.parse()` sends for you."
+      D: "Prefilling the assistant turn returns a 400 on current models; structured outputs replace it."
+    source: "4.3"
+    verified: "2026-11-18"
+
+  - id: "d4-013"
+    task: "4.3"
+    scenario: 6
+    stem: "A document pipeline extracts `document_type` with an enum of `invoice`, `receipt`, `contract`, and `purchase_order`. Delivery notes and credit memos keep coming back as `invoice`, and downstream teams can't tell what those documents really were. What is the best schema change?"
+    options:
+      - "Add `unclear` to the enum so the model can mark documents it can't place"
+      - "Turn `document_type` into a free-text string so any type can be named"
+      - "Make `document_type` nullable so unlisted documents come back as null"
+      - "Add `other` to the enum, plus a nullable detail field naming the type"
+    correct: [D]
+    explanation: "For values that can fall outside a fixed list, the pattern is an enum with `other` plus a nullable detail field that describes the type when `other` is chosen. The enum stays valid for downstream code, and the detail records what the document actually was."
+    why_not:
+      A: "`unclear` is for information that is ambiguous; a delivery note isn't ambiguous, it's a type the list doesn't include."
+      C: "Nullable fields are for information missing from the source; a null type throws away what the document was."
+    source: "4.3"
+    verified: "2026-11-18"
+
+  - id: "d4-014"
+    task: "4.3"
+    scenario: 6
+    stem: "An extraction tool's schema sets `additionalProperties: true` on its nested line-item objects so that unexpected vendor columns come through. The team now wants guaranteed schema compliance with `\"strict\": true`. What must change?"
+    options:
+      - "Set `additionalProperties: false` on every object and list each needed column as a property"
+      - "Keep `additionalProperties: true` on nested objects; strict mode checks only the top level"
+      - "Replace the line-item object with `oneOf` branches, one for each vendor's column layout"
+      - "Set `additionalProperties` to a string schema instead of `true` so extra columns stay typed"
+    correct: [A]
+    explanation: "Strict mode requires `additionalProperties: false` on every object, nested ones included, and supports no other value for it. The columns the team needs therefore have to be listed as properties."
+    why_not:
+      B: "The requirement covers every object in the schema, not just the top level."
+      C: "`oneOf` is outside the JSON Schema subset that strict mode supports."
+    source: "4.3"
+    verified: "2026-11-18"
+
+  - id: "d4-015"
+    task: "4.4"
+    scenario: 6
+    stem: "An extraction loop validates each result and, when validation fails, sends the identical request again, up to three times. Many documents fail all three attempts with the same error. What is the best change?"
+    options:
+      - "Raise the retry limit from three to ten so more of the attempts can succeed"
+      - "Append the specific validation errors to the prompt for the next attempt"
+      - "Return the last attempt's output with a logged warning once retries run out"
+      - "Switch to free-form text output so the model has more room to correct itself"
+    correct: [B]
+    explanation: "The validation-retry pattern appends the specific errors from the failed attempt to the prompt and asks the model to correct those issues. Re-sending the identical request gives it nothing new to act on."
+    why_not:
+      A: "Ten identical attempts are no more informative than three; without the errors in the prompt, the model has no signal about what to fix."
+      C: "Passing an invalid result downstream as if it succeeded hides the failure; when retries run out, the pattern raises an error instead."
+    source: "4.4"
+    verified: "2026-11-18"
+
+  - id: "d4-016"
+    task: "4.4"
+    scenario: 6
+    stem: "An expense-report extraction pipeline runs a validation step on every result. Which two of these errors need custom semantic checks rather than schema validation? Choose two."
+    options:
+      - "`amount` comes back as the string \"forty\" instead of a number"
+      - "`category` is `travel_misc`, which isn't one of the enum's values"
+      - "`submitted_on` is a date three months in the future"
+      - "The required `employee_id` field is missing from the result"
+      - "`approver_id` names an employee who isn't in the HR system"
+    correct: [C, E]
+    explanation: "Schema validation reliably catches wrong types, invalid enum values, and missing required fields. Whether a date is in the future when it shouldn't be, or whether a referenced person exists, depends on meaning and outside data, so it needs custom semantic logic."
+    source: "4.4"
+    verified: "2026-11-18"
+
+  - id: "d4-017"
+    task: "4.4"
+    scenario: 3
+    stem: "In a research system, a subagent extracts citation metadata from papers, and a validation-retry loop rejects any result whose `doi` is null, appending the error each time. Some preprints fail every attempt even though their other fields come back right. What is the most likely cause?"
+    options:
+      - "The appended error messages are too general for the model to act on"
+      - "Three retries are too few for papers with unusual page layouts"
+      - "Those papers carry no such identifier, and retrying can't create one"
+      - "The schema isn't in strict mode, so the required field gets ignored"
+    correct: [C]
+    explanation: "Retries don't work when the information is absent from the source document. The fix is a nullable field that accepts null for missing data, not a loop that keeps demanding a value the paper doesn't contain."
+    why_not:
+      A: "Specific errors help when the model can correct its output; here the paper gives it nothing to correct it with."
+    source: "4.4"
+    verified: "2026-11-18"
+
+  - id: "d4-018"
+    task: "4.4"
+    scenario: 6
+    stem: "Contractor timesheets list daily hours and a handwritten weekly total, and the two sometimes disagree. Finance wants these mismatches flagged automatically while keeping the figure the contractor wrote. Which extraction design fits?"
+    options:
+      - "Extract the written total and a calculated one, plus a conflict flag and note"
+      - "Extract only the daily hours and compute the weekly total in code afterwards"
+      - "Extract the written total and have the model correct it whenever it's wrong"
+      - "Extract the written total and have the model rate its confidence in that value"
+    correct: [A]
+    explanation: "The calculated-versus-stated pattern extracts the value the document states and a value calculated from its parts, with a flag and a note when they disagree. Keeping both detects discrepancies automatically without overwriting what the source says."
+    why_not:
+      B: "Dropping the written total leaves nothing to compare against, so the mismatch finance wants flagged is never seen."
+      C: "Correcting the figure overwrites what the contractor wrote, and the discrepancy disappears instead of being flagged."
+    source: "4.4"
+    verified: "2026-11-18"
+
+  - id: "d4-019"
+    task: "4.4"
+    scenario: 5
+    stem: "Developers dismiss a CI security reviewer's findings more often than expected, and the team wants to know which parts of its prompt criteria need work. What should it add?"
+    options:
+      - "A dashboard of the overall dismissal rate, with an alert when it starts to rise"
+      - "A confidence score on each finding, with low-confidence findings suppressed"
+      - "A rule that turns off the security category once dismissals pass a threshold"
+      - "A `detected_pattern` field on each finding, to analyze dismissals by pattern"
+    correct: [D]
+    explanation: "Recording which code construct triggered each finding lets the team analyze dismissal patterns. If developers consistently dismiss one pattern, such as string concatenation in a query, that pattern's criteria are the ones to refine."
+    why_not:
+      A: "One overall rate shows that something is noisy, not what; an aggregate metric hides which pattern drives the dismissals."
+    source: "4.4"
+    verified: "2026-11-18"
+
+  - id: "d4-020"
+    task: "4.5"
+    scenario: 5
+    stem: "A platform team runs several Claude workloads around its CI/CD system and wants to move some of them to the Message Batches API to cut costs. Which two are good candidates? Choose two."
+    options:
+      - "Generating unit tests overnight for the modules changed during the day"
+      - "Answering developers' questions in the team's chat-ops bot as they ask"
+      - "A weekly report that audits dependencies across all repositories"
+      - "Explaining a failed build to a developer who is debugging it right now"
+      - "A blocking step that must finish before each deployment can proceed"
+    correct: [A, C]
+    explanation: "The Batches API costs half as much but can take up to 24 hours with no SLA, so it suits latency-tolerant work such as nightly test generation and weekly audit reports. Real-time questions in chat, blocking pipeline steps, and interactive debugging need synchronous calls."
+    why_not:
+      B: "Batch results can take up to a day with no SLA; a developer waiting in chat can't wait on them."
+    source: "4.5"
+    verified: "2026-11-18"
+
+  - id: "d4-021"
+    task: "4.5"
+    scenario: 5
+    stem: "A nightly CI job sends one Message Batches request per changed file and writes the results back by pairing the first result with the first file, the second with the second, and so on. Some files end up with another file's analysis. What is the fix?"
+    options:
+      - "Drop the expired requests first so that the remaining results line up again"
+      - "Give each request a `custom_id` and match every result by that ID, not position"
+      - "Split the files into smaller batches so that each batch keeps its submission order"
+      - "Wait until `processing_status` is `ended` before reading any of the results"
+    correct: [B]
+    explanation: "Batch results come back in any order, so each one has to be keyed by the `custom_id` set on its request, never by position. Smaller batches or waiting for the batch to end don't change that."
+    why_not:
+      A: "Even when every request succeeds, results arrive in any order; pairing by position is the bug, whatever the result states."
+      D: "Polling until the batch has ended comes before streaming the results, but finished results still arrive in any order."
+    source: "4.5"
+    verified: "2026-11-18"
+
+  - id: "d4-022"
+    task: "4.5"
+    scenario: 6
+    stem: "A team has a new extraction prompt and 40,000 archived claim forms to run through the Message Batches API. So far the prompt has been tried by hand on three forms. What should the team do before submitting the full batch?"
+    options:
+      - "Submit everything now and resubmit any failed requests by their `custom_id`"
+      - "Process the archive synchronously instead so problems show up in real time"
+      - "Refine the prompt on a small sample of forms and review those results first"
+      - "Mark every field required so that incomplete forms are rejected during the run"
+    correct: [C]
+    explanation: "Prompts should be refined on a small sample before batch-processing large volumes. That catches prompt problems before credits are spent on the whole archive."
+    why_not:
+      A: "Resubmitting by `custom_id` recovers requests that failed; a flawed prompt produces results that succeed but are wrong across all 40,000, and finding that out costs the whole batch."
+    source: "4.5"
+    verified: "2026-11-18"
+
+  - id: "d4-023"
+    task: "4.6"
+    scenario: 4
+    stem: "An internal developer tool generates database migration scripts with one API call and reviews them with a second. The review call is sent the generator's full message history, followed by an instruction to review the script. The reviewer approves nearly every script, including several that later fail. What is the most likely cause?"
+    options:
+      - "The reviewer model is too small to catch the subtle bugs these scripts contain"
+      - "The long history crowds the context, so the script gets too little attention"
+      - "Both calls use the same model and sampling settings, so they reach the same view"
+      - "The reviewer sees the generator's reasoning, so it rarely challenges those choices"
+    correct: [D]
+    explanation: "Passing the generator's history gives the reviewer the reasoning behind every decision, so it is less likely to question them: reasoning context bias. An independent review call that receives the script but none of the generation context reviews it on its own terms."
+    why_not:
+      A: "A larger reviewer reading the same history would still inherit the generator's justifications; the bias comes from the shared context, not the model's size."
+      C: "The fix is a fresh instance with none of the generation context, not a different model or different settings; what the reviewer must not share is the reasoning."
+    source: "4.6"
+    verified: "2026-11-18"
+
+  - id: "d4-024"
+    task: "4.8"
+    scenario: 1
+    stem: "A support agent's `usage.cache_read_input_tokens` drops to zero partway through some conversations, and the team can't tell which part of the request is changing. They want the API itself to report where consecutive requests diverge. Which two steps set that up? Choose two."
+    options:
+      - "Add the cache-diagnostics beta header to each request the team wants to compare"
+      - "On each conversation's first turn, send `diagnostics: {\"previous_message_id\": null}`"
+      - "Send `diagnostics` only after a miss, with `previous_message_id` set to the missed request"
+      - "On every later turn, send the previous response's `id` as `previous_message_id`"
+      - "Diff `usage.cache_creation_input_tokens` between turns to find the changed section"
+    correct: [B, D]
+    explanation: "Cache diagnostics is opted into per request: send `diagnostics` with `previous_message_id: null` on the first turn and the previous response's `id` on each turn after it, and `response.diagnostics` reports where consecutive requests diverged. A fingerprint is stored only for requests that include the object, so it has to go on every turn."
+    why_not:
+      C: "The request that missed didn't carry the `diagnostics` object, so no fingerprint was stored for it and the comparison comes back as `previous_message_not_found`."
+      A: "Cache diagnostics is generally available on the Claude API and needs no beta header; the `diagnostics` object in the request is the opt-in."
+    source: "4.8"
+    verified: "2026-11-18"
+
+  - id: "d4-025"
+    task: "4.6"
+    scenario: 5
+    stem: "A CI review of large pull requests already runs in two passes: Pass 1 walks through every changed file in one shared conversation, and Pass 2 checks cross-file integration using the Pass 1 findings. On 20-file changes, Pass 1's comments grow thinner with each later file. What is the best fix?"
+    options:
+      - "Give Pass 2 the full diff as well, so it can deepen the thin per-file comments"
+      - "Run Pass 1 with a separate prompt for each file, so every file gets equal depth"
+      - "Add few-shot examples of thorough file reviews to the shared Pass 1 conversation"
+      - "Fold both passes into one prompt that covers file and cross-file issues together"
+    correct: [B]
+    explanation: "Pass 1 is meant to review each file independently with its own prompt, which is what keeps depth consistent across files. Walking every file through one conversation brings back the attention dilution of a single pass, where later files get less attention than early ones."
+    why_not:
+      A: "Pass 2 is the integration pass with a different, cross-file prompt; it receives the Pass 1 results but isn't meant to redo per-file depth."
+      C: "Examples show what a thorough review looks like; they don't stop one long conversation from giving later files less attention."
+    source: "4.6"
+    verified: "2026-11-18"
+
+  - id: "d4-026"
+    task: "4.7"
+    scenario: 4
+    stem: "An internal developer tool, written for an older model, prefills the assistant turn with `{\"summary\":` so stack-trace summaries come back as JSON. After the move to Opus 5.5, every request returns a 400. What is the best replacement?"
+    options:
+      - "Request the JSON schema through structured outputs with `output_config.format`"
+      - "Shorten the prefill to a single opening brace so it is accepted as valid JSON"
+      - "Set `temperature` to 0 so every reply starts with the same JSON key"
+      - "Force a call to an extraction tool with `tool_choice` and read its input"
+    correct: [A]
+    explanation: "Prefilling the last assistant turn returns a 400 on current models, so the technique is retired. Structured outputs through `output_config.format` give the guaranteed JSON shape, with system-prompt instructions as the lighter alternative."
+    why_not:
+      B: "Every assistant prefill is rejected, whatever its length; the 400 is about the technique, not its content."
+      D: "Opus 5.5 also rejects forced tool use with a 400; among current models only Haiku 5.5 still accepts it."
+    source: "4.7"
+    verified: "2026-11-18"
+
+  - id: "d4-027"
+    task: "4.7"
+    scenario: 4
+    stem: "A team moves a code-analysis assistant from Opus 5 to Opus 5.5 without changing its requests, none of which set `effort`. Answers to hard questions now come back noticeably shallower. What is the most likely cause?"
+    options:
+      - "Opus 5.5 defaults the thinking display to omitted, so it reasons less per turn"
+      - "Opus 5.5 skips adaptive thinking unless the request supplies `budget_tokens`"
+      - "Opus 5.5 defaults to `medium` effort, one level below Opus 5's default"
+      - "Opus 5.5 runs without thinking unless adaptive is switched on explicitly"
+    correct: [C]
+    explanation: "Opus 5.5's default effort is `medium`, one level below Opus 5's `high`, so a request that omits `effort` now runs at a lower level than before. Effort levels don't buy the same amount of thinking across models, so set `effort` explicitly and test several levels on your own evals instead of relying on the default."
+    why_not:
+      A: "The display setting changes only what comes back; thinking still happens and is billed the same."
+      D: "Opus 4.8 and 4.7 behave that way; on Opus 5.5 thinking is always on and can't be turned off."
+    source: "4.7"
+    verified: "2026-11-18"
+
+  - id: "d4-028"
+    task: "4.8"
+    scenario: 1
+    stem: "A support agent puts a long, fixed policy manual in its system prompt with a `cache_control` breakpoint, but `usage.cache_read_input_tokens` is zero on every request. Which two are likely causes? Choose two."
+    options:
+      - "The customer's newest message sits after the last cache breakpoint"
+      - "The request sets two `cache_control` breakpoints rather than one"
+      - "The system prompt comes before the conversation messages in the request"
+      - "The system prompt opens with a greeting that includes the current time"
+      - "The tool list is built from a set, so its order differs between requests"
+    correct: [D, E]
+    explanation: "The cache keys on an exact prefix, rendered as tools, then system, then messages. A timestamp in the system prompt changes the prefix on every request, and a tool list in a different order changes the very first section, invalidating everything behind it."
+    why_not:
+      A: "Volatile content such as the latest question belongs after the last breakpoint; that placement is the design rule, not a cause of misses."
+    source: "4.8"
+    verified: "2026-11-18"
+
+  - id: "d4-029"
+    task: "4.8"
+    scenario: 3
+    stem: "A research coordinator pre-warms the cache for its subagents' shared 5,000-token methodology prefix, which ends in a `cache_control` breakpoint, with a `max_tokens: 0` request, then starts all its subagent calls in parallel. To keep the warm-up cheap, that request sets `output_config.effort` to `low`, while the live subagent calls use `high`. None of the live calls shows cache reads. What is the fix?"
+    options:
+      - "Add a second `cache_control` breakpoint halfway through the methodology"
+      - "Write the warm-up's entry with a one-hour lifetime instead of five minutes"
+      - "Send the warm-up with `max_tokens: 1` so the entry is actually written"
+      - "Use one effort and thinking configuration for the warm-up and every call"
+    correct: [D]
+    explanation: "A `max_tokens: 0` request warms a cache entry without generating anything, but only with the same thinking and `effort` configuration the real traffic uses; otherwise the entry is never hit. A warm-up at `low` creates an entry that the `high` live calls never match."
+    why_not:
+      A: "Another breakpoint writes another entry under the same `low` configuration, which the `high` live calls still never match."
+      B: "A longer-lived entry doesn't help when it was written under a configuration the live calls never use."
+      C: "`max_tokens: 0` does warm the cache; the mismatch in effort, not the token count, is why the entry is never hit."
+    source: "4.8"
+    verified: "2026-11-18"
+
+  - id: "d4-030"
+    task: "4.7"
+    scenario: 3
+    stem: "A research coordinator on Opus 5.5 runs long subagent conversations. When priorities change mid-task, the harness rewrites the top-level `system` prompt with the new instructions, and cache reads drop to zero on the next request. What is the better way to deliver the change?"
+    options:
+      - "Append a `role: \"system\"` message carrying the change to the `messages` array"
+      - "Edit the first user turn to add the new priorities, then resend the history"
+      - "Insert the change as text inside the next tool result the subagent receives"
+      - "Keep editing `system`, but put the change after its last cache breakpoint"
+    correct: [A]
+    explanation: "On Opus 5.5, a `role: \"system\"` message appended to `messages` is the operator channel for mid-session changes. It leaves the cached prefix and the earlier history untouched, so the cache keeps hitting."
+    why_not:
+      D: "Render order is tools, then system, then messages, so any change to `system` invalidates the conversation cached behind it, wherever the breakpoint sits."
+      B: "Editing an earlier turn breaks the cached prefix and, on Opus 5.5, invalidates every later thinking block."
+      C: "Text inside a tool result is third-party content, not an operator instruction; tool output belongs in `tool_result` blocks, while a `role: \"system\"` message carries operator authority and takes precedence."
+    source: "4.7"
+    verified: "2026-11-18"

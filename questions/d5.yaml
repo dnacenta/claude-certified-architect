@@ -1,0 +1,396 @@
+domain: 5
+questions:
+  - id: "d5-001"
+    task: "5.1"
+    scenario: 5
+    stem: "A CI/CD job splits large diffs into review requests, each sized to stay under a per-request token threshold. The sizes were calibrated with `tiktoken` against a pre-4.7 Claude model. Since the job moved to Claude Opus 5.5, the API's usage figures show some requests over the threshold although the diffs haven't grown. What should the team do?"
+    options:
+      - "Re-measure the chunk sizes with `messages.count_tokens` on the new model, whose tokenizer yields about 30% more tokens"
+      - "Keep calibrating with `tiktoken` but add a fixed safety margin, since the count is sound and only the model's limits changed"
+      - "Stop chunking and send each diff whole, since the 1M-token window on current models makes a per-request threshold unnecessary"
+      - "Express the threshold in words using the old ratio of about 750k words per 1M tokens, so it no longer depends on the tokenizer"
+    correct: [A]
+    explanation: "Opus 4.7 introduced a tokenizer that Opus 5.5 carries, and it produces roughly 30% more tokens for the same text. Any chunk size or threshold calibrated on an older model has to be re-baselined with `messages.count_tokens`, never with `tiktoken`."
+    why_not:
+      C: "A bigger window is not free: every token in it is billed on every turn, and the lost-in-the-middle effect gets worse with length, so filling it because you can is a cost and quality regression."
+      D: "The 750k-words figure belongs to the old tokenizer; on the new one 1M tokens is about 555k words, so a threshold carried over from the old ratio is still miscalibrated."
+    source: "5.1"
+    verified: "2026-11-18"
+
+  - id: "d5-002"
+    task: "5.1"
+    scenario: 3
+    stem: "A coordinator concatenates twelve subagent reports into one long input for its synthesis step. A key finding, which always arrives in one of the middle reports, is often missing from the final synthesis, while findings from the first and last reports appear reliably. What is the best fix?"
+    options:
+      - "Shuffle the order of the reports on every run, so no single report is stuck in the middle position each time"
+      - "Open the combined input with a summary of the key findings, and give each report its own explicit section header"
+      - "Add a system-prompt instruction telling the synthesis step to weigh every one of the twelve reports equally"
+      - "Include the full set of reports twice in the combined input, so that every report gets a second chance to be read"
+    correct: [B]
+    explanation: "Models handle the beginning and end of a long input more reliably than the middle, so the mitigations are structural: put a key-findings summary at the beginning of aggregated inputs and use explicit section headers to give it navigation structure."
+    why_not:
+      A: "Shuffling only moves the problem to whichever report lands in the middle on that run; middle content is still overlooked."
+      D: "Duplicating everything makes the input longer, and the lost-in-the-middle effect gets worse with length; bookending is for the important parts, not the whole input."
+    source: "5.1"
+    verified: "2026-11-18"
+
+  - id: "d5-003"
+    task: "5.1"
+    scenario: 2
+    stem: "In a monorepo, `src/billing/CLAUDE.md` says money must be handled as integer cents. Late in a long Claude Code session, after a `/compact`, Claude writes a billing helper in `src/shared/` using floats, and follows the rule again only once it next opens a file under `src/billing/`. What change makes the rule hold after compaction?"
+    options:
+      - "Turn it into a rules file with `paths: src/billing/**` frontmatter, so it reloads whenever billing code comes up"
+      - "Set `\"idleCompaction\": false` in settings, so the session never compacts and the nested file stays loaded"
+      - "Move it into the project-root CLAUDE.md, which Claude Code re-injects from disk after every compaction"
+      - "Copy it into a CLAUDE.md in each subfolder of `src/billing/`, so a copy of the rule is always nearby"
+    correct: [C]
+    explanation: "The project-root CLAUDE.md and unscoped rules are re-injected from disk after `/compact`, while nested CLAUDE.md files are summarized away and reload only when Claude next reads, writes, or edits a file in their directory. A rule that must survive compaction belongs in the root file."
+    why_not:
+      A: "A `paths:`-scoped rule is summarized away by `/compact` just like a nested CLAUDE.md and reloads only when Claude touches a matching file; the advice is to drop `paths:` frontmatter, not add it."
+      B: "That setting only turns off the idle compaction that runs before the prompt cache expires; a manual `/compact` and automatic compaction near the limit still drop the nested file."
+    source: "5.1"
+    verified: "2026-11-18"
+
+  - id: "d5-004"
+    task: "5.1"
+    scenario: 1
+    stem: "A support agent's `get_order` tool returns the order system's full record, about 40 fields including warehouse codes and audit metadata, although the agent only ever relies on the status, delivery date, total, and items. Long conversations fill context quickly. What is the best fix?"
+    options:
+      - "Move the agent to a model with a 1M-token window, so the full records fit for the whole conversation"
+      - "Tell Claude in the system prompt to ignore every order field it doesn't need when it reads a lookup"
+      - "Copy each full record into the case-facts block once, so the agent never has to repeat the lookup"
+      - "Trim the tool's response down to the few fields that matter before the result is returned to Claude"
+    correct: [D]
+    explanation: "Verbose tool results consume context for nothing. Trimming the result to the relevant fields before it reaches Claude means each lookup costs a few lines instead of forty fields on every later turn."
+    why_not:
+      B: "An instruction to ignore fields doesn't remove them: the full record still sits in context and is billed on every turn."
+      C: "The case-facts block holds the few critical transactional values that must survive summarization; filling it with whole records consumes context the same way."
+    source: "5.1"
+    verified: "2026-11-18"
+
+  - id: "d5-005"
+    task: "5.1"
+    scenario: 1
+    stem: "A support agent's conversations often run long enough to be compacted, so the team adds a `CASE FACTS (do not summarize)` block. In a damaged-item refund case, which two details most need to go into it? Choose two."
+    options:
+      - "The refund total of `$212.40` quoted by the order system"
+      - "The refund policy wording the system prompt gives the agent"
+      - "The customer's frustration about the late delivery"
+      - "The return authorization code `RMA-55871` from the warehouse"
+      - "The full 40-field order record from the agent's latest lookup"
+    correct: [A, D]
+    explanation: "Summarization turns exact amounts into approximations and drops order numbers and reference codes, so transactional values such as the refund total and the return authorization code go into the case-facts block, which survives summarization."
+    why_not:
+      B: "System prompts already survive compaction, so the policy wording doesn't need protecting."
+      E: "The block holds a few critical values, not whole records; verbose tool results should be trimmed to the fields that matter."
+    source: "5.1"
+    verified: "2026-11-18"
+
+  - id: "d5-006"
+    task: "5.2"
+    scenario: 1
+    stem: "A customer has been working through a billing issue with the support agent, which believes one more account lookup would resolve it. The customer then writes, \"I'd like to speak to a person, please.\" What should the agent do?"
+    options:
+      - "Run the remaining lookup first, since resolving the issue now is faster for the customer than a queue"
+      - "Escalate right away, passing the human agent a structured summary of the case and the actions so far"
+      - "Ask what the agent got wrong, then offer one more attempt before it hands the case over to someone"
+      - "Escalate only if a sentiment check shows frustration, since a calm request can be resolved in-channel"
+    correct: [B]
+    explanation: "An explicit request for a human is an immediate escalation trigger: respecting the customer's autonomy means escalating with no further investigation. The handoff carries a structured summary because the human agent typically can't see the transcript."
+    why_not:
+      A: "Being close to a resolution doesn't override an explicit request; the trigger calls for escalating immediately, with no further investigation."
+      D: "Sentiment isn't a valid escalation trigger in either direction; the explicit request is what decides it."
+    source: "5.2"
+    verified: "2026-11-18"
+
+  - id: "d5-007"
+    task: "5.2"
+    scenario: 1
+    stem: "To decide when the support agent hands a case to a human, a team proposes having Claude attach a self-rated confidence score from 0 to 1 to each reply and escalating whenever it falls below 0.6. What should the architect recommend?"
+    options:
+      - "Adopt it, but tune the cutoff against a week of transcripts so the escalation rate matches staffing"
+      - "Combine it with a sentiment score, so a case escalates whenever the customer is upset or confidence is low"
+      - "Replace it with a turn limit, since conversation length is an objective signal that the model can't misreport"
+      - "Reject it; escalate on explicit triggers such as a policy exception or no progress after reasonable attempts"
+    correct: [D]
+    explanation: "Claude's self-reported confidence is poorly calibrated: a low-confidence reply can be right and a high-confidence one wrong. Escalation should rest on explicit triggers: a request for a human, a policy gap or exception, or no progress after reasonable attempts."
+    why_not:
+      A: "Tuning the cutoff to staffing only changes how often a poorly calibrated number fires; it doesn't make the number track whether the agent is right."
+      C: "Length doesn't indicate a need for escalation; some issues legitimately take many turns."
+    source: "5.2"
+    verified: "2026-11-18"
+
+  - id: "d5-008"
+    task: "5.2"
+    scenario: 1
+    stem: "A customer gives only their name, and the support agent's `lookup_customer` tool returns three accounts named Maria Lopez. One of them placed an order yesterday that fits the complaint. What should the agent do next?"
+    options:
+      - "Ask the customer for an email address or the last four digits of their phone number to find the right one"
+      - "Proceed with the account that has yesterday's order, since it fits the complaint, and confirm details later"
+      - "Escalate to a human agent, since the support agent shouldn't resolve an identity question on its own"
+      - "Have Claude rate its confidence in each of the three accounts and proceed with the highest-scoring one"
+    correct: [A]
+    explanation: "When a lookup returns several matches, the agent asks the customer for more identifying information to disambiguate; choosing the likeliest match with a heuristic risks acting on someone else's account."
+    why_not:
+      B: "Picking the most likely match with a heuristic is the named wrong answer, however well the order seems to fit."
+      C: "Disambiguation is within the agent's capability; ambiguity is neither a policy gap nor a lack of progress, so it isn't an escalation trigger."
+    source: "5.2"
+    verified: "2026-11-18"
+
+  - id: "d5-009"
+    task: "5.3"
+    scenario: 1
+    stem: "While a customer asks about the return policy, the support agent's knowledge-base search returns `{\"failure_type\": \"timeout\", \"is_retryable\": true, \"retry_after_ms\": 5000, \"alternative_approaches\": [\"Check the FAQ section directly\"]}`. The agent's current rule hands the case to a human the moment any tool reports an error. What should the agent do instead?"
+    options:
+      - "Escalate to a human at once, since a failed search means the agent can't answer from its own sources"
+      - "Tell the customer that no article covers the question, since the search didn't return any articles"
+      - "Retry after the delay or try a listed alternative, and tell the customer that the search couldn't run"
+      - "Close the conversation politely and ask the customer to come back once the knowledge base is up again"
+    correct: [C]
+    explanation: "The structured error says the search didn't run, that a retry is worthwhile after a short delay, and what else to try: exactly what the agent needs to recover on its own. One retryable failure isn't \"no progress after reasonable attempts,\" so the agent retries or takes an alternative and tells the customer it couldn't search, not that nothing exists."
+    why_not:
+      A: "Escalation is for an explicit request for a human, a policy gap, or no progress after reasonable attempts; a single retryable timeout that comes with alternatives is none of those."
+      D: "Ending the conversation over one failed step is the workflow-termination anti-pattern; continue, note the gap, and offer alternatives."
+    source: "5.3"
+    verified: "2026-11-18"
+
+  - id: "d5-010"
+    task: "5.3"
+    scenario: 6
+    stem: "An extraction coordinator gives each of 40 supplier contracts to a subagent that calls `fetch_contract`. When the document store answers with HTTP 503, the subagent hands the bare failure to the coordinator, which then re-runs all 40 subagents. Which two changes should the team make? Choose two."
+    options:
+      - "Have the coordinator re-run every subagent whenever one of them reports a failure, so the batch stays consistent"
+      - "Have the subagent retry transient failures locally, with backoff, before reporting anything upward"
+      - "Raise the document store's timeout so that a 503 waits long enough to turn into a success"
+      - "Have the coordinator mark any contract whose fetch failed as complete, so the batch can finish"
+      - "Have the subagent report unrecovered failures with what it tried, partial results, and retryability"
+    correct: [B, E]
+    explanation: "Subagents should recover locally from transient failures such as a 503 and propagate only what they can't resolve, saying what was attempted, what partial results they have, what the failure was, and whether it's retryable, so the coordinator re-delegates one contract instead of restarting the batch."
+    why_not:
+      A: "Re-running the whole batch over one failed fetch is the workflow-termination anti-pattern; the coordinator should act on the one contract that failed."
+      D: "Marking a failed fetch as complete is silent suppression: later steps would treat a missing contract as processed."
+    source: "5.3"
+    verified: "2026-11-18"
+
+  - id: "d5-011"
+    task: "5.3"
+    scenario: 4
+    stem: "An internal developer assistant answers questions by querying the code search index, a documentation MCP server, and the ticket tracker. When the documentation server times out, the assistant discards the code and ticket results it already has and replies only \"Something went wrong.\" What is the better design?"
+    options:
+      - "Retry the full three-step workflow from the start, as many times as it takes, until every step succeeds"
+      - "Skip the documentation step silently and answer from code and tickets as if the docs held nothing"
+      - "Keep aborting on the timeout, but add `is_retryable: true` so the developer knows to ask again later"
+      - "Answer from the code and ticket results, say the docs couldn't be searched, and suggest alternatives"
+    correct: [D]
+    explanation: "Aborting the whole workflow because one step timed out throws away good results. The better pattern is to continue with partial results, note the gap, and offer alternatives."
+    why_not:
+      B: "Hiding the failed step makes the answer look complete; an access failure must be reported as one, not passed off as an empty result."
+      C: "Retryability helps a recovery decision, but the workflow still discards the results it already has."
+    source: "5.3"
+    verified: "2026-11-18"
+
+  - id: "d5-012"
+    task: "5.4"
+    scenario: 2
+    stem: "Three hours into a Claude Code session on an unfamiliar payments module, Claude starts describing \"typical\" retry logic instead of the code it found at `src/payments/retry.ts:41`, and contradicts its earlier answer about the retry limit. Which two practices, used from the start, would have kept the session reliable? Choose two."
+    options:
+      - "Keep a scratchpad file of findings with file paths and line numbers for Claude to re-read after compaction"
+      - "Let automatic compaction handle it near the limit, since it keeps the exact tool results from earlier turns"
+      - "Run `/compact` proactively during the session with a structured summary, before the context degrades"
+      - "Turn off idle compaction, so the session holds on to every early tool result for the rest of its length"
+      - "Add an instruction telling Claude to cite exact file paths instead of describing typical code patterns"
+    correct: [A, C]
+    explanation: "A scratchpad file persists findings outside the conversation, so Claude can re-read them after context compression, and compacting proactively with a structured summary beats letting automatic compression lose information unpredictably."
+    why_not:
+      B: "Automatic compression loses information unpredictably; specific tool results and exact details from early turns are among the things that may not survive."
+      E: "An instruction can't bring back findings that have already dropped out of context; Claude needs a file it can re-read."
+    source: "5.4"
+    verified: "2026-11-18"
+
+  - id: "d5-013"
+    task: "5.4"
+    scenario: 4
+    stem: "A developer asks Claude Code to find every place a deprecated config key is read across a large monorepo and then plan the migration. Dozens of Grep and Read results pile up in the main conversation, and by the time planning starts the context is crowded with raw output. What should the developer do differently?"
+    options:
+      - "Run the searches in the main conversation as before, then `/compact` after each batch to make room"
+      - "Delegate the search to an Explore subagent that does the reading and returns a concise list of locations"
+      - "Load the whole monorepo into context up front, since the 1M-token window has room for all of it"
+      - "Delegate the search to a subagent, but have it pass back all of its raw Grep and Read output, unedited and in full"
+    correct: [B]
+    explanation: "Subagent delegation isolates verbose exploration: the Explore subagent does the noisy Glob, Grep, and Read work in its own context and returns a concise summary, so the main conversation stays clean for planning."
+    why_not:
+      A: "Compacting after each batch risks losing the specific tool results, the exact locations, that the plan depends on."
+      D: "Returning the raw output defeats the point of delegating: the main conversation fills up just the same."
+    source: "5.4"
+    verified: "2026-11-18"
+
+  - id: "d5-014"
+    task: "5.4"
+    scenario: 3
+    stem: "A multi-agent research workflow runs for several hours across five subagents. When the host process crashed in the third hour, the whole run had to start again from the beginning. Which design would let the next run pick up where it stopped?"
+    options:
+      - "Each agent saves its state to a known path, and the coordinator keeps a manifest of every agent's status"
+      - "The coordinator keeps all subagent progress in its own conversation history and reads it back on restart"
+      - "Each run is capped at a fixed number of steps so that it finishes before a crash becomes likely"
+      - "Each subagent restarts from scratch after a crash, but all five run in parallel to make up the time"
+    correct: [A]
+    explanation: "In the crash recovery pattern each agent exports its state to a known location and the coordinator maintains a manifest of statuses and state paths; on resume, the coordinator loads the manifest and continues from there."
+    why_not:
+      B: "State that must persist belongs in files outside the conversation; the coordinator's history goes down with the crashed process, and a conversation can't be relied on to survive compaction either."
+      C: "An arbitrary cap doesn't make a crash recoverable; it only shortens the run that still restarts from nothing."
+    source: "5.4"
+    verified: "2026-11-18"
+
+  - id: "d5-015"
+    task: "5.5"
+    scenario: 6
+    stem: "An extraction pipeline processes contracts (high risk), invoices (medium risk), and receipts (low risk). Reviewers check a uniform 5% random sample of all outputs, but receipts make up 80% of volume, so most reviewed items are receipts. How should sampling change?"
+    options:
+      - "Raise the uniform random sample to 15% of all outputs, so that more contracts end up in review"
+      - "Review only the outputs that the model describes as uncertain in its own extraction summary"
+      - "Sample each category at its own rate, highest for contracts and lowest for receipts"
+      - "Review every output from one randomly chosen hour each day, across all document types"
+    correct: [C]
+    explanation: "Stratified sampling sets a separate rate for each risk category, for example 20%, 10%, and 5%, which concentrates human review effort on the areas most likely to have errors instead of following volume."
+    why_not:
+      A: "A bigger uniform sample still mirrors volume, so receipts still dominate review; it costs more without concentrating effort on high-risk outputs."
+      B: "The model's own sense of uncertainty isn't calibrated, so it isn't a sound basis for choosing what humans review."
+    source: "5.5"
+    verified: "2026-11-18"
+
+  - id: "d5-016"
+    task: "5.5"
+    scenario: 6
+    stem: "An invoice extraction pipeline now returns a confidence value for each field. The team wants to auto-accept any field at 0.9 or above and send the rest to human reviewers. What must be in place before that cutoff means anything?"
+    options:
+      - "Calibration of the scores against a labeled validation set, so that 0.9 really means about 90% correct"
+      - "A prompt instruction telling the model to be conservative and round its confidence values downward"
+      - "A document-level confidence score as well, so that each field is checked against the overall score"
+      - "A threshold tuned so that the volume sent to reviewers matches the hours the review team has available"
+    correct: [A]
+    explanation: "Field-level confidence is only useful once it's calibrated against labeled validation data, so that a 0.9 means the field is correct about 90% of the time. Without calibration the scores are meaningless, whatever the cutoff."
+    why_not:
+      B: "Asking for conservative numbers changes how they're reported, not whether they track accuracy; only measuring them against labeled data does that."
+      D: "Sizing the queue to staff hours says nothing about whether the auto-accepted fields are actually correct."
+    source: "5.5"
+    verified: "2026-11-18"
+
+  - id: "d5-017"
+    task: "5.5"
+    scenario: 6
+    stem: "An extraction system already reports accuracy by document type. Handwritten notes come in at 71%, and the team plans to rebuild the entire handwritten-notes pipeline. What should they look at before deciding what to rebuild?"
+    options:
+      - "A larger sample of handwritten notes, to confirm that the 71% figure is statistically sound"
+      - "Per-field accuracy across all document types combined, to find the weakest fields overall"
+      - "Handwritten accuracy compared with last quarter's, to see whether the trend is improving"
+      - "Per-field accuracy within handwritten notes, to see which fields fail and which hold up"
+    correct: [D]
+    explanation: "Reporting accuracy for each document type and for each field within that type shows where the system actually needs work; a type-level 71% can blend fields that are nearly fine with a few critical failures, such as totals and line items."
+    why_not:
+      B: "Combining fields across all types brings back the aggregate problem: strong standard invoices would hide the handwritten fields that fail."
+    source: "5.5"
+    verified: "2026-11-18"
+
+  - id: "d5-018"
+    task: "5.6"
+    scenario: 3
+    stem: "A research system's synthesis agent writes a company briefing that combines four quarters of revenue from SEC filings, a run of executive departures reported in the news, and three analysts' conflicting estimates of a product recall's cost. The draft renders all of it as one bulleted list. How should the agent render the briefing?"
+    options:
+      - "One table with a source column for every finding, so all three kinds of content share a single format"
+      - "Revenue as a sourced table, the departures as chronological prose, and the cost estimates side by side"
+      - "Chronological prose throughout, so the revenue, the news, and the estimates read as one continuous story"
+      - "Revenue in running prose, the departures as a table, and only the best-sourced estimate of the cost"
+    correct: [B]
+    explanation: "Synthesis output is rendered by content type: financial data as tables with source attribution, news and events as chronological prose, and disputed claims as a side-by-side comparison, so each kind of finding gets the form that suits it."
+    why_not:
+      A: "A table suits the financial figures, but events read best as chronological prose, and conflicting estimates need a side-by-side comparison."
+      D: "Keeping only one estimate silently picks a side in a disputed claim, and the revenue and departures are each in the other's format."
+    source: "5.6"
+    verified: "2026-11-18"
+
+  - id: "d5-019"
+    task: "5.6"
+    scenario: 3
+    stem: "A research report flags a contradiction: one source puts a country's unemployment rate at 3.9%, another at 4.1%. On inspection, both are accurate; they describe different months. How should the subagents' output prevent this false alarm?"
+    options:
+      - "Average the two figures to 4.0% and cite both sources, so the report shows one consistent value"
+      - "Keep only the figure from the more recently published source and drop the older one from the report"
+      - "Attach to each figure the date its data is as of, along with when it was published and retrieved"
+      - "Mark the figure as contested and present both values side by side so the reader can judge them"
+    correct: [C]
+    explanation: "Recording when the data applies, when the source published it, and when it was retrieved keeps two figures from different periods from looking like a contradiction when both are correct for their own time."
+    why_not:
+      D: "Side-by-side treatment is for claims that genuinely disagree; nothing is disputed here, and without dates the report still can't show why the values differ."
+      B: "Silently picking one value hides information, and the older figure is still correct for its period."
+    source: "5.6"
+    verified: "2026-11-18"
+
+  - id: "d5-020"
+    task: "5.6"
+    scenario: 3
+    stem: "A synthesis agent writes: \"The company holds about 15% market share and plans an acquisition.\" Its sources give market share as 12%, 15%, and 18% under different methodologies, and only one report mentions the acquisition. Which two changes bring the output up to standard? Choose two."
+    options:
+      - "Average the three estimates and report 15% with a citation to all three sources"
+      - "Remove the acquisition claim, since a single report isn't enough to mention it"
+      - "Present the market-share estimates side by side as contested, noting each method"
+      - "Label the acquisition claim as single-source, naming the one report that makes it"
+      - "Rewrite the three sources' claims in uniform wording so the summary reads smoothly"
+    correct: [C, D]
+    explanation: "Good synthesis distinguishes certainty levels: estimates that vary with methodology are contested and belong side by side with their sources, and a claim only one report makes is labeled single-source rather than stated as settled fact."
+    why_not:
+      B: "Single-source claims are labeled as such, not removed; the reader can weigh a clearly marked claim."
+      A: "Averaging hides the disagreement the reader needs to see; contested estimates should show their range and methods."
+    source: "5.6"
+    verified: "2026-11-18"
+
+  - id: "d5-021"
+    task: "5.7"
+    scenario: 4
+    stem: "A developer-productivity agent on Claude Opus 5.5 runs long sessions that pile up dozens of verbose file-read and test-run tool results. It also needs to remember project conventions it learns in one session when the next session starts. Which two mechanisms fit these needs? Choose two."
+    options:
+      - "Compaction, so the conventions it learns carry into next week's sessions"
+      - "Context editing with `clear_tool_uses_20250919`, to clear old tool results"
+      - "Deleting old tool results from `messages` in the client before each request"
+      - "The memory tool, so learned conventions live in files outside the conversation"
+      - "The tool runner's `compaction_control` option, to summarize history client-side"
+    correct: [B, D]
+    explanation: "Context editing with `clear_tool_uses_20250919` fits an agentic loop with dozens of verbose tool results, and the memory tool keeps findings outside the conversation, so they survive across sessions and not just turns. The mechanisms are complementary, not alternatives."
+    why_not:
+      A: "Compaction replaces earlier context with a summary inside the conversation; it doesn't carry anything into a new session."
+      C: "On Opus 5.5, deleting earlier tool results client-side invalidates every later thinking block; server-side context editing doesn't count as an edit."
+    source: "5.7"
+    verified: "2026-11-18"
+
+  - id: "d5-022"
+    task: "5.7"
+    scenario: 4
+    stem: "An internal developer assistant built on Claude Opus 5.5 holds long architecture-analysis conversations that must keep their narrative. The product team wants the last few exchanges kept word for word, and doesn't want developers to wait while older history is summarized. Which approach fits?"
+    options:
+      - "Threshold compaction via a `compact_20260112` edit, which keeps the latest turns verbatim by default"
+      - "Context editing with `clear_tool_uses_20250919`, which shrinks history without rewriting any of the turns"
+      - "On-demand compaction, sending the turns to keep after the returned block while the session continues"
+      - "A summary written by the client and swapped in for older turns, keeping the recent turns as they are"
+    correct: [C]
+    explanation: "On-demand compaction fits when the application must keep the last turns word for word or keep working while the summary is written: the kept turns are sent after the returned block, and the summary is produced in the background."
+    why_not:
+      A: "Threshold compaction runs inside the request that hits the trigger, and it keeps recent turns verbatim only if you pause after compaction and re-insert them."
+      D: "With a client-written summary, the kept assistant turns still carry thinking produced against the original history, so on Opus 5.5 those blocks fail unless they're stripped or dropped."
+    source: "5.7"
+    verified: "2026-11-18"
+
+  - id: "d5-023"
+    task: "5.8"
+    scenario: 5
+    stem: "A CI/CD pipeline uses Claude Haiku 5.5 to label incoming security reports, and a few requests end with `stop_reason: \"refusal\"`. The team's Opus 5.5 jobs get refusals re-routed by setting `fallbacks=\"default\"` with the server-side fallback beta. What should the team do for the Haiku 5.5 pipeline?"
+    options:
+      - "Route its refusals through the SDK's fallback middleware, or through its own retry on another model"
+      - "Send the same `fallbacks=\"default\"` setting and beta header that the Opus 5.5 jobs already use"
+      - "Resend each refused request to Haiku 5.5 until it returns a label, since each extra call costs little"
+      - "Raise `max_tokens` on these requests, since the label was cut off before any output was written"
+    correct: [A]
+    explanation: "Haiku 5.5 has no server-side fallback and no fallback credit, so its refusals go through the SDK middleware or the application's own retry on another model, and that retry pays full price to write the fallback model's cache."
+    why_not:
+      B: "Server-side fallback is what the Opus 5.5 jobs rely on, but Haiku 5.5 doesn't offer it, so copying their setting gives these requests no fallback."
+      C: "Resending to the same model isn't a fallback: Haiku 5.5's refusals belong in the middleware or a retry on another model, and every refused attempt still counts against rate limits."
+    source: "5.8"
+    verified: "2026-11-18"

@@ -82,7 +82,7 @@ Strict mode guarantees Claude's tool inputs conform exactly to the schema:
 
 **Requirements for strict mode:**
 - `additionalProperties: false` must be set
-- All properties must be in `required`
+- Properties left out of `required` stay optional, but a request's strict schemas can hold at most 24 optional parameters in total
 - Only a subset of JSON Schema is supported (see Domain 4)
 
 ### Anti-Pattern: Ambiguous Tool Overlap
@@ -164,7 +164,7 @@ Instead of:
   One agent with 18 tools
 
 Do:
-  Coordinator with: Agent, AskUser
+  Coordinator with: Agent, AskUserQuestion
   Search subagent with: search_web, search_docs, search_db
   Analysis subagent with: analyze_text, extract_entities, summarize
   Action subagent with: send_email, create_ticket, update_record
@@ -198,7 +198,7 @@ How it works:
 | Limits | Up to 10,000 deferred tools per request; searches return 5 matches by default (Claude may set `limit`, 1–10,000) |
 | Cache | A tool with `defer_loading: true` can't also carry `cache_control` — 400. Put the breakpoint on a non-deferred tool |
 | Composability | Works with `strict: true`; the grammar builds from the full toolset |
-| MCP | Don't set `defer_loading` per tool — set it on the `mcp_toolset` entry's `default_config` |
+| MCP | Set `defer_loading` on the `mcp_toolset` entry — in its `default_config`, or per tool in `configs` |
 | Models | Both variants on every current model (Fable 5.2, Opus 5.5, Sonnet 5.5, Haiku 5.5) and back to Opus 4.5 / Sonnet 4.5 / Haiku 4.5; not on Opus 4.1 or earlier |
 
 **When to use it:** 10+ tools, tool definitions over 10k tokens, accuracy dropping as the toolset grows, or aggregating multiple MCP servers. **When not to:** fewer than 10 tools, every tool used every request, or definitions totalling under ~100 tokens.
@@ -211,10 +211,10 @@ Controls how Claude interacts with tools:
 
 | Value | Behavior | Use Case |
 |-------|----------|----------|
-| `"auto"` (default) | Claude may call a tool OR respond with text | General conversation with optional tool use |
-| `"any"` | Claude MUST call a tool, but can choose which | Guarantee structured output |
+| `{"type": "auto"}` (default) | Claude may call a tool OR respond with text | General conversation with optional tool use |
+| `{"type": "any"}` | Claude MUST call a tool, but can choose which | Guarantee structured output |
 | `{"type": "tool", "name": "specific_tool"}` | Claude MUST call this exact tool | Force a specific operation first |
-| `"none"` | Claude cannot call any tool; text only | Force a text answer while keeping tool definitions in context |
+| `{"type": "none"}` | Claude cannot call any tool; text only | Force a text answer while keeping tool definitions in context |
 
 Any `tool_choice` value can also carry `"disable_parallel_tool_use": true` to cap Claude at a single tool call per response (by default it may emit several `tool_use` blocks at once).
 
@@ -229,13 +229,13 @@ Any `tool_choice` value can also carry `"disable_parallel_tool_use": true` to ca
 
 ### When to Use Each
 
-**`"auto"`** — Most conversations. Claude decides whether a tool is needed.
+**`auto`** — Most conversations. Claude decides whether a tool is needed.
 
-**`"any"`** — When you need guaranteed structured output. Example: You have multiple extraction schemas (invoice, receipt, contract) and you want Claude to pick the right one and always return structured data.
+**`any`** — When you need guaranteed structured output. Example: You have multiple extraction schemas (invoice, receipt, contract) and you want Claude to pick the right one and always return structured data.
 
 **Forced specification** — When a specific tool must run first. Example: Always call `extract_metadata` before any enrichment step.
 
-**`"none"`** — When a turn must produce prose (e.g., a final summarization pass) without stripping the tool definitions from the request.
+**`none`** — When a turn must produce prose (e.g., a final summarization pass) without stripping the tool definitions from the request.
 
 ```python
 # Force Claude to call a specific tool (Haiku 5.5, and legacy Sonnet 5 / Opus 5 / 4.x —
@@ -272,8 +272,8 @@ The Model Context Protocol is an open standard for connecting AI models to exter
 | Transport | `type` in config | How It Works | When to Use |
 |-----------|------------------|--------------|-------------|
 | **stdio** | `"stdio"` (implied when the entry has `command`) | Standard input/output | Local process communication. No network overhead. Most common for local tools. |
-| **Streamable HTTP** | `"http"` (alias: `"streamable-http"`) | HTTP POST for client→server, optional SSE for streaming | Remote servers, cloud-hosted tools. The only remote transport that supports OAuth |
-| **SSE** (legacy) | `"sse"` | Server-Sent Events endpoint | Services that still expose only an SSE endpoint |
+| **Streamable HTTP** | `"http"` (alias: `"streamable-http"`) | HTTP POST for client→server, optional SSE for streaming | Remote servers, cloud-hosted tools. OAuth works with HTTP servers |
+| **SSE** (legacy) | `"sse"` | Server-Sent Events endpoint | Deprecated — use HTTP where the service offers it; only for services that still expose just an SSE endpoint |
 | **WebSocket** | `"ws"` | Persistent bidirectional connection | Remote servers that push events unprompted. Header-only auth, no OAuth |
 
 > **Config gotcha:** an entry with a `url` but no `type` is a configuration error — Claude Code reads a typeless entry as a stdio server, skips it, and reports `has a "url" but no "type"`. Always set `type` on remote servers.
@@ -389,7 +389,7 @@ This file lives in the project root and is version-controlled:
 
 ### Authentication for Remote Servers
 
-HTTP and SSE servers support **OAuth** — run `/mcp` in-session (or `claude mcp add` then authenticate) and Claude Code handles the browser flow and token refresh. For services without OAuth, pass a static token via `headers`, or generate one at connect time with `headersHelper` (a command whose stdout becomes the header value) when the credential is short-lived. WebSocket servers are header-only.
+**OAuth** works with HTTP servers (SSE is deprecated) — run `/mcp` in-session (or `claude mcp add` then authenticate) and Claude Code handles the browser flow and token refresh. For services without OAuth, pass a static token via `headers`, or generate one at connect time with `headersHelper` (a command that prints a JSON object of headers to stdout; Claude Code runs it on every connection and again after a 401/403, and its headers override static ones with the same name) when the credential is short-lived. WebSocket servers are header-only.
 
 ### Tool Search Is On by Default in Claude Code
 
@@ -457,6 +457,8 @@ Claude Code's built-in tools and when to use each:
 | **SendMessage / ListAgents** | Message a running or completed subagent, teammate, or another session | Resuming a subagent with its context intact (Domain 3 §3.4); cross-session messaging |
 | **Workflow** | Run a dynamic-workflow script that orchestrates many subagents | Only when the user opts in ("use a workflow", `ultracode`) — see Domain 1 §1.3 |
 
+On macOS, Linux, and WSL, Grep and Glob are left out of the default tool set: Claude searches with `grep` and `find` through Bash, and those searches reach hooks and permission rules as `Bash` calls. Listing them in `--tools`, naming either one in `--allowedTools` (which restores both), denying `Bash`, or listing them in a subagent's `tools` without `Bash` brings them back; on Windows they are in the default set.
+
 ### Codebase Exploration Pattern
 
 The correct pattern for exploring an unfamiliar codebase:
@@ -473,19 +475,17 @@ The correct pattern for exploring an unfamiliar codebase:
 
 ### When Edit Fails
 
-The Edit tool works by matching unique text strings. If the text isn't unique in the file, the edit fails.
-
-**Fallback:** Use Read to get the full file, then Write to replace the entire file with the modified version.
+Edit's `old_string` must appear exactly once; otherwise Claude adds surrounding context to pin one occurrence, or sets `replace_all: true` to change them all. When neither fits (identical blocks, only one to change), fall back to Read + Write.
 
 ---
 
 ## 2.6 Anthropic-Defined and Server-Side Tools
 
-Not every tool is one you write. Some are **Anthropic-defined** (schema-less: you declare a `type` and a `name`, and Claude knows the interface), and some are **server-side** (they execute on Anthropic's infrastructure — results come back as content blocks in the same response, with no client-side execution loop).
+Not every tool is one you write. Some are **Anthropic-defined** (schema-less: you declare a `type` and a `name`, and Claude knows the interface), and some are **server-side** (they execute on Anthropic's infrastructure — results normally come back as content blocks in the same response, with no client-side execution loop).
 
 | Tool | `type` | Client- or server-side | Result block |
 |------|--------|------------------------|--------------|
-| Web search | `web_search_20260209` | Server | `web_search_tool_result` |
+| Web search | `web_search_20260209` / `web_search_20260318` | Server | `web_search_tool_result` |
 | Web fetch | `web_fetch_20260209` | Server | `web_fetch_tool_result` |
 | Code execution | `code_execution_20260521` | Server | `bash_code_execution_tool_result` (`.content.stdout`) |
 | Tool search (regex / BM25) | `tool_search_tool_regex_20251119` / `..._bm25_20251119` | Server | `tool_search_tool_result` |
@@ -495,9 +495,10 @@ Not every tool is one you write. Some are **Anthropic-defined** (schema-less: yo
 
 Details worth carrying into an exam or a design review:
 
-- **Version the type string.** `web_search_20260209` / `web_fetch_20260209` add dynamic filtering and need Opus 4.6+ / Sonnet 4.6+; older models use the basic `web_search_20250305` / `web_fetch_20250910`. Don't also declare `code_execution` alongside the `_20260209` variants — they run code under the hood, and a second execution environment confuses the model.
+- **Version the type string.** `web_search_20260209` / `web_fetch_20260209` add dynamic filtering and need Opus 4.6+ / Sonnet 4.6+; older models use the basic `web_search_20250305` / `web_fetch_20250910`. `web_search_20260318` / `web_fetch_20260318` add `response_inclusion`: `"excluded"` drops the search result blocks that a completed code-execution call already consumed (token usage is unchanged). The dynamic-filtering versions don't need a `code_execution` tool in `tools` — the API provisions code execution itself; if you do declare one, use `code_execution_20260120` or later, because older versions are rejected alongside these web tools.
 - **Web fetch only fetches URLs already present in the conversation.** It is not a crawler. An organization admin can also turn web fetch off in the Console (since 2026-10-20); a Messages API request that declares the tool then fails outright with a 400 `invalid_request_error`.
 - **Server-tool errors do not raise.** They return HTTP 200 with an error object inside the result block (e.g. `{"error_code": "max_uses_exceeded"}`). For web search, a success `content` is a *list* and an error `content` is an *object* — branch on that before indexing. This is the same "empty vs failed" distinction from §2.2, at the API layer.
+- **A server tool called alongside a client tool waits.** If Claude calls a server tool and one of your tools in the same response, the API doesn't run the server tool yet: the response ends with `stop_reason: "tool_use"` and a `server_tool_use` block with no result block. Send back only the client `tool_result` blocks, with the same `tools`, and the API runs the server tool at the start of the next request.
 - **`pause_turn`** is how a server-side tool loop tells you it hit its internal cap. Send the response back to continue (Domain 1 §1.1).
 - **Bash and text editor are schema-less.** Declaring a custom tool of your own named `"bash"` with an `input_schema` creates a *different* tool.
 - **Advisor tool:** its `model` must be Sonnet 4.6 or better and at least as capable as the request's top-level (executor) `model` (e.g. executor `claude-sonnet-5-5` → advisor `claude-opus-5-5`). An invalid pair returns 400 — and the matrix is per model, not a simple ranking: a Sonnet 5.5 executor rejects Opus 4.8, Opus 4.7, Sonnet 5, and Haiku 5.5 advisors that a Sonnet 5 executor accepts, and a Fable 5.2 or Mythos 5.2 executor accepts **only** Fable 5.2 or Mythos 5.2 as its advisor (any other, Fable 5.1 and Mythos 5.1 included, is a 400), while every executor accepts a Fable 5.2 advisor. Changing the advisor's `model` is an edit to `tools`, so make it in new conversations — a request that sends earlier thinking blocks back after the change can fail with a 400. Fable / Mythos 5, 5.1, and 5.2, Opus 5 / 5.5, Sonnet 5.5, and Haiku 5.5 advisors return their advice **encrypted**, as an `advisor_redacted_result` block your client can't read; round-trip it verbatim and the server decrypts it into the executor's prompt next turn. Only older advisors (Opus 4.8, for example, where the executor accepts it) return the plaintext `advisor_result` you could log.
@@ -505,7 +506,7 @@ Details worth carrying into an exam or a design review:
 
 ### Parallel Tool Use
 
-By default Claude may emit several `tool_use` blocks in one assistant message. Execute them concurrently and return **all** `tool_result` blocks in a **single** user message. Splitting them across multiple messages silently teaches Claude to stop making parallel calls. For a tool that failed, return its `tool_result` with `is_error: true` — never drop it.
+By default Claude may emit several `tool_use` blocks in one assistant message. The API doesn't prescribe an execution order — independent, read-only calls are usually safe to run concurrently, while ones with side effects or ordering needs may be better run in sequence — but return **all** `tool_result` blocks in a **single** user message. Splitting them across multiple messages silently teaches Claude to stop making parallel calls. For a tool that failed, return its `tool_result` with `is_error: true` — never drop it.
 
 ### Programmatic Tool Calling
 
@@ -565,7 +566,7 @@ Rules of thumb: declare what you know up front (in `tools`, deferred if the mode
 **Q1:** An agent has 18 tools configured and is frequently selecting the wrong tool. What is the most effective solution?
 - A) Improve all 18 tool descriptions to be more detailed
 - B) Distribute the tools across specialized subagents with 4-5 tools each
-- C) Set tool_choice to "any" to force tool usage
+- C) Set `tool_choice` to `{"type": "any"}` to force tool usage
 - D) Add examples to the system prompt showing correct tool selection
 
 **Answer: B** — The 4-5 tool maximum per agent is the key architectural principle. Even with better descriptions, 18 tools degrades selection reliability.
@@ -590,7 +591,7 @@ Rules of thumb: declare what you know up front (in `tools`, deferred if the mode
 
 - A) Raise `max_tokens` so there is room for the definitions
 - B) Enable the tool search tool, keep it and the 3-5 most-used tools loaded, and mark the rest `defer_loading: true`
-- C) Set `tool_choice: "any"` so Claude is forced to commit to a tool
+- C) Set `tool_choice: {"type": "any"}` so Claude is forced to commit to a tool
 - D) Set `defer_loading: true` on every tool including the search tool
 
 **Answer: B** — Tool search keeps only a small hot set plus the search tool in context and loads the rest on demand via `tool_reference` blocks, cutting definition tokens by ~85% while preserving prompt caching. Deferring every tool, the search tool included, is a 400 error: at least one tool must stay non-deferred. Splitting across subagents (§2.3) is still valid, but tool search is what makes a 200-tool catalog workable inside one agent.
@@ -598,8 +599,8 @@ Rules of thumb: declare what you know up front (in `tools`, deferred if the mode
 **Q5:** An extraction service forces its schema with `tool_choice: {"type": "tool", "name": "extract_invoice"}` and is being moved from Claude Opus 5 to Claude Fable 5.2. What happens, and what is the right fix?
 
 - A) Nothing changes — forced tool use works on every current model
-- B) The request returns 400; switch to `tool_choice: "any"` instead
-- C) The request returns 400; use `tool_choice: "auto"` with an explicit instruction and `strict: true`, or structured outputs via `output_config.format`
+- B) The request returns 400; switch to `tool_choice: {"type": "any"}` instead
+- C) The request returns 400; use `tool_choice: {"type": "auto"}` with an explicit instruction and `strict: true`, or structured outputs via `output_config.format`
 - D) The call silently falls back to text output
 
 **Answer: C** — Fable 5.2 and Mythos 5.2 reject both forced forms (`any` and `tool`) with a 400. `auto` plus an instruction keeps the tool call, `strict: true` keeps the arguments schema-valid, and structured outputs replace the pattern entirely when the tool only existed to return JSON. Opus 5.5 and Sonnet 5.5 (and legacy Fable 5.1) reject it exactly as Fable 5.2 does, while Haiku 5.5 (and legacy Sonnet 5 / Opus 5) still accept it — so this is a per-model check, not a global rule, and three of the four current models fail it.

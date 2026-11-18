@@ -1,0 +1,519 @@
+# Domain 3 — Claude Code Configuration & Workflows. Source: domains/d3-claude-code-config.md
+domain: 3
+questions:
+  # ---- 3.0 Surfaces ----
+  - id: "d3-001"
+    task: "3.0"
+    scenario: 4
+    stem: "A developer wants Claude Code to run every night against service logs that are reachable only from her workstation on the company's private network, then save a summary to a folder on her disk. Which scheduling mechanism fits?"
+    options:
+      - "A cloud scheduled task made with `/schedule`, which keeps running while her machine is off"
+      - "`/loop` started in a terminal session, with the interval omitted so that Claude self-paces"
+      - "A desktop scheduled task, which runs on her machine with local file and tool access"
+      - "A cloud session started with `claude --cloud`, so the job no longer depends on her laptop"
+    correct: [C]
+    explanation: "The deciding question is where the job runs. Desktop scheduled tasks run on the developer's own machine with local file and tool access, which is what a job needs when it reads from a private network and writes to the local filesystem."
+    why_not:
+      A: "Cloud scheduled tasks (formerly routines) run in the cloud from a fresh clone, which is their strength when the machine is off, so they can't reach logs that exist only on her private network."
+      B: "`/loop` runs inside the current CLI session and is meant for quick polling within one sitting, not a nightly job."
+    source: "3.0"
+    verified: "2026-11-18"
+
+  - id: "d3-002"
+    task: "3.0"
+    scenario: 2
+    stem: "A team's developers split their time between the terminal CLI, the VS Code extension, and the desktop app. The tech lead plans to keep a separate copy of the team's CLAUDE.md, skills, and MCP server configuration for each surface. What should the architect advise?"
+    options:
+      - "Keep a single copy in the repo: every surface runs the same engine, so it applies identically"
+      - "Keep separate copies, because the IDE extensions read editor settings rather than CLAUDE.md"
+      - "Share CLAUDE.md across surfaces but register skills in each, since skills are tracked per surface"
+      - "Move the conventions into managed policy CLAUDE.md, the one file that every surface reads"
+    correct: [A]
+    explanation: "Every Claude Code surface connects to the same engine, so CLAUDE.md files, settings, skills, and MCP servers work the same in the terminal, the IDE extensions, and the desktop app. Configuration is portable, and per-surface copies would only drift apart."
+    why_not:
+      D: "Managed policy is the broadest layer of the CLAUDE.md hierarchy, not a portability fix; the repo's own CLAUDE.md and skills already load on every surface."
+    source: "3.0"
+    verified: "2026-11-18"
+
+  # ---- 3.1 CLAUDE.md hierarchy ----
+  - id: "d3-003"
+    task: "3.1"
+    scenario: 2
+    stem: "A repository's root `CLAUDE.md` says to use named exports. A developer's `CLAUDE.local.md` in the same directory, written months earlier, says to use default exports. Claude now switches between the two styles from file to file. What is the right fix?"
+    options:
+      - "Restate the local rule more forcefully, since `CLAUDE.local.md` is read after `CLAUDE.md` and wins"
+      - "Move the personal rule into `~/.claude/CLAUDE.md`, which takes precedence over project files"
+      - "Mark the shared rule as overridable so that the more specific local file can take precedence"
+      - "Reconcile the two files so that only one instruction about export style is loaded into context"
+    correct: [D]
+    explanation: "CLAUDE.md files are concatenated into context, not overridden, so two contradictory instructions leave Claude to pick one each time. The fix is to resolve the conflict rather than rely on precedence."
+    why_not:
+      A: "Being read later only changes where the text sits in context; both instructions are still there, which is exactly why Claude alternates."
+      B: "User-level CLAUDE.md is a broader layer that loads before the project file, so the contradiction would stay in context."
+    source: "3.1"
+    verified: "2026-11-18"
+
+  - id: "d3-004"
+    task: "3.1"
+    scenario: 4
+    stem: "A tech lead is sorting instructions for Claude Code. Most are team conventions everyone must follow; one is a developer's personal setting, the URL of her own sandbox database, used only in this repository. Which two placements are right? Choose two."
+    options:
+      - "Team conventions in Claude's auto memory, so that Claude keeps them up to date as it learns"
+      - "Team conventions in the project `CLAUDE.md`, committed to git so the whole team shares them"
+      - "Her sandbox URL in the project `CLAUDE.md`, so that it loads in every session she starts there"
+      - "Her sandbox URL in `CLAUDE.local.md` at the repo root, kept out of git through `.gitignore`"
+      - "Team conventions in each developer's `~/.claude/CLAUDE.md`, so they apply in all projects"
+    correct: [B, D]
+    explanation: "Project-level `CLAUDE.md` is committed to git and shared with the team, which is where team conventions belong. `CLAUDE.local.md` is personal per project and gitignored, which fits a setting that one developer uses in one repository."
+    why_not:
+      A: "Auto memory is machine-local and not version controlled, so nothing Claude writes there reaches teammates."
+      E: "User-level CLAUDE.md is personal and local: each developer's copy drifts on its own, and it applies to all their projects rather than this one."
+    source: "3.1"
+    verified: "2026-11-18"
+
+  - id: "d3-005"
+    task: "3.1"
+    scenario: 2
+    stem: "A repository has no `CLAUDE.md`; its conventions live in `AGENTS.md`, shared with other coding agents, and Claude Code has been following them. After a developer adds a `CLAUDE.local.md` with a few personal preferences, Claude stops following the `AGENTS.md` conventions in her sessions. What explains this?"
+    options:
+      - "`AGENTS.md` is read only by `/init` while it scaffolds a project, never during normal sessions"
+      - "A `CLAUDE.local.md` counts as having a `CLAUDE.md`, so the `AGENTS.md` fallback no longer applies"
+      - "`CLAUDE.local.md` loads last in its directory and overrides every instruction file read before it"
+      - "Adding a personal instruction file switches the Project instructions setting to `managed-only`"
+    correct: [B]
+    explanation: "Claude Code reads `AGENTS.md` only as a fallback when a project has no `CLAUDE.md`, and a `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` in the working directory or above counts as having one. Importing `@AGENTS.md` from a project `CLAUDE.md` keeps one source of truth and avoids the trap."
+    why_not:
+      A: "`/init` does read `AGENTS.md` when scaffolding, but sessions also fall back to it whenever no `CLAUDE.md` exists, which is why Claude followed it until the local file appeared."
+    source: "3.1"
+    verified: "2026-11-18"
+
+  - id: "d3-006"
+    task: "3.1"
+    scenario: 6
+    stem: "In an extraction team's monorepo, `packages/invoices/CLAUDE.md` contains the line `@docs/field-rules.md`. Both `packages/invoices/docs/field-rules.md` and a repo-root `docs/field-rules.md` exist, and the developer launched Claude Code from the repo root. Which file does the import load?"
+    options:
+      - "`packages/invoices/docs/field-rules.md`, since relative imports resolve from the importing file"
+      - "The repo-root `docs/field-rules.md`, since relative imports resolve from the launch directory"
+      - "Both files, since an `@` import loads every match between the repo root and the importing file"
+      - "Neither file, since `@` imports work only in the project-level `CLAUDE.md` at the repo root"
+    correct: [A]
+    explanation: "Relative paths in an `@` import resolve relative to the file that contains the import, not the directory Claude was launched from, so each package's `CLAUDE.md` can pull in its own docs."
+    why_not:
+      B: "Resolving from the launch directory is the intuitive guess, but imports resolve relative to the file that contains them."
+    source: "3.1"
+    verified: "2026-11-18"
+
+  - id: "d3-007"
+    task: "3.1"
+    scenario: 4
+    stem: "In a large monorepo, a nested `CLAUDE.md` owned by the mobile team keeps loading into the platform team's sessions and contradicts their conventions. The platform team can't edit that file. What should they configure?"
+    options:
+      - "Start every session with `--bare`, which skips CLAUDE.md discovery for the whole run"
+      - "Set `omitClaudeMd: true` in their settings so that nested CLAUDE.md files are skipped"
+      - "List the file's path in the `claudeMdExcludes` setting, a glob list of files to skip"
+      - "Launch with `--add-dir` pointing at their own packages so other directories are ignored"
+    correct: [C]
+    explanation: "`claudeMdExcludes` is a glob list of CLAUDE.md files to skip, built for exactly this monorepo case of another team's nested file loading where it shouldn't. It drops that one file while the platform team's own instructions keep loading."
+    why_not:
+      A: "`--bare` skips all auto-discovery, including CLAUDE.md, skills, hooks, and plugins, so it would throw away the platform team's own conventions too."
+      B: "`omitClaudeMd` is subagent frontmatter that skips user, project, and local CLAUDE.md for that subagent; it isn't a filter for one nested file."
+    source: "3.1"
+    verified: "2026-11-18"
+
+  # ---- 3.2 Skills ----
+  - id: "d3-008"
+    task: "3.2"
+    scenario: 2
+    stem: "A team is writing a `/db-migrate` skill. It must run only when a developer types `/db-migrate`, never because Claude decides a migration looks useful, and its long, noisy output should stay out of the main conversation. Which two frontmatter settings achieve this? Choose two."
+    options:
+      - "`disable-model-invocation: true`"
+      - "`user-invocable: false`"
+      - "`context: fork`"
+      - "`allowed-tools: Bash(npm run migrate *)`"
+      - "`paths: [\"db/migrations/**\"]`"
+    correct: [A, C]
+    explanation: "With `disable-model-invocation: true` only the user can invoke the skill through `/name`, so Claude can't trigger it on its own. `context: fork` runs the skill in an isolated subagent, which keeps noisy operations from polluting the main context."
+    why_not:
+      B: "`user-invocable: false` does the opposite: it hides the skill from the `/` menu while Claude can still invoke it."
+      D: "`allowed-tools` pre-approves tools for the turn that invokes the skill; it neither stops Claude from triggering the skill nor isolates its output."
+    source: "3.2"
+    verified: "2026-11-18"
+
+  - id: "d3-009"
+    task: "3.2"
+    scenario: 4
+    stem: "Mid-session, a developer invokes the team's `/release-notes` skill, spots a mistake in its instructions, and fixes `SKILL.md` on disk. Over the next few turns, Claude keeps following the old instructions. What explains this?"
+    options:
+      - "A plugin's skill with the same name outranks the project skill that she edited on disk"
+      - "Skill bodies are built into the system prompt at startup, so edits wait for a new session"
+      - "Skill edits are ignored until `/skill-doctor` re-indexes the project's skills directory"
+      - "The skill's rendered body entered the conversation once when invoked; the file isn't re-read"
+    correct: [D]
+    explanation: "When a skill is invoked, its rendered body enters the conversation as a single message and stays there; Claude Code doesn't re-read the file on later turns. That is also why skill bodies should be written as standing instructions rather than one-time steps."
+    why_not:
+      B: "A skill's body isn't loaded at startup; it enters the conversation as a message at the moment the skill is invoked."
+      A: "Plugin skills are namespaced as `plugin-name:skill-name`, so a same-named plugin skill loads alongside the project skill instead of shadowing it."
+    source: "3.2"
+    verified: "2026-11-18"
+
+  - id: "d3-010"
+    task: "3.2"
+    scenario: 2
+    stem: "A project's `.claude/skills/release/SKILL.md` gained a mandatory changelog step, and most of the team now sees it. One developer's `/release` still skips the step, even in a fresh session on the latest commit. What is the most likely cause?"
+    options:
+      - "Her clone still holds a legacy `.claude/commands/release.md`, which outranks a skill of that name"
+      - "She has a personal skill at `~/.claude/skills/release/`, and personal skills outrank project ones"
+      - "An enabled plugin ships its own `release` skill, and plugin skills outrank project skills"
+      - "Project skills load only after `/init` has been run once on each developer's machine"
+    correct: [B]
+    explanation: "When enterprise, personal, and project skills share a name, Enterprise > Personal > Project, and the higher-priority location wins. A personal `release` skill in her home directory shadows the updated project skill on her machine alone."
+    why_not:
+      A: "When a skill and a legacy command share a name, the skill wins, so a stale command file can't hide the update."
+      C: "Plugin skills are namespaced as `plugin-name:skill-name`, so a same-named plugin skill loads alongside the project skill rather than outranking it."
+    source: "3.2"
+    verified: "2026-11-18"
+
+  - id: "d3-011"
+    task: "3.2"
+    scenario: 2
+    stem: "A team wants Claude Code to run its own build-and-smoke-test recipe right before each commit Claude makes, without writing a hook. What setup achieves this?"
+    options:
+      - "Rely on the bundled `/verify` skill, which runs automatically before every commit Claude makes"
+      - "Add a `verify` skill with `disable-model-invocation: true` so only the commit flow can run it"
+      - "Add a project skill named `verify` that Claude may invoke, containing the team's recipe"
+      - "Publish the recipe as a plugin skill named `verify` so every repo gets the same commit check"
+    correct: [C]
+    explanation: "When a session starts with a project, personal, or enterprise skill named `verify` (or `simplify`) that Claude may invoke, Claude Code's commit instructions tell Claude to run it right before each commit. That is the skill-level answer to checking work before every commit without a hook."
+    why_not:
+      A: "The bundled `/verify` runs only when invoked; bundled and plugin skills don't trigger the pre-commit instruction."
+      B: "`disable-model-invocation: true` stops Claude from invoking the skill at all, and the pre-commit behavior needs a skill Claude may invoke."
+    source: "3.2"
+    verified: "2026-11-18"
+
+  - id: "d3-012"
+    task: "3.2"
+    scenario: 1
+    stem: "A team building a customer support resolution agent uses Claude Code daily. A platform engineer proposes a mechanism for each of the team's requests. Which two proposals match the request to the right mechanism? Choose two."
+    options:
+      - "Developers keep pasting the same refund-policy checklist into prompts → write an MCP server"
+      - "Claude needs to query the internal ticketing system during sessions → write a skill"
+      - "Every `git push` to the release branch must be blocked by a script → add a settings hook"
+      - "Claude should follow the team's escalation conventions in new handlers → build a mod"
+      - "Developers want a pane beside the chat that shows live ticket-queue depth → build a mod"
+    correct: [C, E]
+    explanation: "A settings hook is the pick when you want to block, allow, or log an event with a script, and a mod is the pick when you need a pane, a custom command, or to rewrite an event. The pasted checklist calls for a skill and the ticketing system for an MCP server."
+    why_not:
+      A: "Instructions that keep getting pasted are the textbook case for a skill; an MCP server gives Claude tools to reach an external system."
+      B: "A skill changes what Claude knows and does, but reaching an external system such as a ticketing service needs an MCP server."
+    source: "3.2"
+    verified: "2026-11-18"
+
+  - id: "d3-013"
+    task: "3.2"
+    scenario: 4
+    stem: "A platform team maintains skills, two subagents, and a few hooks that encode its conventions. It wants to roll them out to a dozen repositories and catch regressions in the skills before each release. What is the best approach?"
+    options:
+      - "Package them as a plugin, enable it per repo, and test its skills with `claude plugin eval`"
+      - "Copy the `.claude/` folder into each repository and diff the copies in CI to catch drift"
+      - "Inline the conventions into managed policy CLAUDE.md so that every session reads them"
+      - "Wrap the conventions in an MCP server that every repository registers in its `.mcp.json`"
+    correct: [A]
+    explanation: "A plugin is the distributable bundle for skills, subagents, hooks, and MCP servers, installed from a marketplace and enabled per project. Plugins are also the unit `claude plugin eval` tests, so the package that ships the conventions also carries their regression suite."
+    why_not:
+      B: "Copied folders give every repo its own copy to drift, and diffing copies only shows that files match, not that the skills still behave."
+      D: "An MCP server gives Claude tools to reach external systems; it can't carry skills, subagents, or hooks."
+    source: "3.2"
+    verified: "2026-11-18"
+
+  # ---- 3.1 (cont.) Auto memory ----
+  - id: "d3-014"
+    task: "3.1"
+    scenario: 4
+    stem: "A developer has used Claude Code's auto memory on one repository for months, and its `MEMORY.md` now runs to 600 lines of detailed notes. Claude still applies the older notes near the top but acts as if it has never seen the ones added recently at the bottom. What should change?"
+    options:
+      - "Rewrite the notes as fewer, longer lines so that all of them fit within the 200-line cap"
+      - "Set `autoMemoryDirectory` to a new folder so that Claude loads the whole file from there"
+      - "Spread the notes across the repo's worktrees, since each worktree loads its own memory"
+      - "Keep `MEMORY.md` a short index and move the detail into topic files that load on demand"
+    correct: [D]
+    explanation: "Only the first 200 lines or 25 KB of `MEMORY.md`, whichever comes first, load at session start, so notes past that point never reach Claude. Topic files beside it load on demand and the cap applies only to `MEMORY.md` itself, which is why the current layout keeps `MEMORY.md` as a one-line-per-memory index."
+    why_not:
+      A: "The load limit is 200 lines or 25 KB, whichever comes first, so packing the notes into longer lines just runs into the size limit instead."
+      C: "All worktrees of the same git repository share one memory directory, so there is no per-worktree copy to spread the notes across."
+    source: "3.1"
+    verified: "2026-11-18"
+
+  # ---- 3.3 Path-specific rules ----
+  - id: "d3-015"
+    task: "3.3"
+    scenario: 1
+    stem: "A team building a support resolution agent added `.claude/rules/refunds.md` with `paths: [\"src/refunds/**\"]` in its frontmatter. A developer starts a session, asks Claude about the project's README, and notices the refund rules aren't in context. What is going on?"
+    options:
+      - "Path-scoped rules load only when the session is launched from inside `src/refunds/`"
+      - "Nothing is wrong; it loads once Claude reads, writes, or edits a file in `src/refunds/`"
+      - "Files in `.claude/rules/` load only when the root `CLAUDE.md` imports them with an `@` line"
+      - "The rule needs `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` set before it can load"
+    correct: [B]
+    explanation: "Rules with `paths` frontmatter load conditionally: they enter context when Claude reads, writes, or edits a matching file. A session that hasn't touched `src/refunds/` yet rightly leaves them out."
+    why_not:
+      A: "The launch directory doesn't matter; loading is triggered by Claude working on a matching file."
+      D: "That variable makes Claude load CLAUDE.md and rules from directories added with `--add-dir`; it plays no part in path-scoped rules inside the project."
+    source: "3.3"
+    verified: "2026-11-18"
+
+  - id: "d3-016"
+    task: "3.3"
+    scenario: 6
+    stem: "An extraction team's `.claude/rules/schemas.md` has the frontmatter `paths: [\"schemas/*.schema.json\"]`. Claude follows its conventions when it edits `schemas/invoice.schema.json`, but not in `schemas/vendors/acme/invoice.schema.json` or `packages/receipts/schemas/receipt.schema.json`. The conventions should load whenever Claude works on any schema file, and only then. What change fixes this?"
+    options:
+      - "Widen the pattern to `schemas/**/*.schema.json` so nested vendor folders match too"
+      - "Remove the `paths` frontmatter so that the rule loads at the start of every session"
+      - "Change the pattern to `**/*.schema.json`, which matches schema files at any depth"
+      - "List each folder where the rule fails to load as its own extra `paths` pattern"
+    correct: [C]
+    explanation: "Patterns are relative to the rule's base directory, here the project root, and a pattern with a folder in it, like `schemas/*.schema.json`, matches only files directly in that folder, not in its subfolders. `**/*.schema.json` matches schema files anywhere under the base directory, so the rule loads for every one of them and still only when Claude works on one."
+    why_not:
+      A: "`schemas/**/*.schema.json` reaches the nested vendor folders but still misses schema files outside `schemas/`, such as the one under `packages/receipts/`."
+      B: "Without `paths` frontmatter the rule loads unconditionally at session start, so it would sit in context even when Claude never touches a schema file."
+      D: "Adding one pattern per folder covers only today's layout; the next schema folder misses the rule again, while `**/*.schema.json` matches them all."
+    source: "3.3"
+    verified: "2026-11-18"
+
+  # ---- 3.4 Plan mode vs direct execution ----
+  - id: "d3-017"
+    task: "3.4"
+    scenario: 2
+    stem: "A developer has five tasks queued for Claude Code this afternoon. Which two should start in plan mode rather than direct execution? Choose two."
+    options:
+      - "Move session storage to Redis across the auth middleware and a dozen route handlers"
+      - "Fix the off-by-one error in `paginate()` that the failing test's stack trace points to"
+      - "Add an `archivedAt` field to the `Project` model, exactly as the ticket describes it"
+      - "Correct a misspelled word in one error message that the login endpoint returns to users"
+      - "\"Make search feel faster\" — nobody has profiled it yet, and no target has been agreed"
+    correct: [A, E]
+    explanation: "Plan mode suits multi-file changes with several valid approaches, and requests with unclear requirements that need investigation first. A single-file fix with a stack trace, a clearly specified field, and a typo are small, contained tasks for direct execution."
+    why_not:
+      C: "Adding a model field sounds structural, but the instruction is explicit and the scope obvious, which marks it for direct execution."
+    source: "3.4"
+    verified: "2026-11-18"
+
+  - id: "d3-018"
+    task: "3.4"
+    scenario: 5
+    stem: "A CI job runs Claude Code headless on every pull request. It must run only the tools the team pre-approved, and any other call must be refused rather than left waiting for an approval no one can give. Which permission mode fits?"
+    options:
+      - "`dontAsk`, combined with an exact `--allowedTools` list"
+      - "`bypassPermissions`, scoped to the disposable CI container"
+      - "`auto`, so that a classifier reviews each tool call"
+      - "`acceptEdits`, so file edits never need an approval"
+    correct: [A]
+    explanation: "In `dontAsk` mode only file reads inside the working directories and pre-approved tools run, and anything that would prompt is denied. It is the mode for locked-down CI with an exact `--allowedTools` list."
+    why_not:
+      B: "`bypassPermissions` runs every call without asking, so tools the team never approved would run too; a disposable container limits the damage but refuses nothing."
+      C: "`auto` has a classifier decide per tool whether to prompt, which is a judgment call rather than a fixed list of approved tools."
+    source: "3.4"
+    verified: "2026-11-18"
+
+  - id: "d3-019"
+    task: "3.4"
+    scenario: 4
+    stem: "A repository's `CLAUDE.md` says to ignore the generated `vendor/` directory. When Claude Code delegates a codebase search to the built-in Explore subagent, the summary it returns is full of matches from `vendor/`. What is the best fix?"
+    options:
+      - "Delegate to a custom subagent with `omitClaudeMd: true` so the search runs with a lighter context"
+      - "Move the rule into `CLAUDE.local.md`, which every subagent loads even when CLAUDE.md is skipped"
+      - "Raise `bashOutputMaxChars` so Explore returns every match and the main session filters them"
+      - "Restate the `vendor/` exclusion in the delegation prompt, since Explore starts without CLAUDE.md"
+    correct: [D]
+    explanation: "The built-in Explore and Plan subagents start without your CLAUDE.md files and the git status snapshot, so a rule written only in CLAUDE.md never reaches them. A rule the search must follow, such as ignoring `vendor/`, has to be restated in the prompt Claude gives the subagent when delegating."
+    why_not:
+      A: "`omitClaudeMd: true` makes a custom subagent skip CLAUDE.md too, so it would miss the rule in exactly the way Explore does."
+      B: "`CLAUDE.local.md` belongs to the same CLAUDE.md hierarchy that Explore skips, so moving the rule there doesn't get it to the subagent."
+    source: "3.4"
+    verified: "2026-11-18"
+
+  - id: "d3-020"
+    task: "3.4"
+    scenario: 5
+    stem: "A nightly CI job runs Claude Code with `bypassPermissions` inside a disposable container. It delegates schema checks to a custom `schema-inspector` subagent whose frontmatter sets `permissionMode: plan`, yet the subagent ran a migration through Bash. Why?"
+    options:
+      - "A frontmatter `permissionMode` applies only when the subagent is @-mentioned by name"
+      - "Permission modes flow down: it inherited `bypassPermissions` and can't override it"
+      - "Plan mode applies only to the main session; subagents always run in `default` mode"
+      - "Custom subagents ignore their frontmatter unless a session starts with `--agent`"
+    correct: [B]
+    explanation: "Permission modes flow down: when the parent runs `bypassPermissions`, `acceptEdits`, or `auto`, the subagent inherits that mode and cannot override it. A `permissionMode: plan` line protects nothing while the parent bypasses permissions."
+    why_not:
+      A: "An @-mention guarantees that a specific agent runs; it doesn't change which permission mode applies."
+    source: "3.4"
+    verified: "2026-11-18"
+
+  - id: "d3-021"
+    task: "3.4"
+    scenario: 3
+    stem: "A team building a multi-agent research system uses Claude Code to re-run a source-quality audit across 250 document collections every quarter. They want the orchestration itself to be reviewable and rerunnable rather than held in a coordinating agent's memory. Which mechanism fits?"
+    options:
+      - "Subagents spawned by the main session, with Claude choosing the next batch turn by turn"
+      - "An agent team, with a lead session supervising peer sessions through a shared task list"
+      - "A dynamic workflow: a script Claude writes that the runtime executes in the background"
+      - "One long session running `/loop` over the collections until every audit has finished"
+    correct: [C]
+    explanation: "In a dynamic workflow the script decides what runs next, scales to dozens or hundreds of agents per run, and can be resumed. Codifying the orchestration turns the plan into a reviewable, rerunnable script instead of a coordinator's memory."
+    why_not:
+      B: "In an agent team the lead agent decides what runs next, so the plan still lives in a coordinating agent rather than in a script someone can review."
+    source: "3.4"
+    verified: "2026-11-18"
+
+  - id: "d3-022"
+    task: "3.4"
+    scenario: 3
+    stem: "While building a research system's citation checker, a developer tells Claude Code to remember 'peer-reviewed sources only, no preprints', and Claude saves the rule to its auto memory. The main session follows it, but the custom `citation-auditor` subagent Claude delegates to keeps accepting preprints. What is the cause?"
+    options:
+      - "Subagents don't load the main session's auto memory; a rule they need belongs in CLAUDE.md"
+      - "Its `model` is set to a smaller model that can't hold the rule alongside the papers it checks"
+      - "Auto memory reaches subagents only after the session ends and `MEMORY.md` is reindexed"
+      - "It loaded the rule, but subagents rank the delegation prompt above anything in memory"
+    correct: [A]
+    explanation: "A custom subagent starts with its own system prompt, the delegation prompt, the CLAUDE.md hierarchy, a git status snapshot, and any preloaded skills, but not the main session's auto memory. Moving the rule into the project `CLAUDE.md`, or restating it in the delegation prompt, puts it where the subagent can see it."
+    why_not:
+      C: "Auto memory never flows to a subagent; a subagent keeps memory of its own only through its `memory` field."
+    source: "3.4"
+    verified: "2026-11-18"
+
+  # ---- 3.5 Iterative refinement ----
+  - id: "d3-023"
+    task: "3.5"
+    scenario: 1
+    stem: "A developer on a support-agent team wants Claude Code to add order cancellation to the agent's tools. She hasn't yet decided which order states can be cancelled, whether partial cancellations are allowed, or when a human must approve one. What is the best way to start?"
+    options:
+      - "Let Claude pick sensible defaults, build the feature, and then correct its diff in review"
+      - "Have Claude build two alternative versions so the team can compare them and pick one"
+      - "Give Claude two or three example cancellation requests with the result each should get"
+      - "Ask Claude to interview her about the open choices first, then build from the answers"
+    correct: [D]
+    explanation: "When the requester hasn't pinned down what she wants, the interview pattern has Claude ask clarifying questions before implementing, working through the open choices until the answers add up to a spec. Building first would leave Claude guessing at decisions only the team can make."
+    why_not:
+      A: "Defaults Claude picks are guesses at business rules the team hasn't made yet; settling them up front costs a few questions instead of a rework."
+      C: "Examples fix inconsistent output when the target is known; here the target itself hasn't been decided, so there is nothing yet for examples to show."
+    source: "3.5"
+    verified: "2026-11-18"
+
+  - id: "d3-024"
+    task: "3.5"
+    scenario: 2
+    stem: "Claude Code is implementing a date-range parser with many edge cases. Each version looks plausible on review, yet bugs keep surfacing later in staging. Which iteration technique best tightens the loop?"
+    options:
+      - "Ask Claude, in the same session, to review its parser and list the edge cases it missed"
+      - "Write the edge-case tests first, run them, and share each failure with Claude until green"
+      - "Switch to plan mode so that Claude designs the whole parser before writing any more code"
+      - "Describe every edge case in a longer prose specification and ask for a careful rewrite"
+    correct: [B]
+    explanation: "TDD iteration writes the tests first and feeds the concrete failures back to Claude, repeating until the suite is green. Failing tests give precise, checkable feedback where a plausible-looking review gives none."
+    why_not:
+      A: "Same-session self-review is a known anti-pattern: the session that wrote the code keeps its reasoning context and is less likely to question its own decisions."
+    source: "3.5"
+    verified: "2026-11-18"
+
+  - id: "d3-025"
+    task: "3.5"
+    scenario: 1
+    stem: "A team building a support resolution agent asks Claude Code to fix three problems: the refund tool doesn't check the purchase date against the refund window; the same tool returns an empty success when that check throws; and an unrelated FAQ template has a broken link. Which two describe the right way to sequence the work? Choose two."
+    options:
+      - "Fix all three in a single message so Claude sees the whole picture at once"
+      - "Fix the window check and the empty-success bug together, in one message"
+      - "Fix the FAQ link as its own separate change, before or after the refund work"
+      - "Fix the window check and the empty-success bug in separate sessions to keep diffs small"
+      - "Fix all three, then have Claude review its own work in the same session"
+    correct: [B, C]
+    explanation: "Interacting issues belong in one message because their fixes may conflict, and both refund bugs live in the same check. Independent issues are fixed sequentially so each change stays clean and reviewable."
+    why_not:
+      D: "Splitting interacting fixes risks one change conflicting with the other; issues that interact are addressed together."
+      A: "Bundling an independent fix with unrelated work makes the change harder to review; independent issues go one at a time."
+    source: "3.5"
+    verified: "2026-11-18"
+
+  # ---- 3.6 CI/CD integration ----
+  - id: "d3-026"
+    task: "3.6"
+    scenario: 5
+    stem: "A CI step runs Claude Code to review each pull request, and a later step turns the findings into PR annotations. The parser keeps breaking because the review's wording and layout vary from run to run. What change makes the output reliable?"
+    options:
+      - "Add 'Respond only with valid JSON' to the prompt and strip any text around the JSON object"
+      - "Add `--include-partial-messages` so the parser can follow the review as it is generated"
+      - "Use `--output-format json` with a `--json-schema` describing the findings the parser expects"
+      - "Switch to `--output-format stream-json` and pick the final message out of the event stream"
+    correct: [C]
+    explanation: "`--output-format json` gives machine-parseable output, and `--json-schema` validates the final output against a JSON Schema in print mode, so the findings arrive in the shape the parser expects on every run."
+    why_not:
+      A: "A prompt instruction is best-effort; the schema flag enforces the CI output shape instead of hoping the model complies."
+      D: "`stream-json` makes the event envelope parseable, but the review text inside it still varies; only a schema constrains the findings."
+    source: "3.6"
+    verified: "2026-11-18"
+
+  - id: "d3-027"
+    task: "3.6"
+    scenario: 5
+    stem: "A pipeline has Claude Code generate a fix for a failing build, then resumes that session with `--continue` to review the change before merging. The reviews almost never find problems, but human reviewers later do. What should change?"
+    options:
+      - "Run the review as a new `claude -p` call given only the diff, with no `--continue`"
+      - "Raise `--effort` to `max` for the review step while keeping the resumed session"
+      - "Ask the resumed session for a confidence score and fail the build below a threshold"
+      - "Resume with `--fork-session` instead, so the review runs under a new session ID"
+    correct: [A]
+    explanation: "The session that wrote the code retains its reasoning context, so it already knows why it made each choice and is less likely to question them. A new `-p` run that sees only the diff reviews the change without that context."
+    why_not:
+      D: "`--fork-session` gives the resumed conversation a new ID but keeps its whole history, generation reasoning included."
+      C: "A self-reported confidence score comes from the same biased context, so it shares the blind spot it is meant to catch."
+    source: "3.6"
+    verified: "2026-11-18"
+
+  - id: "d3-028"
+    task: "3.6"
+    scenario: 5
+    stem: "A nightly `claude -p` job tries to fix flaky tests on its own. Twice this month a run got stuck retrying the same failing test for hours and ran up a large API bill. On top of the job's normal stopping logic, the team wants backstops that bound any single run. Which two flags provide them? Choose two."
+    options:
+      - "`--max-turns 40`"
+      - "`--fallback-model sonnet`"
+      - "`--no-session-persistence`"
+      - "`--max-budget-usd 15`"
+      - "`--exclude-dynamic-system-prompt-sections`"
+    correct: [A, D]
+    explanation: "`--max-turns` limits how many agentic turns a run can take, and `--max-budget-usd` stops a print-mode run once its estimated API spend reaches the set amount, so a stuck job is bounded in both length and cost. They are guardrails behind the job's own stopping logic, not a replacement for it."
+    why_not:
+      E: "Moving per-machine sections out of the system prompt improves prompt-cache reuse across runners, which makes each request cheaper but puts no ceiling on a run that never stops."
+      B: "`--fallback-model` is a reliability setting for when the primary model is overloaded; it changes which model answers, not how long or how expensively a run goes on."
+    source: "3.6"
+    verified: "2026-11-18"
+
+  - id: "d3-029"
+    task: "3.6"
+    scenario: 3
+    stem: "A team building a multi-agent research system runs Claude Code headless each night: one `claude -p` session delegates topic research to several custom subagents. Every subagent's report must cite sources in the same format, and the team wants that rule set from the pipeline rather than edited into each subagent's definition. Which flag fits?"
+    options:
+      - "`--append-system-prompt` with the citation rules, extending the session's system prompt"
+      - "`--forward-subagent-text`, so the main session sees and corrects each report's citations"
+      - "`--json-schema` with a schema that defines the citation fields the final output needs"
+      - "`--append-subagent-system-prompt` with the citation rules, added to every subagent's prompt"
+    correct: [D]
+    explanation: "In non-interactive runs, `--append-subagent-system-prompt` appends the same text to every subagent's prompt except forks, which is what consistent citation or format rules across delegated work need. Each subagent starts from its own system prompt, so text appended to the main session's prompt doesn't reach it."
+    why_not:
+      A: "`--append-system-prompt` extends the main session's system prompt; a subagent starts from its own system prompt and the delegation prompt, so the rules wouldn't reach it."
+      C: "`--json-schema` validates the run's final output in print mode; it doesn't shape the reports the subagents hand back along the way."
+    source: "3.6"
+    verified: "2026-11-18"
+
+  - id: "d3-030"
+    task: "3.6"
+    scenario: 5
+    stem: "A team's scripted Claude Code runs behave differently from runner to runner because each picks up whatever hooks, skills, plugins, and CLAUDE.md files it finds. The team adds `--bare` for fast, reproducible starts, and the job immediately fails to authenticate. What fixes it?"
+    options:
+      - "Add `--permission-prompt-tool` so that an MCP tool can answer the login prompt headlessly"
+      - "Set `ANTHROPIC_API_KEY` in the job, since `--bare` never reads OAuth or the keychain"
+      - "Run `claude --init-only` first so that the Setup hooks can restore the runner's credentials"
+      - "Swap `--bare` for `--no-session-persistence`, which skips discovery but keeps the saved login"
+    correct: [B]
+    explanation: "`--bare` skips auto-discovery of hooks, skills, plugins, MCP servers, auto memory, and CLAUDE.md for reproducible scripted starts, and it never reads OAuth or the keychain. Scripts that use it set `ANTHROPIC_API_KEY`."
+    why_not:
+      D: "`--no-session-persistence` only stops the session from being saved to disk; it doesn't skip auto-discovery, so the drift between runners would return."
+      A: "`--permission-prompt-tool` delegates permission prompts to an MCP tool; it has nothing to do with how the CLI authenticates."
+    source: "3.6"
+    verified: "2026-11-18"

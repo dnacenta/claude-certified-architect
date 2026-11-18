@@ -51,7 +51,7 @@ slides:
     title: Few-shot examples show what prose can't pin down.
     points:
       - Use them for ambiguous cases, formats or reasoning to demonstrate, edge cases, and extraction hallucination.
-      - "**2–4 targeted examples** is the sweet spot. Too few miss the pattern; too many waste context and overfit."
+      - "**A few targeted examples**: the exam guide says 2–4, Anthropic's prompting guide 3–5. Too few miss the pattern; too many overfit."
       - Each example shows the input, the output, and the reasoning for why that output is correct.
       - Good examples teach the pattern, so the model generalizes to situations it hasn't seen.
     note: "Include a boundary case too: a comment that is vague but not wrong, whose correct output is `null`."
@@ -105,7 +105,7 @@ slides:
     notes:
       - "The `input_schema` is the structure you want back."
       - "`strict: true` guarantees the output matches it."
-      - "Strict mode needs `additionalProperties: false` and every property listed in `required`."
+      - "Strict mode needs `additionalProperties: false`; properties left out of `required` stay optional."
       - "Some current models reject forced `tool_choice` with a 400. There, use `output_config.format`, or `auto` plus `strict: true`."
 
   - type: compare
@@ -118,7 +118,7 @@ slides:
         points:
           - Correct types
           - Required fields present
-          - Valid enum values
+          - Enum values, though not their capitalization
           - '`"total_amount": 150.00` is a number in the right field.'
       - tag: Not guaranteed
         tone: rust
@@ -144,7 +144,7 @@ slides:
         text: 'Add `"unclear"` so Claude doesn''t guess when the information is ambiguous.'
       - tag: Strict mode subset
         title: Some rules live in your code
-        text: "No `minimum`/`maximum`, length limits, `pattern`, `oneOf` or recursive schemas. Validate ranges, lengths and regex yourself."
+        text: "No `minimum`/`maximum`, length limits, complex regex, `oneOf`, `not` or recursive schemas. Validate ranges, lengths and complex patterns yourself."
 
   # 4.4 Validation-retry loops
   - type: code
@@ -205,7 +205,7 @@ slides:
           - 50% cheaper than synchronous calls.
           - Up to 24 hours, with no SLA.
           - Overnight code analysis, weekly audit reports, nightly test generation, bulk document processing.
-    note: Multi-turn conversations are not supported inside a single batch request.
+    note: A batch request can carry a multi-turn conversation, but it gets exactly one response, so no tool loop runs inside it.
 
   - type: rightwrong
     ref: "4.5"
@@ -284,7 +284,7 @@ slides:
     cards:
       - tag: Effort
         title: Set it explicitly, re-tune on migration
-        text: "Defaults differ by model, so an omitted `effort` can run shallower after a migration. Re-run your sweep; don't carry the old value across."
+        text: "Defaults and level names differ by model, so an omitted `effort` buys different thinking after a migration. Re-run your sweep; don't carry the old value across."
       - tag: Thinking display
         title: Hidden by default
         text: 'Thinking still happens and is still billed, but `display: "omitted"` hides it. Streaming reasoning to users? Set `"summarized"`.'
@@ -321,7 +321,7 @@ slides:
       - title: Explicit criteria
         text: "Define what qualifies, what doesn't, and examples. One noisy category? Disable it, fix its criteria, re-enable."
       - title: Few-shot
-        text: 2–4 targeted examples, each with input, output and reasoning. For ambiguity, formats and edge cases.
+        text: "A few targeted examples (exam guide 2–4, current docs 3–5), each with input, output and reasoning. For ambiguity, formats and edge cases."
       - title: Structured output
         tone: gold
         text: "A tool's `input_schema` or `output_config.format`, plus `strict: true`. It guarantees the shape, not the truth: validate semantics in code."

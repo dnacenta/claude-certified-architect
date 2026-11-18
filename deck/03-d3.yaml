@@ -29,9 +29,9 @@ slides:
     title: "Schedulers differ by where they run: the cloud, your machine, or this session."
     columns:
       - tag: in the cloud
-        title: Routines
+        title: Cloud scheduled tasks
         points:
-          - Keep running with your machine off.
+          - Formerly routines. Keep running with your machine off, from a fresh clone each run.
           - Can also trigger on API calls or GitHub events.
           - Morning PR reviews, overnight CI failure analysis, weekly dependency audits.
       - tag: on your machine
@@ -107,7 +107,7 @@ slides:
     title: "Custom commands are now skills: same `/name`, more power."
     points:
       - "`.claude/commands/deploy.md` and `.claude/skills/deploy/SKILL.md` both create `/deploy` and behave the same."
-      - "On a name clash, Enterprise > Personal > Project > Plugin, and a skill beats a same-named command."
+      - "On a name clash, Enterprise > Personal > Project, and a skill beats a same-named command."
       - Skills add a folder for supporting files, dynamic context injection, and subagent execution.
       - The body enters the conversation once and is never re-read, so write standing instructions.
     note: "The old `/project:name` and `/user:name` namespacing is gone. Plugin skills are namespaced `plugin-name:skill-name`."
@@ -121,7 +121,7 @@ slides:
       name: deploy
       description: Deploy the application to a specified environment
       context: fork
-      agent: Explore
+      agent: general-purpose
       allowed-tools: Bash(git *) Bash(npm run deploy *)
       argument-hint: [environment]
       disable-model-invocation: true
@@ -131,7 +131,7 @@ slides:
     notes:
       - "`description` is how Claude decides whether to auto-load the skill."
       - "`disable-model-invocation: true` means only the user can run it. `user-invocable: false` hides it from the menu instead."
-      - "`context: fork` runs it in an isolated subagent, chosen by `agent`. CLAUDE.md loads; chat history doesn't."
+      - "`context: fork` runs it in an isolated subagent, chosen by `agent`. Chat history never loads; on Explore or Plan, neither does CLAUDE.md."
       - "`allowed-tools` pre-approves tools for the invoking turn only. `$ARGUMENTS` is what the user typed."
 
   - type: cards
@@ -151,7 +151,7 @@ slides:
       - tag: Mod
         title: Events and the interface
         text: Plugin functions run inside Claude Code, unsandboxed. Pick it for a pane, a custom command, or rewriting an event.
-    note: "A plugin bundles these and more, namespaced so they can't collide with yours. Plugins sit lowest in skill priority."
+    note: "A plugin bundles these and more, namespaced so they can't collide with yours: a plugin skill loads alongside a same-named one."
 
   # ---- 3.3 Path-specific rules ----
   - type: compare
@@ -228,7 +228,7 @@ slides:
       - ["`plan`", "Exploration only: designs an approach and presents it before touching files."]
       - ["`auto`", "A classifier decides per tool call whether to prompt."]
       - ["`dontAsk`", "Only in-directory reads and pre-approved tools run; anything else is denied."]
-      - ["`bypassPermissions`", "Skips all prompts. Dangerous: short, contained tasks only."]
+      - ["`bypassPermissions`", "Skips permission prompts and safety checks. Dangerous: isolated containers and VMs only."]
     highlight: [3]
     note: "Set one with `--permission-mode` or `permissions.defaultMode`, or cycle with Shift+Tab. `dontAsk` suits locked-down CI."
 
@@ -300,7 +300,7 @@ slides:
         points:
           - Pre-merge checks that need an immediate response.
           - Real-time user interactions.
-          - Tool-calling loops. Multi-turn isn't supported inside one request.
+          - "Tool-calling loops: a request can carry a multi-turn conversation, but gets one response."
     note: "Results arrive in any order: match them by `custom_id`, never by position, and resubmit only the failures."
 
   - type: diagram
@@ -322,7 +322,7 @@ slides:
     cells:
       - ref: "3.0"
         title: Surfaces
-        text: "One engine everywhere, so config travels. Routines run in the cloud, desktop tasks locally, `/loop` in the session."
+        text: "One engine everywhere, so config travels. Cloud scheduled tasks run in the cloud, desktop tasks locally, `/loop` in the session."
       - ref: "3.1"
         title: CLAUDE.md
         text: "Managed → user → project → local → directory, all concatenated. Only project is shared. `@import` to split."

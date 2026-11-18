@@ -1,0 +1,678 @@
+domain: 1
+questions:
+  - id: "d1-001"
+    task: "1.1"
+    scenario: 4
+    stem: "An internal codebase Q&A assistant runs a manual loop over `client.messages.create`. Testers notice that when a response holds a short text block (\"Let me search the repo for that\") followed by a `tool_use` block, the loop ends and shows the text without ever running the search. What is the cause?"
+    options:
+      - "`max_tokens` is set too low, so the turn ends before Claude finishes writing its tool call."
+      - "The `tool_result` lacks the matching `tool_use_id`, so Claude can't pair it with the request."
+      - "The loop treats any text as completion, but one response can hold both text and `tool_use` blocks."
+      - "The prompt never told Claude to call tools silently, so it narrates instead of acting on requests."
+    correct: [C]
+    explanation: "A response's `content` can mix text and `tool_use` blocks, so the presence of text says nothing about completion. The loop must branch on `stop_reason`, which here is `tool_use`: run the tool, return its result, and continue."
+    why_not:
+      A: "A `max_tokens` cutoff would set `stop_reason` to `max_tokens` and leave the call unfinished; here the `tool_use` block arrived intact."
+      D: "Explaining what it's doing alongside a tool call is normal; silencing it treats a symptom and leaves a loop that still misreads text as completion."
+    source: "1.1"
+    verified: "2026-11-18"
+
+  - id: "d1-002"
+    task: "1.1"
+    scenario: 6
+    stem: "An invoice-extraction agent calls a `fetch_document` tool. When the document store times out, the harness returns a `tool_result` with empty content and nothing else, and Claude then reports that the invoice has no line items. What should the harness return instead?"
+    options:
+      - "A `tool_result` with `is_error: true` whose content states that the store timed out."
+      - "No `tool_result` at all for the failed call, so Claude never sees the incomplete data."
+      - "The same empty result, plus a prompt line saying that invoices without line items are rare."
+      - "An exception that aborts the run and restarts extraction from the first document in the batch."
+    correct: [A]
+    explanation: "Setting `is_error: true` with a message that says what failed tells Claude the tool failed, so it can reason about recovery. An empty result presented as success silently suppresses the error, and Claude treats the missing data as a real answer."
+    why_not:
+      B: "Tool results must reference the exact `tool_use_id` of each call; leaving one out breaks that exchange and still hides the failure from Claude."
+      C: "The empty result still looks like success; a prompt hint only nudges Claude, while the error flag tells it the tool actually failed."
+    source: "1.1"
+    verified: "2026-11-18"
+
+  - id: "d1-003"
+    task: "1.1"
+    scenario: 1
+    stem: "A customer support agent on Opus 5.5, called through the Claude API, occasionally sends customers a blank reply. Logs show those responses arrived as HTTP 200 with `stop_reason: \"refusal\"`, and the code reads `content` straight away. Which two changes should the team make? Choose two."
+    options:
+      - "Wrap the API call in a retry handler that resends the request whenever any exception is raised."
+      - "Branch on `stop_reason` before reading `content`, and treat `refusal` as terminal for that request."
+      - "Retry the refused request inside the loop the same way the agent retries a failed tool call."
+      - "Opt into server-side fallback so refused requests are re-routed automatically by refusal category."
+      - "Parse `stop_details.explanation` to choose which rephrased prompt to send on the next retry attempt."
+    correct: [B, D]
+    explanation: "A refusal comes back as a normal HTTP 200, so the loop must check `stop_reason` before touching `content` and treat `refusal` as the end of that request. On the Claude API, the simplest way to still get an answer is server-side fallback (`fallbacks=\"default\"`): the API retries the declined request on the model Anthropic recommends for its refusal category, instead of the app only logging it."
+    why_not:
+      A: "No exception is raised: the refusal arrives as an HTTP 200 response, so an exception handler never fires."
+      C: "`refusal` is a terminal stop reason for that request, not a retryable tool error."
+    source: "1.1"
+    verified: "2026-11-18"
+
+  - id: "d1-004"
+    task: "1.1"
+    scenario: 3
+    stem: "A research agent uses the server-side `web_search` tool. On long queries a response comes back with `stop_reason: \"pause_turn\"`, and the client's loop, which only continues on `tool_use`, presents the partial findings as the final answer. What should the loop do with a `pause_turn` response?"
+    options:
+      - "Treat it like `end_turn` and present the text gathered so far as the final answer."
+      - "Raise `max_tokens` and resend the original request so the search finishes in one response."
+      - "Run the search on the client and send the results back in a `tool_result` block."
+      - "Send the response back to the API so the server-side tool loop can continue its work."
+    correct: [D]
+    explanation: "`pause_turn` means a server-side tool loop such as `web_search` hit its internal iteration limit; the work isn't finished. The documented action is to send the response back so it can continue."
+    why_not:
+      B: "Raising the limit is the remedy for `max_tokens`, a different stop reason; `pause_turn` is resolved by sending the response back."
+      C: "`web_search` runs on the server, so there is no client-side tool call to answer with a `tool_result`."
+    source: "1.1"
+    verified: "2026-11-18"
+
+  - id: "d1-005"
+    task: "1.1"
+    scenario: 3
+    stem: "A research coordinator's loop always stops after eight iterations. Its reports are often incomplete, and an engineer proposes raising the limit to twenty. What is the better design?"
+    options:
+      - "Raise the cap to twenty so most tasks finish before the limit is reached."
+      - "Let `stop_reason` drive the loop, keeping a generous cap only as a safety net."
+      - "Stop when Claude's reply says the research is done, keeping the cap as a fallback."
+      - "Stop as soon as a response contains a text block that summarizes the findings."
+    correct: [B]
+    explanation: "An iteration cap is fine as a safety net but wrong as the primary stopping mechanism. `stop_reason` drives the loop: continue on `tool_use`, finish on `end_turn`. Raising the cap only moves the arbitrary cutoff."
+    why_not:
+      C: "Parsing natural language for loop termination is an anti-pattern; Claude signals that it's done through `stop_reason`, not through phrasing."
+      D: "A response can contain text and `tool_use` blocks together, so a text block is not a completion signal."
+    source: "1.1"
+    verified: "2026-11-18"
+
+  - id: "d1-006"
+    task: "1.1"
+    scenario: 4
+    stem: "A platform team is building an internal assistant that loops over three Python functions it already wrote: ticket lookup, on-call schedule and runbook search. It wants to write as little loop code as possible, needs no approval step, and will host it in its own service with no sandbox or built-in file tools. Which approach fits?"
+    options:
+      - "A manual loop over `client.messages.create`, since only a hand-written loop can call the team's own functions."
+      - "The Claude Agent SDK, since it supplies the loop and can take custom tools alongside its own."
+      - "Tool Runner, since the regular SDK runs the loop over the team's own functions for it."
+      - "Managed Agents, since Anthropic supplies the loop and provisions a sandbox for every session."
+    correct: [C]
+    explanation: "Tool Runner ships in the regular Anthropic SDK and runs the agentic loop over tools you define, with no built-in tools or sandbox, and you host it. That matches a small self-hosted assistant that needs no approval step."
+    why_not:
+      B: "The Agent SDK is Claude Code packaged as a library, bringing its harness and built-in file and shell tools, which the team explicitly doesn't want."
+      D: "Managed Agents adds Anthropic-run infrastructure with a per-session sandbox; the team wants no sandbox and hosts the assistant in its own service."
+    source: "1.1"
+    verified: "2026-11-18"
+
+  - id: "d1-007"
+    task: "1.1"
+    scenario: 5
+    stem: "A platform team is choosing a harness for a CI agent, and two engineers keep confusing Tool Runner with the Claude Agent SDK. Which two statements are accurate? Choose two."
+    options:
+      - "Tool Runner ships inside the regular Anthropic SDK and loops only over tools you define."
+      - "The Claude Agent SDK is Tool Runner with a hosted sandbox that Anthropic runs for you."
+      - "Both supply the loop but not the deployment, so the team hosts whichever one it picks."
+      - "Only the Claude Agent SDK lets the model decide which tool to call next and when to stop."
+      - "Tool Runner provides built-in Read, Edit and Bash tools that the agent can use on the repo."
+    correct: [A, C]
+    explanation: "Tool Runner lives in the regular `anthropic` SDK and loops over your own tool functions, with no built-in tools, filesystem or sandbox. Tool Runner and the Agent SDK both supply a harness only, so you host either one; Managed Agents is the option that adds deployment."
+    why_not:
+      B: "The Agent SDK is Claude Code packaged as a library, and you host it; a managed loop with a sandbox describes Managed Agents."
+      D: "In every approach the model decides which tool to call and when to stop; the options differ in who supplies the harness and the deployment."
+    source: "1.1"
+    verified: "2026-11-18"
+
+  - id: "d1-008"
+    task: "1.1"
+    scenario: 1
+    stem: "A support team wants every incoming ticket tagged with one of eight fixed categories before it reaches a queue. The steps never vary, and an engineer proposes a coordinator agent with a subagent per category. What should the architect recommend?"
+    options:
+      - "A single model call per ticket, since the task is predictable rather than open-ended."
+      - "The coordinator design, since a specialist subagent per category improves accuracy."
+      - "A Managed Agents session per ticket, so Anthropic hosts the loop and the sandbox."
+      - "An agentic loop with a tool per category, capped at one iteration to contain cost."
+    correct: [A]
+    explanation: "Stay at the simplest tier that works: a single call or a code-controlled workflow handles most tasks. An agent is worth its latency and cost only when the task is genuinely open-ended and model-driven, and fixed-category tagging is not."
+    why_not:
+      B: "Nothing here is open-ended; a coordinator with eight subagents adds latency and cost that the task's value doesn't justify."
+    source: "1.1"
+    verified: "2026-11-18"
+
+  - id: "d1-009"
+    task: "1.1"
+    scenario: 3
+    stem: "A research system runs on Managed Agents with multi-agent workflows. Its `append_citation` tool sometimes writes two copies of the same citation into the shared report, because a workflow run occasionally creates two threads for the same piece of work. What does Anthropic recommend?"
+    options:
+      - "Set `inline_agents` to disabled so that only predefined agents can pick up research work."
+      - "Have the primary agent scan the report for repeated citations before it ends the run."
+      - "Tell every agent in its system prompt never to call `append_citation` more than once."
+      - "Make `append_citation` safe to call twice, for example by skipping existing citations."
+    correct: [D]
+    explanation: "A workflow run can create more than one thread for the same piece of work, so Anthropic's guidance is to make the tools your agents call safe to call twice. A tool that tolerates a repeat call removes the duplicate however many threads reach it."
+    why_not:
+      A: "Disabling inline agents only restricts which agents can run; a run can still start two threads for the same work with predefined agents."
+      C: "A prompt instruction is best-effort, and one agent can't see what a parallel thread already did; the tool itself has to tolerate a second call."
+    source: "1.1"
+    verified: "2026-11-18"
+
+  - id: "d1-010"
+    task: "1.1"
+    scenario: 1
+    stem: "A prototype support bot on Managed Agents creates a brand-new agent at the start of every customer conversation, then one session on it. The account now holds thousands of near-identical agents, and nobody can tell which prompt a past conversation used. What is the right fix?"
+    options:
+      - "Delete each agent as soon as its session ends, so the account holds only live agents."
+      - "Create the agent once, versioned, and start one session per conversation from its ID."
+      - "Move the model, system prompt and tools onto each session, so one agent serves every chat."
+      - "Keep one long-lived session for all customers, so the bot needs a single agent and session."
+    correct: [B]
+    explanation: "The Managed Agents flow is an agent, created once, versioned and persisted, then one session per run that references it by ID (optionally pinned to a version), so each conversation traces back to the configuration it ran. Describing the agent in repository files and running `ant apply` keeps later runs updating the same agent instead of creating new ones."
+    why_not:
+      C: "Session overrides are for one-off changes such as trying a model in one session; making every session override the agent leaves the real configuration in application code, outside the agent's version history."
+      D: "The flow is one session per run, each with its own container workspace; a single shared session would put every customer's work in one place."
+    source: "1.1"
+    verified: "2026-11-18"
+
+  - id: "d1-011"
+    task: "1.2"
+    scenario: 3
+    stem: "A research coordinator is about to delegate \"the adoption of renewable energy across Europe\". On broad topics in past runs it listed only the subtopics that came to mind first, so whole areas were never researched. What should it do before delegating?"
+    options:
+      - "Map the topic's full scope, then check the planned subtask list against that map."
+      - "Ask each search subagent to return more results, so wider sources reach the synthesis."
+      - "Tell the synthesis subagent to fill in any missing areas from its own knowledge."
+      - "Let the search subagents message each other directly so they can spot gaps together."
+    correct: [A]
+    explanation: "Whole areas went unresearched because the decomposition was too narrow, so no subagent was ever asked about them. The fix is a broader initial decomposition with an explicit coverage check before any work is delegated."
+    why_not:
+      B: "More results per subtask can't reach areas that were never turned into subtasks in the first place."
+      D: "Hub-and-spoke routes communication through the coordinator, which owns the decomposition; subagents comparing notes can't cover areas none of them was given."
+    source: "1.2"
+    verified: "2026-11-18"
+
+  - id: "d1-012"
+    task: "1.2"
+    scenario: 3
+    stem: "In a hub-and-spoke research system, the analysis subagent often needs extra sources mid-task. To cut latency, an engineer proposes letting it call the search subagent directly. What should the architect recommend?"
+    options:
+      - "Allow the direct calls, but log them so the coordinator can audit the exchanges afterward."
+      - "Give both subagents the coordinator's full history so they can coordinate on their own."
+      - "Have the analysis subagent report the gap to the coordinator, which decides on more search."
+      - "Let both subagents share a scratch file that each one reads before it starts any work."
+    correct: [C]
+    explanation: "The hub-and-spoke design routes all inter-subagent communication through the coordinator instead of letting subagents talk to each other directly. Sending the gap back to the coordinator keeps delegation, error handling and quality evaluation in one place."
+    why_not:
+      A: "Logging doesn't change the topology: the subagents would still talk directly, bypassing the coordinator that should route every exchange."
+      B: "Subagents have isolated context by design; handing them the coordinator's history gives them no channel to each other and still leaves routing undone."
+    source: "1.2"
+    verified: "2026-11-18"
+
+  - id: "d1-013"
+    task: "1.2"
+    scenario: 4
+    stem: "A developer-productivity assistant's coordinator sends every question, even \"what does `parse_config` return?\", through a code-search subagent, a documentation-analysis subagent and a synthesis subagent. Simple answers take a minute and cost far more than they should. What change fixes this?"
+    options:
+      - "Run the three subagents in parallel so the full pipeline finishes faster on every question."
+      - "Replace the coordinator with a fixed prompt chain so the steps always run in the same order."
+      - "Cache each subagent's last output so repeated questions can skip the pipeline next time."
+      - "Have the coordinator judge what each query needs and invoke only the subagents that apply."
+    correct: [D]
+    explanation: "Not every query needs every subagent. The coordinator should assess what a query actually requires and invoke only the relevant subagents rather than routing everything through the full pipeline."
+    why_not:
+      A: "Running in parallel shortens the wait but still runs, and pays for, every subagent on questions that need only one."
+      B: "A fixed chain still runs every step for every question; the waste comes from not choosing which steps a query needs."
+    source: "1.2"
+    verified: "2026-11-18"
+
+  - id: "d1-014"
+    task: "1.2"
+    scenario: 3
+    stem: "A research coordinator's first-round synthesis covers three of the five subtopics in its plan, and one search subagent failed with a timeout. Which two actions are the coordinator's job here? Choose two."
+    options:
+      - "Ask the synthesis subagent to contact the failed search subagent for its partial results."
+      - "Rerun the whole pipeline from scratch so every subtopic gets a fresh first round of research."
+      - "Evaluate the synthesis against the plan and send targeted searches for the missing subtopics."
+      - "Return the synthesis as final, since the coordinator's job ends once all subagents report."
+      - "Handle the failed subagent itself, deciding whether to retry it or report the gap."
+    correct: [C, E]
+    explanation: "The coordinator handles errors from subagent failures and evaluates synthesis quality, re-delegating when gaps exist. The refinement loop runs a targeted second round for the gaps, then a final synthesis."
+    why_not:
+      A: "In hub-and-spoke, the coordinator routes all communication between subagents rather than having them contact each other."
+      B: "The refinement loop targets the gaps it identified; repeating the whole first round redoes work that already succeeded."
+    source: "1.2"
+    verified: "2026-11-18"
+
+  - id: "d1-015"
+    task: "1.2"
+    scenario: 2
+    stem: "Early in a Claude Code session, the developer and Claude agree to keep the module's existing `Result`-based error handling. Claude then spawns a fresh subagent to refactor the module, and the subagent's patch throws exceptions throughout. What is the most likely cause?"
+    options:
+      - "The subagent ran at a lower effort level than the main session, so it skipped earlier decisions."
+      - "The subagent doesn't inherit the main conversation, and the decision wasn't put in its prompt."
+      - "The subagent's context was compacted before it started, which dropped the earlier decision."
+      - "The subagent was spawned with `Agent` rather than `Task`, the tool that passes history along."
+    correct: [B]
+    explanation: "Subagents have isolated context: they don't inherit the coordinator's conversation history and start with only what their prompt provides. A decision the subagent must respect, like this error-handling convention, has to be passed explicitly."
+    why_not:
+      A: "Effort changes how hard a subagent reasons, not what it knows; no effort level gives it a conversation it never received."
+      D: "`Task` is only the older name for the same `Agent` tool; neither passes the conversation history to a fresh subagent."
+    source: "1.2"
+    verified: "2026-11-18"
+
+  - id: "d1-016"
+    task: "1.2"
+    scenario: 6
+    stem: "A coordinator splits a 200-page supply contract into sections, sends each to an extraction subagent, and merges the results. In the merged record, fields from two sections are missing because those subagents returned partial output. What should the coordinator do before finalizing?"
+    options:
+      - "Have the other subagents read the partial sections and fill in the missing fields."
+      - "Finalize the record now and let downstream validation flag the missing fields."
+      - "Check the merge against the expected fields and re-delegate those two sections."
+      - "Re-run every extraction subagent on the whole contract so each sees the full text."
+    correct: [C]
+    explanation: "The coordinator aggregates results, evaluates them, and re-delegates where gaps exist before the final synthesis. A targeted second round on the two incomplete sections closes the gap without redoing the work that succeeded."
+    why_not:
+      A: "In hub-and-spoke, the coordinator routes all work between subagents, and each has only the context its own prompt gave it."
+      D: "Re-running everything throws away the sections that came back complete; refinement targets only the gaps."
+    source: "1.2"
+    verified: "2026-11-18"
+
+  - id: "d1-017"
+    task: "1.3"
+    scenario: 3
+    stem: "A research coordinator needs four independent literature searches. Its subagents run in the foreground: it emits one `Agent` call, waits for the result, then emits the next in a later turn, so the job takes four times as long as a single search. How should it spawn the subagents?"
+    options:
+      - "Emit all four `Agent` tool calls together in one coordinator response."
+      - "Emit the four `Agent` calls in four quick consecutive coordinator turns."
+      - "Raise the concurrent-subagent cap so the separate turns overlap in time."
+      - "Spawn one subagent that in turn spawns the other three as its children."
+    correct: [A]
+    explanation: "Subagents run in parallel when the coordinator emits multiple `Agent` tool calls in a single response. Foreground calls spread across separate turns run one after another."
+    why_not:
+      B: "A foreground `Agent` call blocks until its subagent reports, so calls spread over separate turns still run one after another, however quickly the turns follow."
+      C: "The cap limits how many subagents may run at once; it doesn't make foreground calls issued in separate turns run together."
+    source: "1.3"
+    verified: "2026-11-18"
+
+  - id: "d1-018"
+    task: "1.3"
+    scenario: 4
+    stem: "A team builds a code-review helper on the Claude Agent SDK with two `AgentDefinition`s whose descriptions are just \"Reviewer\" and \"Tester\". Asked to \"check the auth module before release\", Claude never delegates and does all the work itself. What is the most likely fix?"
+    options:
+      - "Add `Agent` to `allowed_tools`, since a tool missing from that list is unavailable to Claude."
+      - "Rewrite each `description` to say when that subagent applies, such as after code changes."
+      - "Move each subagent's `description` into its `prompt` so the coordinator reads it at spawn time."
+      - "Rename the tool to `Task`, since the SDK registers definitions only under the older name."
+    correct: [B]
+    explanation: "Claude decides when to delegate from each subagent's `description`, so one-word descriptions give it nothing to match the task against; clear, specific descriptions (or naming the subagent in the prompt) fix it."
+    why_not:
+      A: "`allowed_tools` only pre-approves the tools it lists; unlisted tools stay available, and `Agent` calls need no approval in `default` mode."
+      D: "`Task` is the older name for the same mechanism; current Claude Code and Agent SDK docs use `Agent`."
+    source: "1.3"
+    verified: "2026-11-18"
+
+  - id: "d1-019"
+    task: "1.3"
+    scenario: 3
+    stem: "Search subagents return their findings as prose paragraphs. The synthesis subagent can't tell which claim came from which source, so it can't weigh a blog post against a peer-reviewed paper. What should the search subagents return instead?"
+    options:
+      - "The same prose, with one bibliography of every source cited appended at the end."
+      - "Their full tool transcripts, so the synthesis subagent can trace each claim itself."
+      - "A shorter prose summary that cites only the sources the subagent judged trustworthy."
+      - "Structured findings pairing each claim with its evidence, source, title and date."
+    correct: [D]
+    explanation: "Separating content from metadata, with each claim carrying its evidence, source URL, document name and publication date, preserves attribution and lets the receiving agent evaluate source quality."
+    why_not:
+      A: "A bibliography lists the sources but loses which claim came from which one, so attribution is still gone."
+      C: "Filtering in the search subagent hides the metadata the synthesis step needs to judge source quality for itself."
+    source: "1.3"
+    verified: "2026-11-18"
+
+  - id: "d1-020"
+    task: "1.3"
+    scenario: 2
+    stem: "After a long Claude Code session that built a detailed picture of a payments module, the developer wants Claude to try two divergent refactoring approaches in parallel, each starting from everything the session has established, and bring back only each approach's outcome, as cheaply as possible. Which delegation fits?"
+    options:
+      - "Two fresh subagents, each given a written summary of what the session established."
+      - "Two fresh subagents with short prompts, since they pick up the session's history."
+      - "Two forks, which inherit the whole conversation and reuse the parent's prompt cache."
+      - "Running `/branch` twice, so the session switches into both copies at the same time."
+    correct: [C]
+    explanation: "A fork inherits the entire conversation, system prompt, tools and model, and shares the parent's prompt cache, so it is cheaper than a fresh subagent; only its final result returns. Divergent branches off a shared baseline are exactly what forks are for."
+    why_not:
+      A: "It can work, but each fresh subagent starts with a cold cache and only what fits in the summary, so it costs more and may lose context."
+      D: "`/branch` switches you into a copy of the conversation to try a direction yourself; it doesn't run two branches in parallel and return their results."
+    source: "1.3"
+    verified: "2026-11-18"
+
+  - id: "d1-021"
+    task: "1.3"
+    scenario: 4
+    stem: "A team builds a dashboard on the Claude Agent SDK that shows each subagent run's progress in its own panel, and it wants the coordinator able to spawn only its `reviewer` and `tester` subagents. Which two design choices are right? Choose two."
+    options:
+      - "Attribute each streamed message to its subagent run through the `parent_tool_use_id` field."
+      - "Attribute each message by matching the subagent's name wherever it appears in the text."
+      - "Leave `Agent` unrestricted and list the two allowed types in the coordinator's system prompt."
+      - "List `Agent(reviewer, tester)` in the coordinator agent's `tools`, so it can spawn only those two."
+      - "List `reviewer` and `tester` in each subagent's own `tools` so the coordinator inherits the limit."
+    correct: [A, D]
+    explanation: "Messages emitted inside a subagent's context carry `parent_tool_use_id`, which attributes them to the right subagent execution. Access to the `Agent` tool can be narrowed to specific subagent types with the `Agent(worker, researcher)` form. The type list applies when the coordinator runs as the main-thread agent (the TypeScript Agent SDK's `agent` option, or `claude --agent`); inside a subagent definition the type list is ignored, and as an `allowed_tools` entry it would only pre-approve calls."
+    why_not:
+      B: "Matching names in free text is fragile parsing; the SDK already tags each message with `parent_tool_use_id`."
+      C: "A list in the system prompt is best-effort; narrowing the `Agent` tool itself restricts which types can be spawned."
+    source: "1.3"
+    verified: "2026-11-18"
+
+  - id: "d1-022"
+    task: "1.3"
+    scenario: 5
+    stem: "A CI coordinator reviewing a 60-file change spawns one review subagent per file. After 20 of them start, the remaining `Agent` calls fail with `Concurrent subagent limit reached`. What should the team change?"
+    options:
+      - "Have the coordinator retry each failed spawn in a loop until the `Agent` call goes through."
+      - "Spawn the reviews in waves of up to 20, or raise `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`."
+      - "Have each of the first 20 reviewers spawn the remaining file reviewers as their own children."
+      - "Put all 60 files into one subagent's prompt, so that the review needs only a single spawn."
+    correct: [B]
+    explanation: "The limit counts subagents running at the same time, not the total spawned in a session: once 20 are running, another `Agent` call fails, and spawning works again when the count drops below the limit. Fanning out in waves that fit the cap, or raising `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`, fixes it."
+    why_not:
+      A: "The error tells Claude not to retry; while 20 subagents are still running, an immediate retry hits the same limit."
+      D: "One subagent reviewing all 60 files brings back single-pass attention dilution, with thinner and less consistent findings on the later files."
+    source: "1.3"
+    verified: "2026-11-18"
+
+  - id: "d1-023"
+    task: "1.4"
+    scenario: 6
+    stem: "An extraction agent must not call `load_to_warehouse` until `validate_batch` has passed for that batch. The team's PreToolUse hook detects a missing validation correctly, then prints a warning and exits with code 1, yet the loads still go through. How should the hook respond when validation is missing?"
+    options:
+      - "Keep exiting with code 1, but write the full validation report to stderr to explain the failure."
+      - "Return `permissionDecision: \"allow\"` with `additionalContext` warning that the batch is unvalidated."
+      - "Print the warning to stdout and exit with code 0, so the run log records the skipped validation."
+      - "Return `permissionDecision: \"deny\"` with a reason and `additionalContext` naming the missing step."
+    correct: [D]
+    explanation: "Exit code 1 with a plain-text warning is a non-blocking error, so the tool still runs. A `deny` decision blocks the call, its `permissionDecisionReason` tells Claude why, and `additionalContext` points it to the step it skipped, so it can run `validate_batch` and try again."
+    why_not:
+      A: "A plain-text message with exit code 1 is a non-blocking error: the load goes ahead however detailed the report is."
+      B: "`allow` lets the load run; the extra context reaches Claude only after the rule has already been broken."
+    source: "1.5"
+    verified: "2026-11-18"
+
+  - id: "d1-024"
+    task: "1.4"
+    scenario: 1
+    stem: "The designers of a support agent list several rules for it. Which two should be enforced programmatically with hooks rather than through prompt instructions? Choose two."
+    options:
+      - "Address the customer by first name whenever the account includes one."
+      - "Never issue a refund larger than the original amount of the order."
+      - "Keep each reply under about 150 words unless the customer asks for detail."
+      - "Suggest a relevant help-center article before closing the conversation."
+      - "Never include a customer's full card number in anything the agent sends."
+    correct: [B, E]
+    explanation: "Programmatic enforcement is for rules with financial or safety consequences, where a non-zero failure rate is unacceptable; refund limits and card-number exposure both qualify. Greetings, reply length and helpful suggestions are best-effort, so prompt instructions are enough."
+    source: "1.4"
+    verified: "2026-11-18"
+
+  - id: "d1-025"
+    task: "1.4"
+    scenario: 1
+    stem: "A support agent escalates billing disputes it can't resolve. The human agents who take over complain that they start with no idea what already happened, because their console doesn't show the AI conversation. What should the escalation include?"
+    options:
+      - "A structured summary: customer, issue, order, root cause, actions taken, recommendation."
+      - "A link to the full conversation transcript, so the human can read the exchange in full."
+      - "The customer's ID alone, so the human can look up the account and rebuild the history."
+      - "A note telling the customer a human will follow up, copied into the internal case notes."
+    correct: [A]
+    explanation: "The human taking over typically can't see the conversation transcript, so the handoff must carry a structured summary: who the customer is, what the issue is, what was done and what is recommended."
+    why_not:
+      B: "Human agents typically don't have access to the full transcript, which is why the handoff carries a structured summary instead."
+      C: "An ID alone makes the human reconstruct what the agent already established, including the actions it took."
+    source: "1.4"
+    verified: "2026-11-18"
+
+  - id: "d1-026"
+    task: "1.4"
+    scenario: 4
+    stem: "A developer-productivity agent's prompt says \"Never run database migrations against production.\" In 1,000 test sessions it never broke the rule, so the team proposes shipping without a hook. What should the architect advise?"
+    options:
+      - "Ship it: a thousand clean sessions show the instruction is reliable enough for production."
+      - "Ship it, but repeat the instruction at the end of the prompt to reinforce it further."
+      - "Add a hook anyway: a prompt rule's failure rate is never zero, however clean the tests."
+      - "Add a hook only if a violation shows up in production logs, since none has been seen so far."
+    correct: [C]
+    explanation: "Prompt-based enforcement is probabilistic, with a non-zero failure rate, whatever a test run shows. A rule with safety consequences, such as never migrating production, needs programmatic enforcement: a hook that blocks the call, configured to fail closed."
+    why_not:
+      A: "A clean sample doesn't make the failure rate zero, and for a rule like this, working most of the time isn't acceptable."
+      D: "Waiting for a violation means the damage happens first; a safety rule needs the gate before the first failure."
+    source: "1.4"
+    verified: "2026-11-18"
+
+  - id: "d1-027"
+    task: "1.5"
+    scenario: 5
+    stem: "A CI pipeline uses a PreToolUse `command` hook to stop Claude from editing files under `infra/`. After a repository reorganization the hook's script path is wrong, and edits to `infra/` now go through without any block. What explains this, and what is the fix?"
+    options:
+      - "Blocking needs exit code 1, not 2; change the script's exit code and fix the path."
+      - "Failed hooks don't block by default; fix the path and set `onFailure` to `block`."
+      - "Hooks in `.claude/settings.json` are skipped in CI; move it to `.claude/settings.local.json`."
+      - "A `command` hook can't block edits; replace it with a `prompt` hook that decides yes or no."
+    correct: [B]
+    explanation: "By default, a hook that can't start, times out, or exits with a code other than 0 or 2 is a non-blocking error, so the action goes ahead. Setting `onFailure` to `block` makes such failures act like exit code 2, so the gate fails closed."
+    why_not:
+      A: "Exit code 2 is the blocking code; any other failing exit is treated as a non-blocking error."
+      D: "`command` hooks block with exit code 2; the problem is how the hook fails, not its type."
+    source: "1.5"
+    verified: "2026-11-18"
+
+  - id: "d1-028"
+    task: "1.5"
+    scenario: 6
+    stem: "An extraction agent pulls order data from three vendor APIs that return dates as epoch seconds, `MM/DD/YYYY` and ISO 8601. Claude's output mixes formats from record to record. What is the most reliable fix?"
+    options:
+      - "Add an instruction and examples to the prompt asking Claude to convert all dates to ISO 8601."
+      - "Add a PreToolUse hook that rewrites each request so the vendors return ISO 8601 dates."
+      - "Add a `PostToolUseFailure` hook that converts the dates whenever a vendor call returns."
+      - "Add a PostToolUse hook that normalizes the dates in tool results before Claude sees them."
+    correct: [D]
+    explanation: "PostToolUse hooks intercept tool results before Claude processes them, and normalizing timestamps and date formats is one of their listed uses. Claude then only ever sees one format instead of being asked to convert reliably."
+    why_not:
+      A: "A prompt instruction is best-effort; a hook does the conversion in code, so Claude only ever sees one format."
+      C: "`PostToolUseFailure` fires only when the tool itself errored; successful results go through PostToolUse."
+    source: "1.5"
+    verified: "2026-11-18"
+
+  - id: "d1-029"
+    task: "1.5"
+    scenario: 2
+    stem: "A team wants a PreToolUse hook that blocks Claude Code from editing generated files, and it should apply automatically for every developer who clones the repository. Where should the hook be configured?"
+    options:
+      - "In `.claude/settings.json`, which is committed to version control with the project."
+      - "In `.claude/settings.local.json`, which is scoped to this particular project."
+      - "In each developer's `~/.claude/settings.json`, which covers all of their projects."
+      - "In managed policy settings, which an administrator applies across the organization."
+    correct: [A]
+    explanation: "`.claude/settings.json` is project-scoped and shared through version control, so everyone who clones the repository gets the hook."
+    why_not:
+      B: "`.claude/settings.local.json` is for this project on this machine and is gitignored, so it never reaches the other developers."
+      D: "Managed policy settings apply organization-wide, far beyond one repository's generated files."
+    source: "1.5"
+    verified: "2026-11-18"
+
+  - id: "d1-030"
+    task: "1.5"
+    scenario: 2
+    stem: "A team's `commit` skill should check `cargo fmt` before Claude runs `git commit`, but only in sessions where that skill has been invoked; the team doesn't want the check in project-wide settings. How should they enforce it?"
+    options:
+      - "Add a PreToolUse hook on `Bash` in `.claude/settings.json` that runs the check before every command."
+      - "Declare the hook in the `hooks:` frontmatter of its `SKILL.md`, so it registers when the skill runs."
+      - "Add a line to the body of `SKILL.md` telling Claude to run `cargo fmt --check` before each commit it makes."
+      - "Add a `UserPromptSubmit` hook in user settings that runs the check when a prompt mentions committing."
+    correct: [B]
+    explanation: "Hooks in a skill's `hooks:` frontmatter are registered when the skill is invoked and keep running for the rest of that session (`once: true` removes one after its first successful run), so the check applies only where the skill is used and stays out of project-wide settings."
+    why_not:
+      A: "That puts the check in project-wide settings for every command, which is exactly what the team wants to avoid."
+      C: "An instruction in the skill body is prompt-based, best-effort enforcement; a hook runs the check in code instead of relying on Claude to remember it."
+    source: "1.5"
+    verified: "2026-11-18"
+
+  - id: "d1-031"
+    task: "1.5"
+    scenario: 1
+    stem: "A support agent runs with a deny permission rule that matches `close_account`, plus a PreToolUse hook that returns `allow` for it when the customer is verified. On `issue_refund`, one PreToolUse hook returns `ask` and another returns `allow`. Which two outcomes follow? Choose two."
+    options:
+      - "`close_account` stays denied, because a hook's `allow` never overrides a matching deny rule."
+      - "`close_account` runs for verified customers, because a hook's decision outranks permission rules."
+      - "`issue_refund` runs, because a single `allow` from any hook is enough to let the call proceed."
+      - "`issue_refund` is denied, because conflicting hook decisions are always resolved by failing closed."
+      - "`issue_refund` waits for approval, because `ask` takes precedence over `allow` when hooks disagree."
+    correct: [A, E]
+    explanation: "Deny and ask permission rules are evaluated whatever a hook returns, so a hook's `allow` can't override a matching deny rule. When PreToolUse hooks disagree, precedence is `deny` over `defer` over `ask` over `allow`, so the refund waits for approval."
+    why_not:
+      B: "Permission rules are still evaluated whatever a hook returns, so its `allow` never overrides a matching deny rule."
+      D: "Disagreeing hooks resolve by precedence, not by failing closed; between `ask` and `allow`, `ask` wins."
+    source: "1.5"
+    verified: "2026-11-18"
+
+  - id: "d1-032"
+    task: "1.5"
+    scenario: 4
+    stem: "A platform team wants every tool call its developer agents make to be recorded by the company's central audit service, which accepts events on an HTTPS endpoint. The team would rather not maintain a script for it. Which hook type fits?"
+    options:
+      - "A `prompt` hook, which makes one model call that returns a yes-or-no decision."
+      - "An `agent` hook, which runs a multi-turn subagent with tool access on each call."
+      - "An `http` hook, which POSTs each event to the audit service's URL endpoint."
+      - "An `mcp_tool` hook, which calls a tool exposed by a configured MCP server."
+    correct: [C]
+    explanation: "`http` hooks POST to a URL endpoint, and external audit logging is their typical use; no script is needed."
+    why_not:
+      D: "`mcp_tool` calls a tool on a configured MCP server; this audit service is a plain HTTPS endpoint, not an MCP tool."
+    source: "1.5"
+    verified: "2026-11-18"
+
+  - id: "d1-033"
+    task: "1.6"
+    scenario: 5
+    stem: "A CI job already reviews large pull requests one file at a time, and every file gets consistent depth. Yet when one module renames a field that three other modules still read under the old name, no review flags it. What should the team add?"
+    options:
+      - "Larger per-file batches, so files that share a field are likelier to land in one review."
+      - "A second per-file pass with a stricter prompt, keeping only what both passes flag."
+      - "A model with a larger context window, so each per-file review can hold more text."
+      - "A separate cross-file pass whose prompt focuses on interfaces and data flow between files."
+    correct: [D]
+    explanation: "Per-file passes give consistent local depth but can't see problems that span files. The multi-pass design adds a separate integration pass with its own prompt to catch interface mismatches, data-flow issues and cross-file inconsistencies."
+    why_not:
+      A: "Batching only raises the odds that related files meet; no pass is given the job of checking how files interact."
+      C: "Each per-file review sees one file by design; a bigger window adds no integration view."
+    source: "1.6"
+    verified: "2026-11-18"
+
+  - id: "d1-034"
+    task: "1.6"
+    scenario: 2
+    stem: "A team using Claude Code to review a large refactor adds a separate cross-file integration pass after the per-file pass. Which two findings would the integration pass catch that the per-file pass would likely miss? Choose two."
+    options:
+      - "An off-by-one error in a pagination loop that sits entirely within one utility file."
+      - "A changed return type in one file while a caller in another still expects the old one."
+      - "Input validated in the handler but passed to the database by a module that skips checks."
+      - "A misspelled local variable name that breaks one assertion inside a single unit test file."
+      - "An unused import left at the top of one configuration module after the last cleanup."
+    correct: [B, C]
+    explanation: "The cross-file pass looks at how files interact, catching data flow issues, interface mismatches and cross-file consistency problems. Issues contained in a single file are what the per-file pass is for."
+    source: "1.6"
+    verified: "2026-11-18"
+
+  - id: "d1-035"
+    task: "1.6"
+    scenario: 4
+    stem: "A developer asks the assistant why the checkout service has been slow since last week's deploy. Nobody knows yet whether the cause is in the database, the code or the infrastructure. How should the investigation be decomposed?"
+    options:
+      - "Dynamically: let each finding decide the next step, so subtasks emerge as the cause narrows."
+      - "As a fixed prompt chain: profile, then review queries, then report, all decided upfront."
+      - "As a multi-pass review: analyze every file in the service, then run a cross-file pass on them."
+      - "As a fixed fan-out: one subagent per subsystem, all briefed upfront with one checklist."
+    correct: [A]
+    explanation: "Dynamic adaptive decomposition fits open-ended investigation, where subtasks are generated from what each step reveals. A predetermined sequence suits predictable tasks whose steps are known upfront, which a slowdown with an unknown cause is not."
+    why_not:
+      B: "Prompt chaining is for predictable, multi-aspect tasks; here the right next step depends on findings that don't exist yet."
+    source: "1.6"
+    verified: "2026-11-18"
+
+  - id: "d1-036"
+    task: "1.6"
+    scenario: 6
+    stem: "An invoice pipeline handles every document the same way: extract the line items, check that they add up to the stated total, then write a summary record. Which decomposition fits?"
+    options:
+      - "Dynamic adaptive decomposition, letting the model pick each invoice's next step as it goes."
+      - "A coordinator with one subagent per invoice field, each extracting and checking its value."
+      - "Prompt chaining: a fixed sequence of steps in which each step's output feeds the next."
+      - "One agentic loop holding every tool, with the model choosing a fresh order per invoice."
+    correct: [C]
+    explanation: "Prompt chaining fits predictable, multi-aspect tasks whose steps are known upfront: the sequence is predetermined and each step's output feeds the next. Nothing here is open-ended, so the simplest approach that works is the right one."
+    why_not:
+      A: "Adaptive decomposition is for open-ended investigation where subtasks emerge from discoveries; these steps never change."
+    source: "1.6"
+    verified: "2026-11-18"
+
+  - id: "d1-037"
+    task: "1.7"
+    scenario: 2
+    stem: "A developer has a named Claude Code session from earlier work. In which two situations should they start a fresh session with a structured summary of prior findings instead of resuming it? Choose two."
+    options:
+      - "They are midway through an investigation, and the files the session read are unchanged."
+      - "They are iterating on the same feature they were building in that session an hour ago."
+      - "They want to try a second approach from the same point without touching the original."
+      - "The services the session queried have since been restarted with a new configuration."
+      - "The session wandered through several unrelated tasks and has drifted from today's work."
+    correct: [D, E]
+    explanation: "Start fresh when tool results are stale, for example after services restarted, or when context has drifted too far from the current task, and pass a structured summary of prior findings. Resuming suits ongoing work whose tool results are still valid."
+    why_not:
+      C: "That calls for `--fork-session`, which resumes under a new session ID and leaves the original untouched while keeping the shared starting point."
+    source: "1.7"
+    verified: "2026-11-18"
+
+  - id: "d1-038"
+    task: "1.7"
+    scenario: 4
+    stem: "A developer is resuming a named session that was halfway through tracing a payment bug. Since then they switched `payments/client.py` from polling to webhooks; nothing else changed, and the rest of the session's findings still hold. What is the best way to continue?"
+    options:
+      - "Resume without comment; Claude will notice the edited file the next time it reads it."
+      - "Start a fresh session and redo the whole trace, since any file change spoils a session."
+      - "Resume with `--fork-session`, since a new session ID makes Claude re-read every file."
+      - "Resume, tell Claude what changed in the client file, and ask it to re-check that flow."
+    correct: [D]
+    explanation: "The investigation is still valid, so resuming is right, but the session's earlier tool results reflect the old file. When resuming after a change, tell Claude explicitly what changed instead of assuming it will notice."
+    why_not:
+      A: "Don't assume a resumed session will notice changes on its own: its earlier tool results still show the old file contents."
+      B: "Starting fresh is for broadly stale results or drifted context; one known change can simply be explained in the resumed session."
+    source: "1.7"
+    verified: "2026-11-18"
+
+  - id: "d1-039"
+    task: "1.7"
+    scenario: 2
+    stem: "A developer has a named session, `orm-migration`, that has mapped the codebase's data layer. From a shell, they want to explore an adapter-based migration and a full rewrite as two separate sessions from that same point, while keeping `orm-migration` itself untouched. What should they run?"
+    options:
+      - "`claude --resume orm-migration` in two terminals, one for each approach."
+      - "`claude --resume orm-migration --fork-session` once for each approach."
+      - "`claude --bg` twice, describing one approach in each new background task."
+      - "`claude --teleport` twice, pulling the session into two separate terminals."
+    correct: [B]
+    explanation: "`--fork-session` resumes an existing session under a new session ID, so the original stays untouched and each branch explores its approach without contaminating the other."
+    why_not:
+      A: "Plain `--resume` continues the same session, so both approaches would write into `orm-migration` and contaminate each other."
+      C: "A new background session starts without the mapped context, losing the shared starting point."
+    source: "1.7"
+    verified: "2026-11-18"
+
+  - id: "d1-040"
+    task: "1.7"
+    scenario: 2
+    stem: "Before a long flight, a developer wants Claude Code to work through a multi-hour refactor of the repository's logging, and the work has to keep going while the laptop is closed in a bag. How should they start it?"
+    options:
+      - "Run `claude --cloud \"Refactor logging to structured output\"` to start it in a cloud session."
+      - "Run `claude --bg \"Refactor logging to structured output\"` to start it as a background session."
+      - "Start it in the terminal, then run `/desktop` to hand the session over to the desktop app."
+      - "Run `claude --resume logging --fork-session` so the work continues under a new session ID."
+    correct: [A]
+    explanation: "A cloud session runs on cloud infrastructure instead of on the developer's machine, so it keeps going after the laptop is closed; `claude --cloud \"<task>\"` starts one from the terminal. A background session, or one handed to the desktop app, still runs on the laptop itself."
+    why_not:
+      B: "A `--bg` session runs on the developer's own machine under a local supervisor, so it pauses while the laptop sleeps and stops if it shuts down."
+      C: "`/desktop` hands the session to the desktop app on the same laptop for visual diff review; it still runs locally."
+    source: "1.7"
+    verified: "2026-11-18"

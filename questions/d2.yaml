@@ -1,0 +1,460 @@
+domain: 2
+questions:
+  - id: "d2-001"
+    task: "2.1"
+    scenario: 1
+    stem: "A support agent's `search_knowledge_base` description says what the tool searches, how to phrase the query, and that it returns ranked articles with titles, snippets, and IDs. When a question has no documented answer, the tool returns an empty list, and Claude rephrases and searches five or six more times before replying. What is the best fix?"
+    options:
+      - "Set `strict: true` on the tool so that Claude's queries match its input schema exactly"
+      - "Add a line to the description capping Claude at three searches per customer question"
+      - "Add to the description that an empty list means no article covers that question"
+      - "Have the tool return `isError: true` with an error category instead of an empty list"
+    correct: [C]
+    explanation: "A tool description should cover edge cases, including what happens when there are no results. Once it says that an empty list means no article covers the question, Claude can treat the empty result as an answer and stop rephrasing."
+    why_not:
+      B: "A fixed cap is an arbitrary stopping rule: Claude still doesn't know what an empty list means, so it just stops guessing after three tries."
+      D: "A valid query with no matches is information, not an error; flagging it as a failure would have Claude retry or report an outage that never happened."
+    source: "2.1"
+    verified: "2026-11-18"
+
+  - id: "d2-002"
+    task: "2.1"
+    scenario: 6
+    stem: "An invoice extraction pipeline defines an `extract_invoice` tool. Downstream validation keeps rejecting calls where `total_amount` arrives as the string `\"1,200.00\"` or where an unexpected `notes` field appears. Which change makes Claude's tool inputs conform to the schema every time?"
+    options:
+      - "Set `strict: true` on the tool, with `additionalProperties: false` in its input schema"
+      - "Add to the description that `total_amount` is a number and that no extra fields are allowed"
+      - "Set `tool_choice` so that Claude has to call `extract_invoice` on every single request"
+      - "Change `total_amount` to a string in the schema so both number formats pass validation"
+    correct: [A]
+    explanation: "Strict mode guarantees that Claude's tool inputs conform exactly to the schema, and it requires `additionalProperties: false`, which also rules out the stray `notes` field. Wording in a description guides Claude but guarantees nothing."
+    why_not:
+      B: "A description shapes Claude's behavior but can't guarantee it; strict mode is what makes schema conformance a guarantee."
+      C: "Forcing the call decides whether the tool runs, not whether its arguments match the schema."
+    source: "2.1"
+    verified: "2026-11-18"
+
+  - id: "d2-003"
+    task: "2.1"
+    scenario: 4
+    stem: "A platform team's internal MCP server exposes a runbook search tool described only as \"Search for things\". Developers' Claude sessions call it for log questions it can't answer and skip it for runbook questions it can. Which replacement description is best?"
+    options:
+      - "\"Fast, powerful search over the team's runbook wiki. Handles any query, from runbook steps to log lines, so call it first whenever you need to find something, and again if the first try finds nothing.\""
+      - "\"Searches the runbook wiki through a BM25 index over page bodies, rebuilt nightly by the indexer job from the wiki export and served from the team's Elasticsearch cluster with a two-second timeout.\""
+      - "\"search(query: string) -> list. Queries the runbook wiki and returns a list of matches. The full parameter reference, rate limits, and usage examples live on the platform team's internal service page.\""
+      - "\"Searches the runbook wiki for how to handle known alerts; for raw logs, use `search_logs`. Input: a plain-language alert description. Returns pages with titles, snippets, and IDs, or an empty list.\""
+    correct: [D]
+    explanation: "A good description states the tool's purpose and when to use it, how it differs from similar tools, the input format, the output, and what happens when nothing matches, and the alert-handling description covers all five. Marketing claims, implementation details, or a pointer to another page don't tell Claude when to call the tool."
+    why_not:
+      A: "\"Use it for anything\" invites exactly the misrouting the team sees; the description is Claude's selection criterion and must say when to use this tool rather than another."
+      B: "Implementation details explain how the tool works, not when Claude should use it or how it differs from `search_logs`."
+    source: "2.1"
+    verified: "2026-11-18"
+
+  - id: "d2-004"
+    task: "2.1"
+    scenario: 3
+    stem: "In a multi-agent research system, a synthesis subagent has `summarize_source` (\"Summarize a source for key findings\") and `summarize_paper` (\"Summarize a paper for key findings\"), and it picks between them inconsistently. Which two fixes address the cause? Choose two."
+    options:
+      - "Rename and rewrite both tools so that their names and descriptions each state a distinct purpose"
+      - "Add a system-prompt rule telling the subagent to prefer `summarize_paper` for academic sources"
+      - "Lengthen both descriptions with more detail while keeping the same wording about key findings"
+      - "Merge them into a single summarization tool so that there is nothing left to choose between"
+      - "Set `tool_choice` to `any` so the subagent has to commit to one of the two tools on every turn"
+    correct: [A, D]
+    explanation: "Near-identical descriptions leave Claude unable to tell two tools apart. The fix is to rename them so each purpose is clearly different, or to merge them into one tool; either removes the ambiguity where it starts, in the definitions Claude selects with."
+    why_not:
+      B: "A prompt rule routes around two descriptions that still say the same thing; the ambiguity lives in the tool definitions."
+      E: "Forcing a tool call doesn't help Claude choose between two tools it can't distinguish; it only guarantees that one of them gets called."
+    source: "2.1"
+    verified: "2026-11-18"
+
+  - id: "d2-005"
+    task: "2.2"
+    scenario: 1
+    stem: "A support agent's `process_refund` MCP tool returns the string \"Operation failed\" for every error. As a result, the agent retries refunds that exceed policy limits and tells customers the system is down when their account is frozen. What should the tool return instead?"
+    options:
+      - "A friendlier message, such as \"Refund could not be completed, please try again later\""
+      - "A structured error with `isError`, an error category, `isRetryable`, and what was attempted"
+      - "An HTTP 500 status with no body, so the agent's SDK raises an exception and ends the turn"
+      - "A success response with an empty refund record, so the conversation carries on uninterrupted"
+    correct: [B]
+    explanation: "A generic \"Operation failed\" hides the cause and prevents intelligent recovery. With a category and retryability the agent can tell a business error, which calls for explaining the policy or escalating, from a transient one it can retry with backoff, and a plain description of what was attempted gives it the context to act."
+    why_not:
+      A: "A friendlier string is still a generic error: it hides the cause, and its \"try again later\" makes every failure look transient."
+      D: "An empty success is silent suppression; the agent would confidently report an outcome that never happened."
+    source: "2.2"
+    verified: "2026-11-18"
+
+  - id: "d2-006"
+    task: "2.2"
+    scenario: 5
+    stem: "A CI review pipeline hands license checks to a subagent. For one new dependency, its `lookup_license` MCP tool returns `errorCategory: \"business\"` with `isRetryable: false`: the package's license is on the organization's deny list. What should the subagent do?"
+    options:
+      - "Report it upward as a policy finding that names the package and the rule it broke"
+      - "Retry the lookup with backoff in case the registry gives a different answer later"
+      - "Look the license up again under the package's alternate name, with a rewritten query"
+      - "Stop the check with the plain message \"License check failed\" and no further detail"
+    correct: [A]
+    explanation: "A business error is a policy outcome: it isn't retryable, and the response is to explain the policy or escalate. Reporting it as a finding that names the package and the rule lets the pipeline flag the pull request for a person to decide."
+    why_not:
+      B: "Business errors aren't retryable; the deny list gives the same answer however long the subagent waits."
+      C: "Rewriting the input is the fix for a validation error; here the lookup worked and the policy said no."
+    source: "2.2"
+    verified: "2026-11-18"
+
+  - id: "d2-007"
+    task: "2.2"
+    scenario: 1
+    stem: "A customer support agent's tools return structured errors with an `errorCategory`. Which two pairings of error and agent action are correct? Choose two."
+    options:
+      - "Permission error (the API token has expired): retry the call with exponential backoff"
+      - "Validation error (the email address is malformed): examine the error, fix the input, and retry"
+      - "Transient error (the order service hit a rate limit): escalate the case to a human agent at once"
+      - "Business error (the account is frozen): keep retrying with backoff until the freeze is lifted"
+      - "Business error (the refund exceeds the policy limit): explain the policy or escalate the case"
+    correct: [B, E]
+    explanation: "Validation errors aren't retryable as they stand, so Claude fixes the input and retries; business errors aren't retryable at all, so Claude explains the policy to the user or escalates. Transient errors are the ones to retry with backoff, and permission errors go to a human."
+    why_not:
+      A: "An expired token is a permission error, which no amount of retrying fixes; it needs escalation."
+      C: "A rate limit is transient: retry with backoff, and escalate only if recovery fails."
+    source: "2.2"
+    verified: "2026-11-18"
+
+  - id: "d2-008"
+    task: "2.2"
+    scenario: 4
+    stem: "An internal docs-search MCP tool catches every exception from its search cluster and returns `{\"results\": []}`. During a cluster outage, developers' Claude sessions confidently report that no documentation exists for well-documented APIs. Which change to the tool fixes this?"
+    options:
+      - "Return the plain string \"search unavailable\" whenever the cluster call throws an exception"
+      - "Keep returning `[]`, and add a line to the description warning that empty may mean failure"
+      - "Return a structured error, marked transient and retryable, that says which query failed and why"
+      - "Raise the cluster timeout so an outage produces fewer exceptions and fewer empty result lists"
+    correct: [C]
+    explanation: "Returning an empty list on failure is silent suppression: it makes \"I couldn't search\" look like \"I found nothing\". A structured, transient, retryable error that names the attempted query lets Claude retry or tell the user the search failed."
+    why_not:
+      A: "\"search unavailable\" admits the failure but says nothing about what was attempted, which is itself one of the error-handling anti-patterns."
+      B: "When failures and genuine no-match results look identical, no description lets Claude tell them apart; the tool has to return them differently."
+    source: "2.2"
+    verified: "2026-11-18"
+
+  - id: "d2-009"
+    task: "2.4"
+    scenario: 2
+    stem: "Developers' Claude Code sessions connect to an internal HTTP MCP server that doesn't support OAuth. It accepts a bearer token from the company's `corp-auth` CLI, but each token expires within minutes, so a token written into the setup is stale by the time most sessions connect. How should the server entry supply the credential?"
+    options:
+      - "A static `Authorization` header in `headers` that reads the token from `${CORP_TOKEN}`"
+      - "Change the entry to `\"type\": \"ws\"` so a persistent connection keeps the first token alive"
+      - "Run `/mcp` once to sign in through the browser, so Claude Code refreshes the token itself"
+      - "A `headersHelper` command that prints a newly issued `Authorization` header on each connection"
+    correct: [D]
+    explanation: "For a server without OAuth, a static token in `headers` suits a long-lived credential; when the credential is short-lived, `headersHelper` runs a command that generates the header at connect time, so each connection starts with a fresh token. Browser sign-in through `/mcp` needs a server that supports OAuth, and WebSocket servers are header-only."
+    why_not:
+      A: "A static header carries whatever token was in the variable when it was set; with tokens this short-lived it's stale before the session connects."
+      C: "`/mcp` runs the OAuth browser flow and refreshes tokens, but only for a server that supports OAuth, which this one doesn't."
+    source: "2.4"
+    verified: "2026-11-18"
+
+  - id: "d2-010"
+    task: "2.3"
+    scenario: 4
+    stem: "A platform team puts a 400-tool internal catalog behind the tool search tool and argues that the \"4–5 tools per agent\" guidance no longer applies to them. Which statement reconciles the two?"
+    options:
+      - "The guidance predates tool search; with it, an agent can reason over the whole catalog at once"
+      - "The guidance counts tools in view when the model decides, and tool search keeps that set small"
+      - "Tool search lifts the ceiling to roughly 30–50 tools, so the guidance moves to a higher number"
+      - "The guidance now applies only to subagents; a coordinator that uses tool search has no limit"
+    correct: [B]
+    explanation: "The \"4–5 tools\" principle is about how many tools are in front of the model at decision time. Tool search doesn't raise that number: it keeps a small hot set of 3–5 in context while the catalog behind it grows to thousands."
+    why_not:
+      C: "Accuracy degrading past roughly 30–50 available tools is the problem tool search solves, not a new target; the set in view stays at 3–5."
+    source: "2.3"
+    verified: "2026-11-18"
+
+  - id: "d2-011"
+    task: "2.3"
+    scenario: 1
+    stem: "A customer support agent has five short tools, and almost every conversation uses all of them. A teammate proposes adding the tool search tool and deferring the five to save context. What is the best response?"
+    options:
+      - "Keep loading all five upfront; tool search pays off at 10 or more tools or large definitions"
+      - "Defer all five along with the search tool itself, so nothing loads until Claude asks for it"
+      - "Defer every tool except the most used one, so Claude searches only for the other four"
+      - "Split the five across subagents with two or three tools each, so no agent needs tool search"
+    correct: [A]
+    explanation: "Tool search is for 10 or more tools, large definitions, or several MCP servers; it isn't worth it with fewer than 10 tools or when every tool is used on every request. Deferring here would only add search round-trips for tools Claude needs anyway."
+    why_not:
+      B: "Deferring every tool, the search tool included, is rejected with a 400: at least one tool must stay non-deferred."
+      C: "The hot set should be the 3–5 most-used tools; with five tools all in constant use, that hot set is the whole toolset."
+    source: "2.3"
+    verified: "2026-11-18"
+
+  - id: "d2-012"
+    task: "2.3"
+    scenario: 4
+    stem: "A team building an internal assistant on the Claude API puts 300 tools, some of them from a connected MCP server, behind the tool search tool. Which two statements about their setup are accurate? Choose two."
+    options:
+      - "Deferred definitions can be left out of each request until the search tool asks for them by name"
+      - "Each tool found through search is added to the system prompt, so the cache resets after it"
+      - "Prompt caching survives, since found tools are expanded inline and the prefix stays untouched"
+      - "The cache breakpoint belongs on the last deferred MCP tool so that the whole catalog gets cached"
+      - "For the MCP server's tools, `defer_loading` goes on the `mcp_toolset` entry's `default_config`"
+    correct: [C, E]
+    explanation: "When Claude searches, the API returns `tool_reference` blocks and expands them into full definitions inline, leaving the system-prompt prefix alone, so prompt caching survives. For MCP connector tools, `defer_loading` goes on the `mcp_toolset` entry, in its `default_config` (or per tool in its `configs`), not on separate tool definitions."
+    why_not:
+      A: "Every tool definition is still sent on every request; `defer_loading` controls what enters the context window, not what is transmitted."
+      D: "A tool with `defer_loading: true` can't also carry `cache_control`, which returns a 400; the breakpoint goes on a non-deferred tool."
+    source: "2.3"
+    verified: "2026-11-18"
+
+  - id: "d2-013"
+    task: "2.3"
+    scenario: 5
+    stem: "A CI review pipeline makes several tool-using passes over a pull request, then a final turn that must write the summary comment as prose. The team wants that turn to make no tool calls without stripping the tool definitions from the request. Which `tool_choice` fits?"
+    options:
+      - "`{\"type\": \"auto\"}` plus an instruction in that turn telling Claude not to use any tools"
+      - "`{\"type\": \"auto\", \"disable_parallel_tool_use\": true}`, so Claude makes one call at most"
+      - "`{\"type\": \"none\"}`, so Claude can only answer in text for that turn of the pipeline"
+      - "`{\"type\": \"any\"}` with a single `write_summary` tool that takes the comment as input"
+    correct: [C]
+    explanation: "`none` stops Claude from calling any tool, so the turn produces text, while the tool definitions stay in the request. An instruction under `auto` is a request Claude may not follow, and capping parallel calls still allows a call."
+    why_not:
+      A: "Under `auto` Claude may still call a tool; the instruction is best-effort, while `none` makes text-only a property of the request."
+      D: "`any` does the opposite of what the turn needs: it requires a tool call."
+    source: "2.3"
+    verified: "2026-11-18"
+
+  - id: "d2-014"
+    task: "2.3"
+    scenario: 6
+    stem: "A document pipeline on Claude Haiku 5.5 offers three extraction tools: `extract_invoice`, `extract_receipt`, and `extract_contract`. Sometimes Claude replies with a prose summary instead of calling any of them. Which `tool_choice` guarantees a tool call while still letting Claude pick the right schema?"
+    options:
+      - "`{\"type\": \"auto\"}`, which lets Claude decide whether a tool is needed at all"
+      - "`{\"type\": \"tool\", \"name\": \"extract_invoice\"}`, so the first tool always runs"
+      - "`{\"type\": \"none\"}`, so Claude must answer in text that follows the schemas"
+      - "`{\"type\": \"any\"}`, which requires a tool call but leaves the choice to Claude"
+    correct: [D]
+    explanation: "`any` makes Claude call a tool but lets it choose which, the pattern for several extraction schemas that must always come back as structured data. It works here because Haiku 5.5 still accepts forced `tool_choice`; Fable 5.2, Opus 5.5, and Sonnet 5.5 reject it with a 400."
+    why_not:
+      A: "`auto` is the current setting, and it is what lets Claude answer in prose."
+      B: "Forcing one named tool guarantees a call but pushes receipts and contracts through the invoice schema."
+    source: "2.3"
+    verified: "2026-11-18"
+
+  - id: "d2-015"
+    task: "2.4"
+    scenario: 2
+    stem: "A developer runs `claude mcp add --transport http jira https://jira.example.com/mcp` so the whole team gets the Jira server, but teammates who pull the repository don't see it. What explains this, and what is the fix?"
+    options:
+      - "It went to user scope, which never syncs; re-add it with `--scope local` so it joins the project"
+      - "It went to local scope in `~/.claude.json`; re-add it with `--scope project` to write `.mcp.json`"
+      - "It went to `.claude/settings.local.json`, which is ignored by git; commit that file for the team"
+      - "It went to `.mcp.json`, which needs approval; ask each teammate to accept the server in `/mcp`"
+    correct: [B]
+    explanation: "The default scope is local: the server is stored in `~/.claude.json` under the project's path and isn't shared. Project scope writes it to `.mcp.json` in the project root, which goes into version control for the team."
+    why_not:
+      C: "MCP local scope lives in `~/.claude.json` in the home directory; `.claude/settings.local.json` holds local settings and is an unrelated file."
+    source: "2.4"
+    verified: "2026-11-18"
+
+  - id: "d2-016"
+    task: "2.4"
+    scenario: 2
+    stem: "A team's `.mcp.json` adds a remote server that authenticates with OAuth as `\"tickets\": {\"url\": \"https://tickets.example.com/mcp\"}`. Claude Code skips it with a warning that it has a `url` but no `type`. What should the entry say?"
+    options:
+      - "Add `\"type\": \"http\"` so that Claude Code connects over the Streamable HTTP transport"
+      - "Add `\"type\": \"ws\"`, since a remote server needs a persistent two-way connection"
+      - "Add `\"command\": \"npx\"` so that Claude Code can launch the server as a local process"
+      - "Nothing; Claude Code infers the transport from the `https://` scheme when it retries"
+    correct: [A]
+    explanation: "Claude Code reads an entry without a `type` as a stdio server and skips it when it has a `url`, so remote servers always need an explicit `type`. HTTP (Streamable HTTP) is the recommended remote transport, and it supports OAuth; WebSocket doesn't."
+    why_not:
+      B: "WebSocket servers authenticate with headers only, so they can't use OAuth."
+      D: "A typeless entry is read as stdio no matter what the URL looks like; that is why Claude Code skipped it."
+    source: "2.4"
+    verified: "2026-11-18"
+
+  - id: "d2-017"
+    task: "2.4"
+    scenario: 5
+    stem: "A repository's `.mcp.json` includes a `prod-db` server that developers approve interactively when they need it. The team now runs `claude -p` in CI and must keep `prod-db` out of those runs. What should they do?"
+    options:
+      - "Rely on the approval prompt, which blocks project servers until someone accepts them"
+      - "Set `CLAUDE_CODE_MCP_STARTUP_WAIT_MS` to `0` so the CI run doesn't wait for servers"
+      - "Set `\"alwaysLoad\": false` on the entry so its tools stay behind tool search in CI"
+      - "List it in `disabledMcpjsonServers`, or limit `--setting-sources`, for the CI runs"
+    correct: [D]
+    explanation: "`claude -p`, Agent SDK, and cloud sessions can't show the approval prompt, so they load project servers from `.mcp.json` without asking. Keeping a server out of headless runs takes `disabledMcpjsonServers` or `--setting-sources`."
+    why_not:
+      A: "The approval prompt only appears in interactive sessions; a headless run loads project servers without asking."
+      C: "`alwaysLoad: false` only defers the server's tool definitions; the server still connects and Claude can search for its tools."
+    source: "2.4"
+    verified: "2026-11-18"
+
+  - id: "d2-018"
+    task: "2.4"
+    scenario: 4
+    stem: "A team ships an MCP server for invoice lookups to developers who use Claude Code. Each tool description opens with about six thousand characters of license text, and the words \"invoice\" and \"billing\" appear only at the end. Claude rarely uses the server. What is the best fix?"
+    options:
+      - "Mark every tool with `anthropic/alwaysLoad` in its `_meta` so the tools skip tool search entirely"
+      - "Ask the developers to set `ENABLE_TOOL_SEARCH=false` so that every tool loads upfront instead"
+      - "Move key terms and critical guidance to the start, and add server instructions on when to use it"
+      - "Repeat \"invoice\" and \"billing\" in each tool's output so that Claude learns the association"
+    correct: [C]
+    explanation: "Claude Code cuts long descriptions, Claude sees only what comes before the cut, and tool search matches only within the shorter limit, so identifying words and critical guidance belong at the start. With tool search on by default, server instructions are how Claude decides whether to search the server at all."
+    why_not:
+      A: "Tools that load upfront have their descriptions cut at the shorter limit, so words at the end of a long description are still lost."
+      B: "Loading everything upfront doesn't lift the cut; it spends every user's context while the key words stay past the limit."
+    source: "2.4"
+    verified: "2026-11-18"
+
+  - id: "d2-019"
+    task: "2.4"
+    scenario: 4
+    stem: "A team is building a new MCP server against protocol revision 2026-07-28. Their design uses Sampling to have the client's model summarize files, and Roots to learn which directories the server may touch. Which two changes does current guidance call for? Choose two."
+    options:
+      - "Call an LLM provider's API directly from the server instead of relying on Sampling"
+      - "Keep both, since deprecated primitives keep working for at least twelve more months"
+      - "Take the allowed directories through tool parameters, resource URIs, or server config"
+      - "Replace Roots with the Logging primitive so the client can report directory limits"
+      - "Tie each Roots reply to its request with the `Mcp-Session-Id` header on every call"
+    correct: [A, C]
+    explanation: "The 2026-07-28 revision deprecates Roots, Sampling, and Logging, and new implementations shouldn't adopt them. Instead of Sampling, call an LLM provider's API directly; instead of Roots, pass directories through tool parameters, resource URIs, or server configuration."
+    why_not:
+      B: "The deprecation window keeps existing implementations working; new implementations shouldn't adopt deprecated primitives."
+      E: "The same revision removes protocol-level sessions and the `Mcp-Session-Id` header; servers that need cross-call state mint explicit handles."
+    source: "2.4"
+    verified: "2026-11-18"
+
+  - id: "d2-020"
+    task: "2.4"
+    scenario: 6
+    stem: "An extraction agent connected to a database MCP server spends many turns calling `run_query` with exploratory `SELECT`s just to learn which tables and columns exist before it can map documents to records. Which server primitive should the server add to cut those calls?"
+    options:
+      - "Prompts, offering a template that walks Claude through exploring the database first"
+      - "Resources, exposing the schema as a catalog that Claude can browse instead of probing"
+      - "Elicitation, so that the server can ask the user which tables matter for each document"
+      - "Sampling, so that the server can have the client's model summarize the schema for it"
+    correct: [B]
+    explanation: "Resources expose content catalogs, such as database schemas, so Claude can browse what exists instead of making exploratory tool calls. Prompts are interaction templates, Elicitation asks the user for input, and Sampling is deprecated."
+    why_not:
+      A: "A prompt template still leaves Claude discovering the schema through queries; a resource puts the catalog in front of it."
+    source: "2.4"
+    verified: "2026-11-18"
+
+  - id: "d2-021"
+    task: "2.5"
+    scenario: 2
+    stem: "A developer asks Claude Code to explain how a request reaches the payment service in a large, unfamiliar monorepo. Which exploration approach should Claude take?"
+    options:
+      - "Grep for entry points such as route definitions, Read those, then Grep for what they import"
+      - "Glob every source file under `src/`, Read them all first, then trace the request path through"
+      - "Read the README and every config file, then infer the request path from what they describe"
+      - "WebSearch the framework's routing docs, then Read the files most likely to handle payments"
+    correct: [A]
+    explanation: "The pattern for an unfamiliar codebase is to Grep for entry points, Read them, follow imports with further Greps, and build understanding step by step. Reading every file upfront wastes context and doesn't build understanding."
+    why_not:
+      B: "Reading everything upfront is the named anti-pattern: it fills the context without tracing how the code connects."
+    source: "2.5"
+    verified: "2026-11-18"
+
+  - id: "d2-022"
+    task: "2.5"
+    scenario: 2
+    stem: "Claude Code needs to change the `timeout: 30` line in one of several identical service blocks in a config file. The Edit tool fails because that text, even with its surrounding lines, appears more than once. What should Claude do next?"
+    options:
+      - "Use Bash with `sed` to replace every `timeout: 30` in the file in one pass"
+      - "Retry the same Edit call, since a failed match is usually a passing problem"
+      - "Write a new file containing only the corrected section, replacing the original"
+      - "Read the full file, then Write it back whole with only the intended line changed"
+    correct: [D]
+    explanation: "Edit applies only when `old_string` matches exactly once; Claude normally adds surrounding lines to make it unique, but identical blocks rule that out. The fallback is to Read the whole file and Write it back with only the intended line changed."
+    why_not:
+      A: "Replacing every occurrence, whether with `sed` or Edit's `replace_all: true`, changes the blocks that were meant to stay at 30."
+      C: "Writing only one section replaces the whole file with that fragment and loses everything else."
+    source: "2.5"
+    verified: "2026-11-18"
+
+  - id: "d2-023"
+    task: "2.6"
+    scenario: 3
+    stem: "A research subagent built on the Messages API gets one assistant message with three `tool_use` blocks, one per source, and one of the three fetches fails. Which two practices should the harness follow? Choose two."
+    options:
+      - "Send each `tool_result` back in its own user message as soon as that call finishes"
+      - "Run the three calls concurrently and return every `tool_result` in one user message"
+      - "Leave out the failed call's result and let Claude work from the two that succeeded"
+      - "Return the failed call's `tool_result` with `is_error: true` rather than dropping it"
+      - "Return an empty `tool_result` for the failed call, so the message still has all three"
+    correct: [B, D]
+    explanation: "Independent read-only calls like these fetches can run concurrently, and all their results go back in a single user message; splitting them teaches Claude to stop making parallel calls. A failed call still gets its `tool_result`, marked `is_error: true`, and is never dropped."
+    why_not:
+      A: "Splitting the results across several messages silently teaches Claude to stop making parallel calls."
+      E: "An empty result makes a failed fetch look like a source with nothing in it; mark the failure with `is_error: true`."
+    source: "2.6"
+    verified: "2026-11-18"
+
+  - id: "d2-024"
+    task: "2.6"
+    scenario: 3
+    stem: "A research agent uses the server-side web search tool. The harness checks only for HTTP errors and indexes the `content` list of each `web_search_tool_result`; it crashes now and then even though every response came back as HTTP 200. What is the cause?"
+    options:
+      - "Web search results arrive in a later response, so `content` stays empty until the next turn"
+      - "The search hit a rate limit, which the API reports as a 200 with an empty list of results"
+      - "Server-tool errors come back as a 200 with an error object in the block instead of a list"
+      - "The response carried a `tool_use` block the harness had to execute before results arrived"
+    correct: [C]
+    explanation: "Server-side tool errors don't raise: they come back as HTTP 200 with an error object inside the result block, such as `max_uses_exceeded`. For web search a successful `content` is a list and an error `content` is an object, so the harness must branch on that before indexing."
+    why_not:
+      A: "A search that hasn't run yet has no `web_search_tool_result` block at all, so there's nothing to index; a block that is present always has its `content` filled in."
+      B: "An empty list is a successful search with no matches; an error comes back as an object, and that is what breaks the indexing."
+    source: "2.6"
+    verified: "2026-11-18"
+
+  - id: "d2-025"
+    task: "2.6"
+    scenario: 1
+    stem: "A support agent on Claude Opus 5.5 should gain access to `issue_refund` only after the customer's identity is verified mid-conversation. The team wants to keep the prompt cache and the conversation's thinking blocks intact. How should the tool be added?"
+    options:
+      - "Rebuild the `tools` array with `issue_refund` included on the request after verification"
+      - "Declare it in `tools` as deferred, then offer it with a `tool_addition` in a system message"
+      - "Paste the `issue_refund` JSON schema into the user turn and tell Claude it may now call it"
+      - "Edit the system prompt after verification so that it describes `issue_refund` as available"
+    correct: [B]
+    explanation: "The `tools` array sits early in the cached prefix, and on Opus 5.5 rebuilding it counts as editing earlier turns, which also invalidates later thinking blocks. Declaring the full tool set up front, with `issue_refund` deferred, and offering it later through a `tool_addition` block in a `role: \"system\"` message changes the tools without touching the prefix."
+    why_not:
+      A: "Rebuilding `tools` between turns invalidates the cache for the whole conversation and, on Opus 5.5, every later thinking block."
+      D: "Editing the system prompt is an edit to earlier context: it breaks the cache and the append-only history that thinking blocks depend on."
+    source: "2.6"
+    verified: "2026-11-18"
+
+  - id: "d2-026"
+    task: "2.6"
+    scenario: 5
+    stem: "A CI job calls the Messages API with the MCP connector beta, passing `mcp_servers` with the team's remote code-search server. Every request fails validation before Claude runs. What is missing?"
+    options:
+      - "A `command` and `args` pair, so the API can start the server as a local process"
+      - "An `.mcp.json` file in the job's working directory that lists the same server"
+      - "A `tool_choice` of `any`, so that the API knows the server's tools must be called"
+      - "An `mcp_toolset` entry in the `tools` array that refers to the server by its name"
+    correct: [D]
+    explanation: "The MCP connector needs both halves: the server in `mcp_servers` and an `mcp_toolset` entry in `tools` that names it. Passing `mcp_servers` alone is a validation error."
+    why_not:
+      B: "`.mcp.json` configures Claude Code as a host; a Messages API request takes its servers from `mcp_servers` and its tools from an `mcp_toolset`."
+    source: "2.6"
+    verified: "2026-11-18"
+
+  - id: "d2-027"
+    task: "2.6"
+    scenario: 6
+    stem: "An extraction agent calls a custom `fetch_line_items` tool that returns thousands of rows per invoice batch, though Claude only needs a total per vendor. The raw rows flood the context. Which design addresses this?"
+    options:
+      - "Declare code execution and set `allowed_callers` so Claude calls the tool from code"
+      - "Mark `fetch_line_items` with `defer_loading: true` so its rows stay out of context"
+      - "Add `strict: true` to `fetch_line_items` so it returns only the fields it declares"
+      - "Set `disable_parallel_tool_use` so that only one batch of rows arrives at a time"
+    correct: [A]
+    explanation: "Programmatic tool calling lets Claude call a custom tool from inside the code execution sandbox, so large results are processed there instead of round-tripping through the conversation. It takes a `code_execution` tool declaration plus `allowed_callers` on the custom tool."
+    why_not:
+      B: "`defer_loading` controls whether a tool's definition enters the context, not what its results contain."
+      C: "Strict mode constrains the inputs Claude sends to a tool, not the tool's output, and programmatic tool calling isn't compatible with it anyway."
+    source: "2.6"
+    verified: "2026-11-18"

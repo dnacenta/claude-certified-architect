@@ -62,7 +62,7 @@ High false positive rates in one category undermine trust in ALL categories, eve
 
 ### How Many Examples
 
-**2-4 targeted examples** is the sweet spot. Too few may not cover the pattern. Too many wastes context and may overfit to the examples.
+**A few targeted examples.** The exam guide says 2–4; Anthropic's current prompting guide says "Include 3–5 examples for best results," relevant, diverse, and wrapped in `<example>` tags. Too few may not cover the pattern. Too many wastes context and may overfit to the examples.
 
 ### What Good Examples Include
 
@@ -151,7 +151,9 @@ Define a tool that represents your desired output structure:
 }
 ```
 
-Use `tool_choice: {"type": "tool", "name": "extract_invoice_data"}` to force Claude to call this tool, guaranteeing structured output — on Haiku 5.5 (the only current model that still accepts it; the response then starts with the tool call and has no `thinking` block), and on legacy Sonnet 5, Opus 5, and the 4.x family. **Fable 5.2 / Mythos 5.2, Opus 5.5, and Sonnet 5.5 (and legacy Fable 5.1 / Mythos 5.1) reject forced tool use with a 400** (Domain 2 §2.3); there, prefer Solution 3 below, or `auto` plus an instruction naming the tool with `strict: true`. One gap: in an organization with customer-managed encryption keys (CMEK), structured outputs — strict tool use and `output_config.format` alike — aren't available on Fable 5.2 / Mythos 5.2, so leave out `strict` and validate the tool input in your code.
+Use `tool_choice: {"type": "tool", "name": "extract_invoice_data"}` to force Claude to call this tool, guaranteeing structured output — on Haiku 5.5 (the only current model that still accepts it), and on legacy Sonnet 5, Opus 5, and the 4.x family. **Fable 5.2 / Mythos 5.2, Opus 5.5, and Sonnet 5.5 (and legacy Fable 5.1 / Mythos 5.1) reject forced tool use with a 400** (Domain 2 §2.3); there, prefer Solution 3 below, or `auto` plus an instruction naming the tool with `strict: true`. One gap: in an organization with customer-managed encryption keys (CMEK), structured outputs — strict tool use and `output_config.format` alike — aren't available on Fable 5.2 / Mythos 5.2, so leave out `strict` and validate the tool input in your code.
+
+A forced call skips thinking on every model that accepts forced tool use: the response starts with the `tool_use` block and has no `thinking` block. When Claude must reason before it fills the schema, use `tool_choice: {"type": "auto"}` with an instruction naming the tool, and set `strict: true` on the tool to keep its input schema-valid.
 
 ### Solution 2: Strict Mode
 
@@ -172,7 +174,7 @@ Add `"strict": true` to the tool definition for guaranteed schema compliance:
 
 **Strict mode requirements:**
 - `additionalProperties: false` must be set
-- ALL properties must be listed in `required`
+- Properties left out of `required` are optional: a request's strict schemas can hold at most 24 optional parameters in total, and the output lists required properties first, then optional ones
 
 ### Solution 3: output_config (Direct JSON Output)
 
@@ -203,7 +205,7 @@ response = client.messages.create(
 
 ### Schema Compliance vs Semantic Correctness
 
-**Important exam concept:** Structured output guarantees **schema compliance** (correct types, required fields present, valid enums) but does NOT guarantee **semantic correctness**.
+**Important exam concept:** Structured output guarantees **schema compliance** (correct types, required fields present, enum values — though not their capitalization, so compare string enums case-insensitively) but does NOT guarantee **semantic correctness**.
 
 Schema compliance: ✅ `"total_amount": 150.00` (correct type, field exists)
 Semantic error: ❌ `"total_amount": 150.00` when line items sum to 175.00
@@ -257,16 +259,17 @@ Strict mode supports a subset of JSON Schema:
 | Supported | NOT Supported |
 |-----------|--------------|
 | `type` (object, array, string, integer, number, boolean, null) | `minimum`, `maximum`, `multipleOf` |
-| `properties`, `required` | `minLength`, `maxLength` |
-| `enum`, `const` | `pattern` (regex), `patternProperties` |
-| `items` (for arrays) | `oneOf`, `if`/`then`/`else` |
-| `anyOf`, `allOf`, `$ref`/`$defs` | Recursive schemas |
+| `properties`, `required` (properties left out of `required` are optional) | `minLength`, `maxLength` |
+| `enum`, `const` (capitalization of string values isn't guaranteed) | `patternProperties` |
+| `items` (for arrays), and `minItems` of 0 or 1 | `oneOf`, `not`, `if`/`then`/`else` |
+| `anyOf`, `allOf`, `$ref`/`$defs` | Recursive schemas; `anyOf` in the same object as `type` or `properties` |
 | `additionalProperties: false` (required on every object) | `additionalProperties` set to anything other than `false` |
-| `format` (`date-time`, `time`, `date`, `duration`, `email`, `hostname`, `uri`, `ipv4`, `ipv6`, `uuid`) | Complex array constraints |
+| `format` (`date-time`, `time`, `date`, `duration`, `email`, `hostname`, `uri`, `ipv4`, `ipv6`, `uuid`), `default` | Array constraints beyond `minItems` of 0 or 1 |
+| `pattern` with simple regexes | Regex backreferences, lookarounds, `\b` / `\B`, and large `{n,m}` ranges |
 
-> Earlier versions of structured outputs did not support `anyOf`/`allOf` — they do now. The Python and TypeScript SDKs strip unsupported constraints from the schema they send and validate them client-side instead.
+> Earlier versions of structured outputs did not support `anyOf`/`allOf` — they do now. Most SDK helpers (Python's `messages.parse()`, TypeScript's `zodOutputFormat()`) strip unsupported constraints from the schema they send, note them in the field description, and validate the response against them client-side; TypeScript's `jsonSchemaOutputFormat()` doesn't validate responses, and the Java SDK rejects unsupported constraints locally instead of transforming them.
 
-**Implication:** Numeric range validation, string length validation, regex patterns, and complex conditional schemas must be handled in your validation code, not in the schema.
+**Implication:** Numeric range validation, string length validation, complex regex patterns, and complex conditional schemas must be handled in your validation code, not in the schema.
 
 ---
 
@@ -355,7 +358,7 @@ This allows analysis of dismissal patterns — if developers consistently dismis
 | **Cost** | 50% savings vs synchronous |
 | **Latency** | Up to 24 hours, no SLA |
 | **Correlation** | `custom_id` per request — results come back in **any order**, so key by `custom_id`, never by position |
-| **Multi-turn** | NOT supported in a single batch request |
+| **Multi-turn** | A request can carry a multi-turn conversation (and tools), but each request gets exactly one response — no tool loop runs inside it |
 | **Max output** | 128k normally; up to **300k** with beta header `output-300k-2026-03-24` on Opus 5.5 / 5 / 4.8 / 4.7 / 4.6, Sonnet 5.5 / 5 / 4.6, and Haiku 5.5 (not Fable 5.2 / 5.1) |
 | **Result states** | `succeeded`, `errored`, `canceled`, `expired` — poll `batches.retrieve(id).processing_status` until `"ended"`, then stream `batches.results(id)` |
 
@@ -398,7 +401,7 @@ batch = client.messages.batches.create(
 Don't resubmit the entire batch when some requests fail. Use `custom_id` to identify and resubmit only failures:
 
 ```python
-failed = [r for r in results if r.status == "failed"]
+failed = [r for r in results if r.result.type in ("errored", "expired")]
 resubmit = [orig for orig in original if orig.custom_id in [f.custom_id for f in failed]]
 ```
 
@@ -488,7 +491,7 @@ The subtlety worth flagging: on **Opus 4.8/4.7 you must set `adaptive` explicitl
 output_config={"effort": "xhigh"}   # low | medium | high | xhigh | max
 ```
 
-The API default is `high` on every model that supports effort **except Opus 5.5 and Haiku 5.5, which default to `medium`** — on Opus 5.5 one level below Opus 5, so a request that omits `effort` runs cheaper and shallower after a migration; set it explicitly and re-run your sweep (Opus 5.5 also thinks more per turn than Opus 5 at the same level, most of all at `xhigh` / `max`, so leave room in `max_tokens`). Setting effort to the model's default is identical to omitting it. Haiku 4.5 rejects `effort`, and `xhigh` is not available on Opus 4.6 / Sonnet 4.6. Claude Code sets effort **per model** (`/effort`), so a level saved for one model doesn't carry to a newly released one, and `maxEffortLevel` caps it org-wide. Anthropic's per-model guidance: on **Fable 5.2 start at `high`**, the default, where most of the capability gain already is — step up to `xhigh` only for the hardest long-running coding and agentic work where you've measured a gain, step down to `medium`/`low` where evals show quality holds, reserve `max` for measuring the ceiling, and run a fresh sweep rather than carrying settings over from Fable 5.1. A prompt line asking for less thinking ("answer directly") doesn't stop Fable 5.2 from thinking at `medium` and above, so to cut latency or cost lower the effort instead, and leave room in `max_tokens` — thinking counts toward it, and a small cap can end the response on `max_tokens` before any text. On **Fable 5.1, Opus 5, and Sonnet 5 start at `high` and sweep** — step up to `xhigh`/`max` only where evals show headroom, and use `low`/`medium` liberally for routine or latency-sensitive routes (lower effort on these models often beats `xhigh` on the previous generation); on **Opus 5.5 start at `medium` and sweep in both directions**; on **Sonnet 5.5** the levels are recalibrated (the same level doesn't buy the same thinking as on Sonnet 5), so start at `high` for general work but at `medium` for agentic coding and multistep tool use, and at `medium` or `low` for chat; on **Haiku 5.5 start at `medium`**, including agentic coding, and use `low` for chat and simple high-volume calls; on **Opus 4.8 / 4.7 start at `xhigh`** for coding and agentic work. Lower effort means fewer, more-consolidated tool calls and terser output. Effort matters more on these models than on any prior generation, so **re-tune it when you migrate**, don't carry the old value across. Changing the top-level `effort` mid-conversation invalidates the message cache; on Fable 5.2, Mythos 5.2, Fable 5.1, Mythos 5.1, Opus 5.5, Opus 5, Sonnet 5.5, and Haiku 5.5, a **per-message effort** change — a `role: "system"` message with empty `content` carrying `output_config.effort` (beta `mid-conversation-output-config-2026-07-01`, Claude API and Google Cloud) — keeps the prefix intact and, having no text, can sit anywhere in `messages`.
+The API default is `high` on every model that supports effort **except Opus 5.5 and Haiku 5.5, which default to `medium`** — on Opus 5.5 one level below Opus 5, though level names don't buy the same thinking across models: in Anthropic's testing Opus 5.5 at `medium` matches or exceeds Opus 5 at `high` on coding and knowledge-work evals. Set it explicitly and re-run your sweep (Opus 5.5 also thinks more per turn than Opus 5 at the same level, most of all at `xhigh` / `max`, so leave room in `max_tokens`). Setting effort to the model's default is identical to omitting it. Haiku 4.5 rejects `effort`, and `xhigh` is not available on Opus 4.6 / Sonnet 4.6. Claude Code sets effort **per model** (`/effort`), so a level saved for one model doesn't carry to a newly released one, and `maxEffortLevel` caps it org-wide. Anthropic's per-model guidance: on **Fable 5.2 start at `high`**, the default, where most of the capability gain already is — step up to `xhigh` only for the hardest long-running coding and agentic work where you've measured a gain, step down to `medium`/`low` where evals show quality holds, reserve `max` for measuring the ceiling, and run a fresh sweep rather than carrying settings over from Fable 5.1. A prompt line asking for less thinking ("answer directly") doesn't stop Fable 5.2 from thinking at `medium` and above, so to cut latency or cost lower the effort instead, and leave room in `max_tokens` — thinking counts toward it, and a small cap can end the response on `max_tokens` before any text. On **Fable 5.1, Opus 5, and Sonnet 5 start at `high` and sweep** — step up to `xhigh`/`max` only where evals show headroom, and use `low`/`medium` liberally for routine or latency-sensitive routes (lower effort on these models often beats `xhigh` on the previous generation); on **Opus 5.5 start at `medium` and sweep in both directions**; on **Sonnet 5.5** the levels are recalibrated (the same level doesn't buy the same thinking as on Sonnet 5), so start at `high` for general work but at `medium` for agentic coding and multistep tool use, and at `medium` or `low` for chat; on **Haiku 5.5 start at `medium`**, including agentic coding, and use `low` for chat and simple high-volume calls; on **Opus 4.8 / 4.7 start at `xhigh`** for coding and agentic work. Lower effort means fewer, more-consolidated tool calls and terser output. Effort matters more on these models than on any prior generation, so **re-tune it when you migrate**, don't carry the old value across. Changing the top-level `effort` mid-conversation invalidates the message cache; on Fable 5.2, Mythos 5.2, Fable 5.1, Mythos 5.1, Opus 5.5, Opus 5, Sonnet 5.5, and Haiku 5.5, a **per-message effort** change — a `role: "system"` message with empty `content` carrying `output_config.effort` (beta `mid-conversation-output-config-2026-07-01`, Claude API and Google Cloud) — keeps the prefix intact and, having no text, can sit anywhere in `messages`.
 
 ### Thinking Display
 
