@@ -260,6 +260,38 @@ function portableYaml(file, text) {
   return v12;
 }
 
+// ---- Question bank: the same YAML guard, plus the shape every reader of questions/ relies on ----
+
+async function checkQuestions() {
+  const dir = path.join(ROOT, "questions");
+  const files = (await readdir(dir).catch(() => [])).filter((f) => f.endsWith(".yaml")).sort();
+  const ids = new Set();
+  let n = 0;
+  for (const f of files) {
+    const doc = portableYaml(path.join(dir, f), await readFile(path.join(dir, f), "utf8"));
+    for (const [k, q] of (doc.questions ?? []).entries()) {
+      const where = `questions/${f} question ${k + 1}${q.id ? ` (${q.id})` : ""}`;
+      if (!q.id || ids.has(q.id)) throw new Error(`${where}: missing or repeated id`);
+      ids.add(q.id);
+      const count = q.options?.length;
+      if (count !== 4 && count !== 5) throw new Error(`${where}: needs 4 options, or 5 for "Choose two."`);
+      const letters = "ABCDE".slice(0, count);
+      const want = count === 5 ? 2 : 1;
+      if (!Array.isArray(q.correct) || q.correct.length !== want || new Set(q.correct).size !== want || q.correct.some((c) => !letters.includes(c))) {
+        throw new Error(`${where}: correct must name ${want} of ${[...letters].join(", ")}`);
+      }
+      if (![1, 2, 3, 4, 5, 6].includes(q.scenario)) throw new Error(`${where}: scenario must be 1 to 6`);
+      for (const key of ["task", "stem", "explanation", "source", "verified"]) {
+        if (typeof q[key] !== "string" || !q[key].trim()) throw new Error(`${where}: missing ${key}`);
+      }
+      const prose = [q.explanation, ...Object.values(q.why_not ?? {})].join(" ");
+      if (/\b(?:option|answer|choice)\s+[A-E]\b|\([A-E]\)/.test(prose)) throw new Error(`${where}: name options by what they say, not by letter`);
+      n++;
+    }
+  }
+  return n;
+}
+
 // ---- Build ----
 
 async function render(files) {
@@ -320,6 +352,8 @@ async function main() {
     `<meta name="description" content="The Claude Certified Architect — Foundations study guide as a visual deck: every domain, diagram and practice question."><meta name="theme-color" content="#1a1a1a">`));
 
   console.log(`deck: ${count} slides from ${files.length} file(s)`);
+  const questions = await checkQuestions();
+  if (questions) console.log(`questions: ${questions} checked`);
   if (ctx.missing.size) console.log(`missing diagrams: ${[...ctx.missing].join(", ")}`);
   if (!pdf && !check) return;
 
